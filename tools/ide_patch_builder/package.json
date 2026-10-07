@@ -1,0 +1,28 @@
+{
+  "name": "antigravity-ide-zh",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Antigravity IDE 中文汉化补丁：用静态覆盖层翻译官方语言包管不到的自研界面（智能体面板、快捷设置弹层、设置窗口、快捷键页），无常驻进程、同步校验和、启动自愈",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "BeiChen",
+  "scripts": {
+    "setup": "node tools/setup.js",
+    "build": "node tools/build.js",
+    "probe": "node tools/probe.js",
+    "test": "node tools/test.js",
+    "check": "node tools/apply.js --check-only",
+    "apply": "node tools/apply.js",
+    "restore": "node tools/apply.js --restore",
+    "status": "node tools/status.js",
+    "guard": "node tools/install-guard.js",
+    "test:guard": "node tools/test-guard.js",
+    "extract-settings": "node tools/extract-settings.js",
+    "extract-strings": "node tools/extract-ui-strings.js",
+    "restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restart-ide.ps1",
+    "extract-todo": "node tools/extract-todo.js",
+    "capture": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/capture-docs.ps1"
+  }
+}

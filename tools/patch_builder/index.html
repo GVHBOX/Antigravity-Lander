@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Antigravity 2.0 一键汉化控制中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-gradient-1: #0f0c20;
+      --bg-gradient-2: #06060c;
+      --accent: #7c4dff;
+      --accent-glow: rgba(124, 77, 255, 0.4);
+      --success: #00e676;
+      --success-glow: rgba(0, 230, 118, 0.4);
+      --warning: #ffb300;
+      --error: #ff1744;
+      --text-main: #f5f6fa;
+      --text-muted: #8b9bb4;
+      --panel-bg: rgba(20, 20, 35, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.05);
+      --card-hover-bg: rgba(255, 255, 255, 0.07);
+      --card-hover-border: rgba(255, 255, 255, 0.12);
+      --input-bg: rgba(0, 0, 0, 0.3);
+      --input-border: rgba(255, 255, 255, 0.1);
+      --input-focus-bg: rgba(0, 0, 0, 0.45);
+      --modal-bg: rgba(22, 22, 38, 0.95);
+      --modal-border: rgba(255, 255, 255, 0.12);
+      --toast-bg: rgba(20, 20, 35, 0.92);
+      --toast-border: rgba(255, 255, 255, 0.12);
+      --console-bg: rgba(0, 0, 0, 0.45);
+      --console-border: rgba(255, 255, 255, 0.05);
+      --title-gradient: linear-gradient(120deg, #fff 30%, var(--text-muted) 100%);
+      --body-ambient-1: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      --body-ambient-2: radial-gradient(circle, rgba(0, 230, 118, 0.15) 0%, transparent 70%);
+      --shadow-container: 0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      --btn-disabled-bg: rgba(255, 255, 255, 0.08);
+      --btn-disabled-text: rgba(255, 255, 255, 0.35);
+    }
+
+    [data-theme="light"] {
+      --bg-gradient-1: #f8fafc;
+      --bg-gradient-2: #e2e8f0;
+      --accent: #6525e5;
+      --accent-glow: rgba(101, 37, 229, 0.22);
+      --success: #059669;
+      --success-glow: rgba(5, 150, 105, 0.22);
+      --warning: #d97706;
+      --error: #dc2626;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --panel-bg: rgba(255, 255, 255, 0.9);
+      --border-color: rgba(0, 0, 0, 0.08);
+      --card-bg: rgba(248, 250, 252, 0.88);
+      --card-border: rgba(0, 0, 0, 0.07);
+      --card-hover-bg: #ffffff;
+      --card-hover-border: rgba(101, 37, 229, 0.35);
+      --input-bg: #ffffff;
+      --input-border: rgba(0, 0, 0, 0.14);
+      --input-focus-bg: #ffffff;
+      --modal-bg: rgba(255, 255, 255, 0.98);
+      --modal-border: rgba(0, 0, 0, 0.12);
+      --toast-bg: rgba(255, 255, 255, 0.98);
+      --toast-border: rgba(0, 0, 0, 0.12);
+      --console-bg: #141423;
+      --console-border: rgba(0, 0, 0, 0.08);
+      --title-gradient: linear-gradient(120deg, #0f172a 20%, #4338ca 100%);
+      --body-ambient-1: radial-gradient(circle, rgba(101, 37, 229, 0.1) 0%, transparent 70%);
+      --body-ambient-2: radial-gradient(circle, rgba(5, 150, 105, 0.08) 0%, transparent 70%);
+      --shadow-container: 0 20px 45px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      --btn-disabled-bg: rgba(0, 0, 0, 0.06);
+      --btn-disabled-text: rgba(0, 0, 0, 0.35);
+    }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-gradient-1), var(--bg-gradient-2));
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 30px;
+      overflow-x: hidden;
+      position: relative;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Ambient background glows */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: var(--body-ambient-1);
+      top: -100px;
+      left: -100px;
+      z-index: 0;
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+
+    body::after {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: var(--body-ambient-2);
+      bottom: -150px;
+      right: -100px;
+      z-index: 0;
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+
+    .main-container {
+      width: 100%;
+      max-width: 900px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: var(--shadow-container);
+      z-index: 1;
+      position: relative;
+      animation: slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* Top Utility Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+      transition: border-color 0.3s ease;
+    }
+
+    .repo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+      transition: all 0.3s ease;
+    }
+
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success-glow);
+      transition: background-color 0.3s ease;
+    }
+
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-tool-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      font-size: 0.84rem;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+
+    .icon-tool-btn:hover {
+      background: var(--card-hover-bg);
+      border-color: var(--accent);
+      color: var(--text-main);
+      transform: translateY(-1px);
+    }
+
+    .icon-tool-btn svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+      transition: transform 0.25s ease;
+    }
+
+    .icon-tool-btn.rotating svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .logo-area {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 70px;
+      height: 70px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #b388ff);
+      box-shadow: 0 8px 24px var(--accent-glow);
+      margin-bottom: 18px;
+      position: relative;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .logo-area svg {
+      width: 36px;
+      height: 36px;
+      fill: #fff;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: var(--title-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+      transition: all 0.3s ease;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      font-weight: 300;
+      transition: color 0.3s ease;
+    }
+
+    /* Grid of statuses */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .status-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.3s ease;
+    }
+
+    .status-card:hover {
+      background: var(--card-hover-bg);
+      border-color: var(--card-hover-border);
+      transform: translateY(-2px);
+    }
+
+    .status-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .status-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.green {
+      background-color: var(--success);
+      box-shadow: 0 0 10px var(--success-glow);
+      animation: pulseGreen 2s infinite;
+    }
+
+    .dot.amber {
+      background-color: var(--warning);
+      box-shadow: 0 0 10px rgba(255, 179, 0, 0.4);
+      animation: pulseAmber 2s infinite;
+    }
+
+    .dot.red {
+      background-color: var(--error);
+      box-shadow: 0 0 10px rgba(255, 23, 68, 0.4);
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.6; }
+    }
+
+    @keyframes pulseAmber {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.6; }
+    }
+
+    /* Configuration Panel Style */
+    .config-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px 28px;
+      margin-bottom: 30px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .config-panel:hover {
+      background: var(--card-hover-bg);
+      border-color: var(--accent);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .panel-subtitle {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-subtitle svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--accent);
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-group label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    .input-group input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: all 0.25s ease;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      background: var(--input-focus-bg);
+    }
+
+    /* Custom Checkbox Design */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding-top: 26px; /* Align horizontally with input */
+    }
+
+    .custom-checkbox-container {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      padding-left: 28px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      user-select: none;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .custom-checkbox-container:hover {
+      color: #fff;
+    }
+
+    .custom-checkbox-container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+
+    .checkbox-checkmark {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      left: 0;
+      height: 18px;
+      width: 18px;
+      background-color: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 5px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .custom-checkbox-container:hover input ~ .checkbox-checkmark {
+      border-color: var(--accent);
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .custom-checkbox-container input:checked ~ .checkbox-checkmark {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(124, 77, 255, 0.4);
+    }
+
+    .checkbox-checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+    }
+
+    .custom-checkbox-container input:checked ~ .checkbox-checkmark:after {
+      display: block;
+    }
+
+    .custom-checkbox-container .checkbox-checkmark:after {
+      left: 5px;
+      top: 2px;
+      width: 5px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    /* Animation transition for custom path block */
+    .custom-path-wrapper {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .custom-path-wrapper.visible {
+      max-height: 120px;
+      opacity: 1;
+      margin-top: 10px;
+    }
+
+    /* Actions Panel */
+    .actions-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 35px;
+    }
+
+    .primary-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), #b388ff);
+      color: #fff;
+      border: none;
+      font-size: 1.2rem;
+      font-weight: 700;
+      padding: 18px 30px;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 30px var(--accent-glow);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .primary-btn:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 35px rgba(124, 77, 255, 0.6);
+      filter: brightness(1.1);
+    }
+
+    .primary-btn:active:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .primary-btn:disabled:not(.is-loading) {
+      background: var(--btn-disabled-bg) !important;
+      color: var(--btn-disabled-text) !important;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+      filter: none;
+    }
+
+    .primary-btn.is-loading {
+      background: linear-gradient(135deg, var(--accent), #9b68ff) !important;
+      color: #ffffff !important;
+      cursor: wait;
+      opacity: 0.95;
+      box-shadow: 0 8px 25px var(--accent-glow);
+    }
+
+    .secondary-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+
+    .sec-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 14px 20px;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .sec-btn:hover:not(:disabled) {
+      background: var(--card-hover-bg);
+      border-color: var(--card-hover-border);
+      transform: translateY(-1px);
+    }
+
+    .sec-btn:disabled:not(.is-loading) {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: var(--btn-disabled-bg);
+      color: var(--btn-disabled-text);
+      border-color: var(--card-border);
+    }
+
+    .sec-btn.is-loading {
+      cursor: wait;
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--card-hover-bg);
+    }
+
+    .sec-btn.is-loading .loader-ring {
+      border: 2px solid rgba(124, 77, 255, 0.25);
+      border-top-color: var(--accent);
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Terminal Console */
+    .console-panel {
+      background: var(--console-bg);
+      border: 1px solid var(--console-border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 10px;
+    }
+
+    .console-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .console-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .console-body {
+      font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+      font-size: 0.85rem;
+      color: #8be9fd;
+      height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      scroll-behavior: smooth;
+    }
+
+    .console-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .console-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .console-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    .console-body::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .console-line {
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .console-line.success { color: var(--success); }
+    .console-line.error { color: var(--error); }
+    .console-line.info { color: var(--text-muted); }
+
+    .loader-ring {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 1s ease-in-out infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    /* Toast Floating Notifications */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast-item {
+      pointer-events: auto;
+      min-width: 280px;
+      max-width: 420px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: rgba(20, 20, 35, 0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateX(120%);
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast-item.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    .toast-item.success {
+      border-color: rgba(0, 230, 118, 0.4);
+      box-shadow: 0 8px 25px rgba(0, 230, 118, 0.2);
+    }
+    .toast-item.error {
+      border-color: rgba(255, 23, 68, 0.4);
+      box-shadow: 0 8px 25px rgba(255, 23, 68, 0.2);
+    }
+    .toast-item.warning {
+      border-color: rgba(255, 179, 0, 0.4);
+      box-shadow: 0 8px 25px rgba(255, 179, 0, 0.2);
+    }
+
+    /* Modal Confirmation Dialog */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.68);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--modal-bg);
+      border: 1px solid var(--modal-border);
+      border-radius: 20px;
+      padding: 30px;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      transform: scale(0.92) translateY(12px);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.active .modal-card {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-desc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 25px;
+    }
+
+    .modal-btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Console Tools */
+    .console-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .tool-btn:hover {
+      background: var(--card-hover-bg);
+      color: var(--text-main);
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <!-- Floating Toast Notifications Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Custom Glassmorphism Confirmation Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-title" id="modal-title">
+        <svg style="width:20px; height:20px; fill:var(--accent);" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+        </svg>
+        <span id="modal-title-text">操作确认</span>
+      </div>
+      <div class="modal-desc" id="modal-desc-text">提示内容</div>
+      <div class="modal-btns">
+        <button class="sec-btn" id="modal-btn-cancel" style="padding: 10px 22px; font-size: 0.9rem;">取消</button>
+        <button class="primary-btn" id="modal-btn-confirm" style="width: auto; padding: 10px 26px; font-size: 0.9rem; margin: 0;">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <!-- Top Utility Bar: Version Badge, Theme Toggle & Online Release Check -->
+    <div class="top-bar">
+      <div class="repo-badge">
+        <span class="pulse-indicator" id="repo-status-dot"></span>
+        <span id="version-display">本地词库 v2.19.1</span>
+      </div>
+      <div class="top-bar-actions">
+        <button class="icon-tool-btn" id="btn-check-release" onclick="checkReleaseUpdate(false)" title="在线检测 GitHub 最新汉化词库与补丁">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+          </svg>
+          <span id="check-release-text">检测词库更新</span>
+        </button>
+        <button class="icon-tool-btn" id="btn-theme-toggle" onclick="toggleTheme()" title="切换亮暗外观模式">
+          <svg id="theme-icon" viewBox="0 0 24 24">
+            <!-- Dynamic SVG icon -->
+          </svg>
+          <span id="theme-text">浅色模式</span>
+        </button>
+      </div>
+    </div>
+
+    <header>
+      <div class="logo-area">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+        </svg>
+      </div>
+      <h1>Antigravity 2.0 / 2.19.1+</h1>
+      <p class="subtitle">智能控制台 &amp; 极简一键汉化系统 (含 WSL 环境 / 沙盒隔离 / 多智能体 / 模型推理全功能深度汉化)</p>
+    </header>
+
+    <!-- State indicators -->
+    <div class="status-grid">
+      <div class="status-card">
+        <span class="status-title">应用检测</span>
+        <span class="status-value" id="status-installed"><span class="dot red"></span>未检测</span>
+      </div>
+      <div class="status-card">
+        <span class="status-title">备份状态</span>
+        <span class="status-value" id="status-backup"><span class="dot red"></span>无备份</span>
+      </div>
+      <div class="status-card">
+        <span class="status-title">进程监控</span>
+        <span class="status-value" id="status-running"><span class="dot red"></span>未运行</span>
+      </div>
+    </div>
+
+    <!-- Dynamic Path Configuration Card -->
+    <div class="config-panel">
+      <h3 class="panel-subtitle">
+        <svg viewBox="0 0 24 24">
+          <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+        </svg>
+        配置部署目标路径
+      </h3>
+      
+      <!-- 隐藏的诱饵输入框，用于吸引并消耗密码管理器及浏览器的自动填充动作 -->
+      <div style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+        <input type="text" id="fake-username" name="username" autocomplete="username" tabindex="-1">
+        <input type="password" id="fake-password" name="password" autocomplete="current-password" tabindex="-1">
+      </div>
+
+      <div class="input-row">
+        <div class="input-group">
+          <label for="tgt-win-owner" id="lbl-win-owner">Windows 系统账户名 (Host Account)</label>
+          <!-- 采用 readonly 焦点激活防御 + new-password 声明 + 诱饵混淆，彻底终结任何密码管理器在失焦或鼠标移出时的强制篡改 -->
+          <input type="text" id="tgt-win-owner" name="tgt-win-owner" placeholder="例如: 11215" 
+                 autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" 
+                 readonly onfocus="this.removeAttribute('readonly')" onblur="this.setAttribute('readonly', true)"
+                 oninput="saveSettings()">
+        </div>
+        <div class="checkbox-group" style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 15px; padding-top: 26px;">
+          <label class="custom-checkbox-container" style="margin-bottom: 0;">
+            <input type="checkbox" id="chk-default-path" checked onchange="togglePathInput()">
+            <span class="checkbox-checkmark"></span>
+            <span id="lbl-default-path">使用 Windows 默认安装路径</span>
+          </label>
+          <button class="sec-btn" id="btn-detect" onclick="manualDetectPath()" style="padding: 10px 18px; font-size: 0.85rem; margin-top: 0; white-space: nowrap; border-radius: 10px; background: rgba(124, 77, 255, 0.1); border-color: rgba(124, 77, 255, 0.2); transition: all 0.2s ease;">
+            <svg style="width:14px; height:14px; fill:currentColor; vertical-align: middle; margin-right: 4px;" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            立即检测路径
+          </button>
+        </div>
+      </div>
+
+      <div class="custom-path-wrapper" id="custom-path-wrapper">
+        <div class="input-group">
+          <label for="input-custom-path">自定义程序路径 (APP_DIR)</label>
+          <input type="text" id="input-custom-path" name="custom-app-dir" placeholder="C:\Users\用户名\AppData\Local\Programs\antigravity" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="saveAndTriggerStatus()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-panel">
+      <button class="primary-btn" id="btn-localize" onclick="localize()">
+        <svg style="width:24px; height:24px; fill:currentColor" viewBox="0 0 24 24">
+          <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-1.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+        </svg>
+        <span>一键汉化 (English → 简体中文)</span>
+      </button>
+
+      <div class="secondary-actions">
+        <button class="sec-btn" id="btn-restore" onclick="restore()">
+          <svg style="width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24">
+            <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8z"/>
+          </svg>
+          还原英文原版
+        </button>
+        <button class="sec-btn" id="btn-launch" onclick="launch()">
+          <svg style="width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24">
+            <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42L16.86 11H5v2z"/>
+          </svg>
+          启动软件
+        </button>
+        <button class="sec-btn" id="btn-kill" onclick="killProcesses()" title="强行终止残留的 Antigravity 及后台语言服务器进程，释放文件占用">
+          <svg style="width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/>
+          </svg>
+          解除后台占用
+        </button>
+        <button class="sec-btn" id="btn-cache" onclick="cleanCacheAction()" title="安全清理 Antigravity 临时渲染与编译缓存，解决白屏与旧缓存残留">
+          <svg style="width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24">
+            <path d="M19.36 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.64-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3zm-5.5-2.5l2.5-2.5h-2V10h-2v3h-2l3.5 3z"/>
+          </svg>
+          清理应用缓存
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Console Output -->
+    <div class="console-panel">
+      <div class="console-header">
+        <span class="console-title">
+          <svg style="width:16px; height:16px; fill:currentColor" viewBox="0 0 24 24">
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 12H4v-2h8v2zm8-4H4V8h16v4z"/>
+          </svg>
+          实时部署日志 (Real-time logs)
+        </span>
+        <div class="console-tools">
+          <button class="tool-btn" onclick="copyLogs()" title="复制全部控制台日志到剪贴板">
+            <svg style="width:12px; height:12px; fill:currentColor;" viewBox="0 0 24 24">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            复制日志
+          </button>
+          <button class="tool-btn" onclick="clearLogs()" title="清空当前控制台显示">
+            <svg style="width:12px; height:12px; fill:currentColor;" viewBox="0 0 24 24">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+            清空
+          </button>
+        </div>
+      </div>
+      <div class="console-body" id="console">
+        <div class="console-line info">[系统] 等待操作... 双击 "双击运行汉化.bat" 确保服务完全启动。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3388';
+    const consoleEl = document.getElementById('console');
+
+    // UI elements (Refactored to tgt-win-owner with readonly armor to block password manager autofill hooks)
+    const inputUsername = document.getElementById('tgt-win-owner');
+    const chkDefaultPath = document.getElementById('chk-default-path');
+    const inputCustomPath = document.getElementById('input-custom-path');
+    const customPathWrapper = document.getElementById('custom-path-wrapper');
+
+    // Load saved settings from localStorage
+    inputUsername.value = localStorage.getItem('localizer_username') || '';
+    const savedUseDefault = localStorage.getItem('localizer_use_default') !== 'false';
+    chkDefaultPath.checked = savedUseDefault;
+    inputCustomPath.value = localStorage.getItem('localizer_custom_path') || '';
+
+    function togglePathInput() {
+      const useDefault = chkDefaultPath.checked;
+      if (useDefault) {
+        customPathWrapper.classList.remove('visible');
+      } else {
+        customPathWrapper.classList.add('visible');
+      }
+      saveSettings();
+    }
+
+    function getParams() {
+      const username = inputUsername.value.trim();
+      const useDefault = chkDefaultPath.checked;
+      const customPath = inputCustomPath.value.trim();
+      return { username, useDefault, customPath };
+    }
+
+    function saveSettings() {
+      const params = getParams();
+      localStorage.setItem('localizer_username', params.username);
+      localStorage.setItem('localizer_use_default', params.useDefault);
+      localStorage.setItem('localizer_custom_path', params.customPath);
+    }
+
+    // ==========================================
+    // 自定义 Toast 浮动通知与 Modal 确认弹窗
+    // ==========================================
+    const toastContainer = document.getElementById('toast-container');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitleText = document.getElementById('modal-title-text');
+    const modalDescText = document.getElementById('modal-desc-text');
+    const modalBtnCancel = document.getElementById('modal-btn-cancel');
+    const modalBtnConfirm = document.getElementById('modal-btn-confirm');
+
+    function showToast(message, type = 'info', duration = 3500) {
+      const toast = document.createElement('div');
+      toast.className = `toast-item ${type}`;
+
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = '<svg style="width:18px;height:18px;min-width:18px;fill:#00e676;" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
+      } else if (type === 'error') {
+        iconSvg = '<svg style="width:18px;height:18px;min-width:18px;fill:#ff1744;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+      } else if (type === 'warning') {
+        iconSvg = '<svg style="width:18px;height:18px;min-width:18px;fill:#ffb300;" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
+      } else {
+        iconSvg = '<svg style="width:18px;height:18px;min-width:18px;fill:var(--accent);" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
+      }
+
+      toast.innerHTML = `${iconSvg}<span>${message}</span>`;
+      toastContainer.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+      }, duration);
+    }
+
+    function showConfirm(title, desc) {
+      return new Promise((resolve) => {
+        modalTitleText.textContent = title;
+        modalDescText.textContent = desc;
+        modalOverlay.classList.add('active');
+
+        function cleanup(result) {
+          modalOverlay.classList.remove('active');
+          modalBtnConfirm.removeEventListener('click', onConfirm);
+          modalBtnCancel.removeEventListener('click', onCancel);
+          modalOverlay.removeEventListener('click', onOverlayClick);
+          window.removeEventListener('keydown', onKeyDown);
+          resolve(result);
+        }
+
+        function onConfirm() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+        function onOverlayClick(e) {
+          if (e.target === modalOverlay) cleanup(false);
+        }
+        function onKeyDown(e) {
+          if (e.key === 'Escape') cleanup(false);
+        }
+
+        modalBtnConfirm.addEventListener('click', onConfirm);
+        modalBtnCancel.addEventListener('click', onCancel);
+        modalOverlay.addEventListener('click', onOverlayClick);
+        window.addEventListener('keydown', onKeyDown);
+      });
+    }
+
+    // ==========================================
+    // 控制台日志管理与复制
+    // ==========================================
+    function appendLog(text) {
+      const line = document.createElement('div');
+      line.className = 'console-line';
+      
+      if (text.includes('成功') || text.includes('完成') || text.includes('就绪')) {
+        line.classList.add('success');
+      } else if (text.includes('失败') || text.includes('错误') || text.includes('Error')) {
+        line.classList.add('error');
+      } else if (text.includes('===') || text.includes('等待')) {
+        line.classList.add('info');
+      }
+      
+      line.textContent = text;
+      consoleEl.appendChild(line);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function copyLogs() {
+      const text = consoleEl.innerText;
+      if (!text || !text.trim()) {
+        showToast('控制台暂无日志可复制', 'warning');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('已成功复制控制台全部日志到剪贴板', 'success');
+        }).catch(() => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast('已成功复制控制台全部日志到剪贴板', 'success');
+      } catch (err) {
+        showToast('复制日志失败，请手动选择复制', 'error');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function clearLogs() {
+      consoleEl.innerHTML = '<div class="console-line info">[系统] 控制台已清空。等待后续操作...</div>';
+      lastLogsHash = '';
+      showToast('控制台日志已清空', 'info');
+    }
+
+    function saveAndTriggerStatus() {
+      saveSettings();
+      updateStatus();
+    }
+
+    // ==========================================
+    // 动态轮询机制（打包提速与空闲节能）
+    // ==========================================
+    let pollInterval = null;
+    let isServiceConnected = true;
+    let lastLogsHash = '';
+
+    function startPolling(ms = 2500) {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(fetchLogs, ms);
+    }
+
+    function setFastPolling(enabled) {
+      startPolling(enabled ? 600 : 2500);
+    }
+
+    async function updateStatus() {
+      const params = getParams();
+      
+      // 仅在取消默认路径且未填写自定义路径时等待输入
+      if (!params.useDefault && !params.customPath) {
+        document.getElementById('status-installed').innerHTML = '<span class="dot red"></span>等待输入自定义路径';
+        document.getElementById('status-backup').innerHTML = '<span class="dot amber"></span>等待配置';
+        document.getElementById('status-running').innerHTML = '<span class="dot amber"></span>等待配置';
+        return;
+      }
+
+      try {
+        const queryStr = `?username=${encodeURIComponent(params.username)}&useDefault=${params.useDefault}&customPath=${encodeURIComponent(params.customPath)}`;
+        const res = await fetch(`${API_BASE}/api/status${queryStr}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        
+        const isWin = data.platform === 'win32';
+        const sysLabel = isWin ? 'Windows' : (data.platform === 'linux' ? 'Linux' : data.platform);
+        
+        document.getElementById('lbl-win-owner').textContent = `${sysLabel} 系统账户名 (Host Account)`;
+        document.getElementById('lbl-default-path').textContent = `使用 ${sysLabel} 默认安装路径`;
+        
+        if (data.defaultUsername) {
+          inputUsername.placeholder = `例如: ${data.defaultUsername}`;
+          if (!inputUsername.value) {
+            inputUsername.value = data.defaultUsername;
+            saveSettings();
+          }
+        }
+        
+        if (isWin) {
+          inputCustomPath.placeholder = "C:\\Users\\用户名\\AppData\\Local\\Programs\\antigravity";
+        } else {
+          inputCustomPath.placeholder = "/home/用户名/Antigravity/Antigravity-x64";
+        }
+        
+        // Dynamic Version Sync
+        if (data.currentVersion) {
+          const vEl = document.getElementById('version-display');
+          if (vEl && !vEl.textContent.includes('发现新版')) {
+            vEl.textContent = `本地词库 v${data.currentVersion}`;
+          }
+        }
+        
+        // Installed status
+        const insEl = document.getElementById('status-installed');
+        if (data.isInstalled) {
+          insEl.innerHTML = '<span class="dot green"></span>已检测到程序';
+        } else {
+          insEl.innerHTML = '<span class="dot red"></span>未检测到';
+        }
+
+        // Backup status
+        const bakEl = document.getElementById('status-backup');
+        if (data.hasBackup) {
+          bakEl.innerHTML = '<span class="dot green"></span>已备份';
+          document.getElementById('btn-restore').disabled = false;
+        } else {
+          bakEl.innerHTML = '<span class="dot amber"></span>无备份';
+          document.getElementById('btn-restore').disabled = true;
+        }
+
+        // Running status
+        const runEl = document.getElementById('status-running');
+        if (data.isRunning) {
+          runEl.innerHTML = '<span class="dot amber"></span>运行中 (占锁)';
+        } else {
+          runEl.innerHTML = '<span class="dot green"></span>已关闭 (就绪)';
+        }
+      } catch (e) {
+        document.getElementById('status-installed').innerHTML = '<span class="dot red"></span>未连接服务';
+        document.getElementById('status-backup').innerHTML = '<span class="dot red"></span>未连接服务';
+        document.getElementById('status-running').innerHTML = '<span class="dot red"></span>未连接服务';
+      }
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch(`${API_BASE}/api/logs`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        
+        const currentLogsStr = JSON.stringify(data.logs);
+        if (currentLogsStr === lastLogsHash) {
+          if (!isServiceConnected) {
+            isServiceConnected = true;
+            updateStatus();
+          }
+          return;
+        }
+        
+        lastLogsHash = currentLogsStr;
+        consoleEl.innerHTML = '';
+        data.logs.forEach(appendLog);
+        
+        if (!isServiceConnected) {
+          isServiceConnected = true;
+          updateStatus();
+        }
+      } catch (e) {
+        isServiceConnected = false;
+        document.getElementById('status-installed').innerHTML = '<span class="dot red"></span>未连接服务';
+        document.getElementById('status-backup').innerHTML = '<span class="dot red"></span>未连接服务';
+        document.getElementById('status-running').innerHTML = '<span class="dot red"></span>未连接服务';
+      }
+    }
+
+    function setButtonLoading(btnId, isLoading, loadingText = '') {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      if (isLoading) {
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="loader-ring"></span> <span>${loadingText}</span>`;
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+        if (btn.dataset.originalHtml) {
+          btn.innerHTML = btn.dataset.originalHtml;
+        }
+      }
+    }
+
+    // ==========================================
+    // 业务操作：汉化、还原、启动、解锁、清理
+    // ==========================================
+    async function localize() {
+      const confirmed = await showConfirm(
+        '一键汉化部署确认',
+        '汉化流程将临时关闭正在运行的 Antigravity 2.0 及后台语言服务，解包并注入全功能深度汉化模块。是否立即开始？'
+      );
+      if (!confirmed) return;
+
+      setButtonLoading('btn-localize', true, '正在汉化打包中，请稍候...');
+      setFastPolling(true);
+      try {
+        const params = getParams();
+        const res = await fetch(`${API_BASE}/api/localize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        await fetchLogs();
+        if (data.success) {
+          showToast('汉化打包部署成功！原生菜单、托盘及 Web UI 已完成汉化。', 'success');
+        } else {
+          showToast('汉化失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('服务无响应，请确保 localize.js 服务正在运行。', 'error');
+      } finally {
+        setFastPolling(false);
+        setButtonLoading('btn-localize', false);
+        updateStatus();
+      }
+    }
+
+    async function restore() {
+      const confirmed = await showConfirm(
+        '还原英文原版确认',
+        '确定要从安全备份 app.asar.bak 还原为官方纯英文原版吗？此操作将抹除汉化修改。'
+      );
+      if (!confirmed) return;
+
+      setButtonLoading('btn-restore', true, '还原中...');
+      setFastPolling(true);
+      try {
+        const params = getParams();
+        const res = await fetch(`${API_BASE}/api/restore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        await fetchLogs();
+        if (data.success) {
+          showToast('已成功还原为官方英文版！', 'success');
+        } else {
+          showToast('还原失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('服务无响应。', 'error');
+      } finally {
+        setFastPolling(false);
+        setButtonLoading('btn-restore', false);
+        updateStatus();
+      }
+    }
+
+    async function launch() {
+      try {
+        const params = getParams();
+        const res = await fetch(`${API_BASE}/api/launch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        await fetchLogs();
+        if (data.success) {
+          showToast('Antigravity 2.0 启动指令已发送！', 'success');
+        } else {
+          showToast('启动失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('服务无响应。', 'error');
+      } finally {
+        setTimeout(updateStatus, 2000);
+      }
+    }
+
+    async function killProcesses() {
+      const confirmed = await showConfirm(
+        '解除后台进程占用',
+        '将强制终止正在运行的 Antigravity 2.0 以及伴生语言服务 (language_server) 进程，彻底释放文件锁。是否继续？'
+      );
+      if (!confirmed) return;
+
+      setButtonLoading('btn-kill', true, '正在释放占用...');
+      try {
+        const res = await fetch(`${API_BASE}/api/kill`, { method: 'POST' });
+        const data = await res.json();
+        await fetchLogs();
+        if (data.success) {
+          showToast('已成功解除后台占用，文件锁已释放！', 'success');
+        } else {
+          showToast('解除占用失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('服务无响应。', 'error');
+      } finally {
+        setButtonLoading('btn-kill', false);
+        updateStatus();
+      }
+    }
+
+    async function cleanCacheAction() {
+      const confirmed = await showConfirm(
+        '安全清理应用缓存',
+        '将安全清理 Antigravity 的临时渲染、GPU 与编译缓存（Cache/Code Cache/GPUCache/DawnCache）。不会删除您的项目配置、模型配置与账号登录凭据。是否继续？'
+      );
+      if (!confirmed) return;
+
+      setButtonLoading('btn-cache', true, '正在清理缓存...');
+      try {
+        const params = getParams();
+        const res = await fetch(`${API_BASE}/api/clean-cache`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        });
+        const data = await res.json();
+        await fetchLogs();
+        if (data.success) {
+          showToast(`临时缓存清理完成！共清理 ${data.cleanedCount} 处临时缓存目录。`, 'success');
+        } else {
+          showToast('清理缓存失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('服务无响应。', 'error');
+      } finally {
+        setButtonLoading('btn-cache', false);
+      }
+    }
+
+    async function manualDetectPath() {
+      saveSettings();
+      appendLog('[系统] 正在检测配置的安装路径，请稍候...');
+      setButtonLoading('btn-detect', true, '正在检测...');
+      try {
+        await updateStatus();
+        appendLog('[系统] 检测路径完成，已更新上方应用检测指示灯。');
+        showToast('安装路径检测完成', 'info');
+      } catch (e) {
+        appendLog('[系统] 检测失败，服务未响应。');
+        showToast('检测失败，服务未响应', 'error');
+      } finally {
+        setButtonLoading('btn-detect', false);
+      }
+    }
+
+    // ==========================================
+    // 亮暗外观模式切换与持久化
+    // ==========================================
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('localizer_theme', theme);
+      const themeIcon = document.getElementById('theme-icon');
+      const themeText = document.getElementById('theme-text');
+      
+      if (!themeIcon || !themeText) return;
+
+      if (theme === 'light') {
+        // 浅色模式下展示月亮图标，提示可切换为深色
+        themeIcon.innerHTML = '<path d="M9.37 5.51A7.35 7.35 0 0 0 9.1 7.5c0 4.08 3.32 7.4 7.4 7.4.68 0 1.35-.09 1.99-.27A9.006 9.006 0 0 1 12 21c-4.97 0-9-4.03-9-9 0-3.92 2.51-7.24 6.37-8.49z"/>';
+        themeText.textContent = '深色模式';
+      } else {
+        // 深色模式下展示太阳图标，提示可切换为浅色
+        themeIcon.innerHTML = '<path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0z"/>';
+        themeText.textContent = '浅色模式';
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      showToast(next === 'light' ? '已切换至浅色模式' : '已切换至深色模式', 'info', 2000);
+    }
+
+    // ==========================================
+    // 在线检测最新词库与补丁 Release
+    // ==========================================
+    let isCheckingRelease = false;
+
+    function compareVersions(v1, v2) {
+      const parse = (v) => (v || '').replace(/^[vV]/, '').split('.').map(n => parseInt(n, 10) || 0);
+      const p1 = parse(v1);
+      const p2 = parse(v2);
+      const maxLen = Math.max(p1.length, p2.length);
+      for (let i = 0; i < maxLen; i++) {
+        const a = p1[i] || 0;
+        const b = p2[i] || 0;
+        if (a > b) return 1;
+        if (a < b) return -1;
+      }
+      return 0;
+    }
+
+    async function checkReleaseUpdate(isSilent = false) {
+      if (isCheckingRelease) return;
+      isCheckingRelease = true;
+
+      const btn = document.getElementById('btn-check-release');
+      const btnText = document.getElementById('check-release-text');
+      const dot = document.getElementById('repo-status-dot');
+      const versionDisplay = document.getElementById('version-display');
+
+      if (!isSilent && btn) {
+        btn.classList.add('rotating');
+        if (btnText) btnText.textContent = '正在检测...';
+        appendLog('[系统] 正在查询 GitHub 官方仓库最新词库与补丁 Release...');
+      }
+
+      try {
+        let releaseData = null;
+        // 优先通过本地后端代理访问，避开客户端跨域与网络问题
+        try {
+          const res = await fetch(`${API_BASE}/api/check-release`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success) releaseData = json;
+          }
+        } catch (e) {
+          // 本地服务若未连接，降级直接由前端 fetch GitHub API
+        }
+
+        if (!releaseData) {
+          const ghRes = await fetch('https://api.github.com/repos/liominsb/Antigravity-Chinese-Localization/releases/latest');
+          if (ghRes.ok) {
+            const raw = await ghRes.json();
+            const latestTag = (raw.tag_name || '').replace(/^[vV]/, '');
+            const currentVer = '2.19.1';
+            const hasUpdate = compareVersions(latestTag, currentVer) > 0;
+            releaseData = {
+              success: true,
+              currentVersion: currentVer,
+              latestVersion: latestTag,
+              hasUpdate,
+              releaseName: raw.name || latestTag,
+              releaseUrl: raw.html_url,
+              publishedAt: raw.published_at,
+              body: raw.body || ''
+            };
+          }
+        }
+
+        if (releaseData && releaseData.success) {
+          if (releaseData.hasUpdate) {
+            if (dot) dot.style.backgroundColor = 'var(--accent)';
+            if (versionDisplay) versionDisplay.textContent = `发现新版 v${releaseData.latestVersion} (当前 v${releaseData.currentVersion})`;
+            appendLog(`[系统] 发现最新 Release 词库: v${releaseData.latestVersion} (当前本地: v${releaseData.currentVersion})，发布时间: ${new Date(releaseData.publishedAt).toLocaleDateString()}`);
+            
+            showToast(`发现最新词库补丁 Release v${releaseData.latestVersion}！`, 'info', 5000);
+
+            if (!isSilent) {
+              const confirmOpen = await showConfirm(
+                `发现新版本词库: v${releaseData.latestVersion}`,
+                `本地补丁版本: v${releaseData.currentVersion}\n最新发布版本: v${releaseData.latestVersion} (${releaseData.releaseName})\n\n是否立即在浏览器中打开 GitHub Release 页面查看详情与下载？`
+              );
+              if (confirmOpen && releaseData.releaseUrl) {
+                window.open(releaseData.releaseUrl, '_blank');
+              }
+            }
+          } else {
+            if (dot) dot.style.backgroundColor = 'var(--success)';
+            if (versionDisplay) versionDisplay.textContent = `词库已是最新 v${releaseData.currentVersion}`;
+            appendLog(`[系统] 词库版本已是最新 (v${releaseData.currentVersion})，无需更新。`);
+            if (!isSilent) {
+              showToast(`当前词库已是最新版本 (v${releaseData.currentVersion})`, 'success');
+            }
+          }
+        } else {
+          throw new Error(releaseData ? releaseData.error : '无法获取 Release 信息');
+        }
+      } catch (err) {
+        appendLog(`[系统] 检查词库更新未完成: ${err.message}`);
+        if (!isSilent) {
+          showToast(`检查更新失败: ${err.message}`, 'error');
+        }
+      } finally {
+        isCheckingRelease = false;
+        if (btn) btn.classList.remove('rotating');
+        if (btnText) btnText.textContent = '检测词库更新';
+      }
+    }
+
+    // 页面初始化
+    const savedTheme = localStorage.getItem('localizer_theme') || 'dark';
+    applyTheme(savedTheme);
+    togglePathInput();
+    updateStatus();
+    startPolling(2500);
+
+    // 静默检测一次 GitHub 词库版本状态
+    setTimeout(() => checkReleaseUpdate(true), 1200);
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# build products — regenerate with `npm run build`
+dist/
+.tmp/
+
+# generated string dumps — regenerate with `npm run extract-settings` / `extract-strings` / `extract-todo`
+data/ui-strings.txt
+data/todo-strings.txt
+data/settings-rows.json
+
+node_modules/
+*.log

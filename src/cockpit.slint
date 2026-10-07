@@ -1,35 +1,31 @@
-import { ScrollView } from "std-widgets.slint";
-
-component StatusPill inherits Rectangle {
+component CompactButton inherits Rectangle {
     in property <string> text;
-    in property <color> pill_color: #38bdf8;
-    in property <bool> show_dot: true;
+    in property <color> btn_color: #38bdf8;
+    in property <color> text_color: #070a13;
     in property <bool> is_dark: true;
+    in property <bool> is_disabled: false;
+    callback clicked();
 
-    background: pill_color.transparentize(root.is_dark ? 88% : 85%);
-    border-color: pill_color.transparentize(root.is_dark ? 65% : 45%);
+    background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(15%) : (ta.has_hover ? btn_color.brighter(10%) : btn_color));
+    border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : (ta.has_hover ? btn_color.brighter(20%) : btn_color);
     border-width: 1px;
-    border-radius: root.height > 24px ? 6px : 4px;
-    height: 26px;
+    border-radius: 5px;
+    height: 28px;
+
+    ta := TouchArea {
+        enabled: !root.is_disabled;
+        clicked => { root.clicked(); }
+        mouse-cursor: root.is_disabled ? default : pointer;
+    }
 
     HorizontalLayout {
-        padding-left: root.height > 24px ? 10px : 8px;
-        padding-right: root.height > 24px ? 10px : 8px;
-        spacing: 6px;
+        padding-left: 10px;
+        padding-right: 10px;
         alignment: center;
-
-        if show_dot : Rectangle {
-            width: 6px;
-            height: 6px;
-            border-radius: 3px;
-            background: root.is_dark ? pill_color : pill_color.darker(15%);
-            y: (parent.height - 6px) / 2;
-        }
-
         Text {
             text: root.text;
-            color: root.is_dark ? pill_color : pill_color.darker(25%);
-            font-size: 11px;
+            color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
+            font-size: 11.5px;
             font-weight: 600;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -37,1575 +33,1259 @@ component StatusPill inherits Rectangle {
     }
 }
 
-export struct LogLineData {
-    line_no: string,
-    time_str: string,
-    level: string,
-    level_color: color,
-    tag: string,
-    tag_color: color,
-    text: string,
-    text_color: color,
+component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <color> hover_color: #38bdf8;
+    in property <bool> is_dark: true;
+    in property <bool> is_disabled: false;
+    callback clicked();
+
+    background: is_disabled ? (root.is_dark ? #090e1c : #f8fafc) : (ta.pressed ? (root.is_dark ? #1e293b : #e2e8f0) : (ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc)));
+    border-color: is_disabled ? (root.is_dark ? #162032 : #e2e8f0) : (ta.has_hover ? hover_color : (root.is_dark ? #1e293b : #cbd5e1));
+    border-width: 1px;
+    border-radius: 5px;
+    height: 26px;
+
+    ta := TouchArea {
+        enabled: !root.is_disabled;
+        clicked => { root.clicked(); }
+        mouse-cursor: root.is_disabled ? default : pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? hover_color : (root.is_dark ? #94a3b8 : #475569));
+            font-size: 11px;
+            font-weight: 500;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
 }
 
-component LogTab inherits Rectangle {
-    in property <string> icon;
-    in property <string> title;
-    in property <bool> is_active: false;
+component StepButton inherits Rectangle {
+    in property <string> text;
     in property <bool> is_dark: true;
     callback clicked();
 
-    background: is_active ? (root.is_dark ? #1e293b : #e0f2fe) : (ta.has_hover ? (root.is_dark ? rgba(255, 255, 255, 0.06) : #f1f5f9) : transparent);
-    border-color: is_active ? (root.is_dark ? #38bdf8 : #0284c7) : (ta.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : transparent);
+    background: ta.pressed ? (root.is_dark ? #1e293b : #cbd5e1) : (ta.has_hover ? (root.is_dark ? #162238 : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9));
+    border-color: ta.has_hover ? #38bdf8 : (root.is_dark ? #1e293b : #cbd5e1);
     border-width: 1px;
-    border-radius: 6px;
-    height: 28px;
-    width: 88px;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
 
     ta := TouchArea {
         clicked => { root.clicked(); }
         mouse-cursor: pointer;
     }
 
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 6px;
-        alignment: center;
+    Text {
+        text: root.text;
+        color: ta.has_hover ? #38bdf8 : (root.is_dark ? #f8fafc : #0f172a);
+        font-size: 12px;
+        font-weight: 700;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
 
-        Text {
-            text: root.icon;
-            color: root.is_active ? (root.is_dark ? #38bdf8 : #0284c7) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #94a3b8 : #64748b));
-            font-size: 12px;
-            vertical-alignment: center;
-            horizontal-alignment: center;
+component ScaleControl inherits HorizontalLayout {
+    in property <string> scale_text: "100%";
+    in property <bool> is_dark: true;
+    callback dec_clicked();
+    callback inc_clicked();
+    callback reset_clicked();
+
+    alignment: space-between;
+    height: 26px;
+
+    Text {
+        text: "界面调节";
+        color: root.is_dark ? #64748b : #94a3b8;
+        font-size: 11px;
+        vertical-alignment: center;
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+        alignment: end;
+
+        StepButton {
+            text: "-";
+            is_dark: root.is_dark;
+            clicked => { root.dec_clicked(); }
         }
 
-        Text {
-            text: root.title;
-            color: root.is_active ? (root.is_dark ? #38bdf8 : #0284c7) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #94a3b8 : #64748b));
-            font-size: 12px;
-            font-weight: root.is_active ? 700 : 500;
-            vertical-alignment: center;
-            horizontal-alignment: center;
+        Rectangle {
+            width: 48px;
+            height: 24px;
+            background: root.is_dark ? #0d1527 : #ffffff;
+            border-color: root.is_dark ? #1e293b : #cbd5e1;
+            border-width: 1px;
+            border-radius: 4px;
+
+            TouchArea {
+                clicked => { root.reset_clicked(); }
+                mouse-cursor: pointer;
+            }
+
+            Text {
+                text: root.scale_text;
+                color: root.is_dark ? #38bdf8 : #0284c7;
+                font-size: 11px;
+                font-family: "Cascadia Mono";
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+        }
+
+        StepButton {
+            text: "+";
+            is_dark: root.is_dark;
+            clicked => { root.inc_clicked(); }
         }
     }
 }
 
-component ActionButton inherits Rectangle {
-    in property <string> key_text;
-    in property <string> label_text;
-    in property <color> key_color: #38bdf8;
-    in property <color> text_color: root.is_dark ? #f8fafc : #1e293b;
-    in property <color> base_background: root.is_dark ? #131b2b : #f1f5f9;
-    in property <color> hover_background: root.is_dark ? #1e293b : #e2e8f0;
-    in property <color> pressed_background: root.is_dark ? #0b1019 : #cbd5e1;
-    in property <color> base_border: root.is_dark ? #27354f : #cbd5e1;
-    in property <color> hover_border: #38bdf8;
+component MetricBox inherits Rectangle {
+    in property <string> label;
+    in property <string> val_text;
+    in property <string> extra_text;
+    in property <float> pct: 0.0;
+    in property <color> fill_color: #38bdf8;
     in property <bool> is_dark: true;
-    in property <bool> enabled: true;
-    callback clicked();
 
-    opacity: root.enabled ? 1.0 : 0.4;
-    height: 26px;
-    background: !root.enabled ? (root.is_dark ? #131b2b : #f1f5f9) : (ta.pressed ? root.pressed_background : (ta.has_hover ? root.hover_background : root.base_background));
-    border-color: ta.has_hover && root.enabled ? root.hover_border : root.base_border;
+    background: root.is_dark ? #090e1c : #f8fafc;
+    border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
-    border-radius: 5px;
+    border-radius: 6px;
+    height: 48px;
 
-    ta := TouchArea {
-        clicked => {
-            if (root.enabled) {
-                root.clicked();
-            }
-        }
-        mouse-cursor: root.enabled ? pointer : default;
-    }
-
-    HorizontalLayout {
+    VerticalLayout {
         padding-left: 8px;
         padding-right: 8px;
-        spacing: (root.key_text != "" && root.label_text != "") ? 5px : 0px;
-        alignment: center;
-
-        if root.key_text != "" : Text {
-            text: root.key_text;
-            color: root.is_dark ? root.key_color : root.key_color.darker(25%);
-            font-size: 11px;
-            font-weight: 700;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-        }
-
-        if root.label_text != "" : Text {
-            text: root.label_text;
-            color: root.text_color;
-            font-size: 11px;
-            font-weight: 600;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-        }
-    }
-}
-
-component EnvRow inherits Rectangle {
-    in property <string> row_key;
-    in property <string> row_val;
-    in property <string> status_text;
-    in property <color> status_color: #10b981;
-    in property <bool> is_dark: true;
-
-    height: 32px;
-
-    Rectangle {
-        y: parent.height - 1px;
-        height: 1px;
-        background: root.is_dark ? #141b28 : #e2e8f0;
-    }
-
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        spacing: 10px;
-        alignment: space-between;
-
-        Text {
-            width: 80px;
-            text: root.row_key;
-            color: root.is_dark ? #cbd5e1 : #1e293b;
-            font-size: 11.5px;
-            font-weight: 600;
-            font-family: "Cascadia Mono";
-            vertical-alignment: center;
-        }
-
-        Text {
-            text: root.row_val;
-            color: root.is_dark ? #94a3b8 : #64748b;
-            font-size: 11px;
-            font-family: "Cascadia Mono";
-            vertical-alignment: center;
-            overflow: elide;
-            horizontal-stretch: 1;
-        }
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 2px;
 
         HorizontalLayout {
-            spacing: 5px;
-            alignment: end;
-            Rectangle {
-                width: 6px;
-                height: 6px;
-                border-radius: 3px;
-                background: root.status_color;
-                y: (parent.height - 6px) / 2;
+            alignment: space-between;
+            Text {
+                text: root.label;
+                color: root.is_dark ? #64748b : #94a3b8;
+                font-size: 10px;
+                vertical-alignment: center;
             }
             Text {
-                text: root.status_text;
-                color: root.status_color;
-                font-size: 11px;
-                font-weight: 600;
+                text: root.extra_text;
+                color: root.fill_color;
+                font-size: 10px;
+                font-family: "Cascadia Mono";
                 vertical-alignment: center;
             }
         }
+
+        Text {
+            text: root.val_text;
+            color: root.is_dark ? #f8fafc : #0f172a;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            height: 3px;
+            background: root.is_dark ? #141c2b : #e2e8f0;
+            border-radius: 1.5px;
+
+            Rectangle {
+                x: 0;
+                width: parent.width * Math.min(1.0, Math.max(0.0, root.pct));
+                height: 3px;
+                border-radius: 1.5px;
+                background: root.fill_color;
+            }
+        }
     }
 }
 
-component CompactMetricRow inherits HorizontalLayout {
+component MiniMetricBox inherits Rectangle {
     in property <string> label;
-    in property <float> pct: 0.0;
     in property <string> val_text;
-    in property <brush> bar_brush: @linear-gradient(90deg, #38bdf8 0%, #10b981 100%);
     in property <bool> is_dark: true;
 
-    spacing: 8px;
-    height: 20px;
+    background: root.is_dark ? #0d1527 : #ffffff;
+    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+    border-width: 1px;
+    border-radius: 4px;
+    height: 38px;
 
-    Text {
-        width: 32px;
-        text: root.label;
-        color: root.is_dark ? #94a3b8 : #64748b;
-        font-size: 11px;
-        font-weight: 500;
-        vertical-alignment: center;
-    }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 1px;
 
-    Rectangle {
-        background: root.is_dark ? #101622 : #e2e8f0;
-        border-radius: 2px;
-        height: 4px;
-        horizontal-stretch: 1;
-        y: (parent.height - 4px) / 2;
-
-        Rectangle {
-            x: 0;
-            width: parent.width * Math.min(1.0, Math.max(0.0, root.pct));
-            height: 4px;
-            border-radius: 2px;
-            background: root.bar_brush;
+        Text {
+            text: root.label;
+            color: root.is_dark ? #64748b : #94a3b8;
+            font-size: 10px;
         }
-    }
 
-    Text {
-        width: 64px;
-        text: root.val_text;
-        color: root.is_dark ? #f8fafc : #0f172a;
-        font-size: 11.5px;
-        font-family: "Cascadia Mono";
-        font-weight: 600;
-        horizontal-alignment: right;
-        vertical-alignment: center;
+        Text {
+            text: root.val_text;
+            color: root.is_dark ? #f8fafc : #0f172a;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+        }
     }
 }
 
-component CompactSlotCard inherits Rectangle {
-    in property <string> title_text;
-    in property <string> tag_text;
-    in property <color> accent_color: #38bdf8;
-    in property <bool> is_running: false;
-    in property <string> pid_text: "--";
-    in property <string> port_text: "--";
-    in property <string> env_tag: "--";
-    in property <float> cpu_pct: 0.0;
-    in property <string> cpu_text: "0.0%";
-    in property <float> ram_pct: 0.0;
-    in property <string> ram_text: "0 MB";
-    in property <bool> is_host: false;
-    in property <string> action_btn_text: "启动";
+component PatchItemRow inherits Rectangle {
+    in property <string> title;
+    in property <string> status_text;
+    in property <bool> is_installed: false;
+    in property <string> btn_text;
     in property <bool> is_dark: true;
-    in property <bool> is_wide: true;
+    callback btn_clicked();
 
-    callback toggle_action();
-    callback bring_action();
-    callback clear_action();
-
-    horizontal-stretch: 1;
-    background: root.is_dark ? (root.is_running ? @linear-gradient(180deg, #131926 0%, #0a0d14 100%) : rgba(11, 15, 23, 0.45)) : (root.is_running ? @linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%) : #f8fafc);
-    border-color: root.is_running ? (root.is_dark ? #1e293b : #cbd5e1) : (root.is_dark ? #141b27 : #e2e8f0);
+    background: root.is_dark ? #090e1c : #f8fafc;
+    border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
-    border-radius: 8px;
-    clip: true;
+    border-radius: 6px;
+    height: 42px;
 
-    if root.is_running : Rectangle {
-        x: 0;
-        y: 0;
-        width: parent.width;
-        height: 1px;
-        background: root.is_dark ? rgba(255, 255, 255, 0.07) : rgba(255, 255, 255, 0.7);
-    }
-
-    Rectangle {
-        x: 0;
-        y: 0;
-        width: 3px;
-        height: parent.height;
-        background: root.is_running ? root.accent_color : (root.is_dark ? #192131 : #cbd5e1);
-    }
-
-    if root.is_wide : HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-top: 12px;
-        padding-bottom: 12px;
-        spacing: 16px;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        alignment: space-between;
 
         VerticalLayout {
-            horizontal-stretch: 6;
-            spacing: 8px;
-            alignment: start;
+            alignment: center;
+            spacing: 1px;
+
+            Text {
+                text: root.title;
+                color: root.is_dark ? #f8fafc : #0f172a;
+                font-size: 11.5px;
+                font-weight: 600;
+            }
 
             HorizontalLayout {
-                height: 24px;
-                alignment: space-between;
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: start;
-
-                    Rectangle {
-                        width: 14px;
-                        height: 14px;
-                        border-radius: 7px;
-                        background: root.is_running ? root.accent_color.transparentize(80%) : transparent;
-                        y: (parent.height - 14px) / 2;
-
-                        Rectangle {
-                            width: 6px;
-                            height: 6px;
-                            border-radius: 3px;
-                            background: root.is_running ? root.accent_color : (root.is_dark ? #475569 : #94a3b8);
-                            x: (parent.width - 6px) / 2;
-                            y: (parent.height - 6px) / 2;
-                        }
-                    }
-
-                    Text {
-                        text: root.title_text;
-                        color: root.is_dark ? #f1f5f9 : #0f172a;
-                        font-size: 14px;
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-
-                    if root.tag_text != "" : Rectangle {
-                        background: root.accent_color.transparentize(88%);
-                        border-color: root.accent_color.transparentize(70%);
-                        border-width: 1px;
-                        border-radius: 3px;
-                        height: 18px;
-                        y: (parent.height - 18px) / 2;
-                        HorizontalLayout {
-                            padding-left: 5px;
-                            padding-right: 5px;
-                            Text {
-                                text: root.tag_text;
-                                color: root.accent_color;
-                                font-size: 10px;
-                                font-weight: 600;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-                }
-
+                spacing: 5px;
                 Rectangle {
-                    background: root.is_running ? root.accent_color.transparentize(88%) : (root.is_dark ? #0e131d : #eef2f7);
-                    border-color: root.is_running ? root.accent_color.transparentize(65%) : (root.is_dark ? #1a2333 : #cbd5e1);
-                    border-width: 1px;
-                    border-radius: 4px;
-                    height: 20px;
-                    y: (parent.height - 20px) / 2;
-                    HorizontalLayout {
-                        padding-left: 6px;
-                        padding-right: 6px;
-                        spacing: 4px;
-                        alignment: center;
-                        Text {
-                            text: root.is_running ? "在线" : "待命";
-                            color: root.is_running ? root.accent_color : (root.is_dark ? #64748b : #94a3b8);
-                            font-size: 10.5px;
-                            font-weight: 600;
-                            vertical-alignment: center;
-                        }
-                    }
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 2.5px;
+                    background: root.is_installed ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                    y: (parent.height - 5px) / 2;
                 }
-            }
-
-            Rectangle {
-                background: root.is_dark ? #070b12 : #f8fafc;
-                border-color: root.is_dark ? #131b28 : #e2e8f0;
-                border-width: 1px;
-                border-radius: 6px;
-
-                VerticalLayout {
-                    padding-top: 6px;
-                    padding-bottom: 6px;
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    spacing: 4px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        Text { text: "PID:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                        Text { text: root.pid_text; color: root.is_dark ? #e2e8f0 : #1e293b; font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; vertical-alignment: center; }
-                    }
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        Text { text: "LS 端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                        Text { text: root.port_text != "--" ? root.port_text : "--"; color: root.is_running ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8); font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; vertical-alignment: center; }
-                    }
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        Text { text: "运行目录:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                        Text { text: root.env_tag; color: root.is_dark ? #cbd5e1 : #475569; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                    }
-                }
-            }
-
-            HorizontalLayout {
-                height: 26px;
-                spacing: 6px;
-                alignment: start;
-
-                if root.is_host : HorizontalLayout {
-                    spacing: 6px;
-                    ActionButton {
-                        key_text: root.is_running ? "唤醒" : "启动";
-                        label_text: "";
-                        key_color: root.accent_color;
-                        is_dark: root.is_dark;
-                        clicked => { root.bring_action(); }
-                    }
-                }
-
-                if !root.is_host : HorizontalLayout {
-                    spacing: 6px;
-                    alignment: start;
-
-                    ActionButton {
-                        key_text: root.is_running ? "停止" : "启动";
-                        label_text: "";
-                        key_color: root.is_running ? #f43f5e : root.accent_color;
-                        is_dark: root.is_dark;
-                        clicked => { root.toggle_action(); }
-                    }
-
-                    if root.is_running : ActionButton {
-                        key_text: "唤醒";
-                        label_text: "";
-                        key_color: #38bdf8;
-                        is_dark: root.is_dark;
-                        clicked => { root.bring_action(); }
-                    }
-
-                    ActionButton {
-                        key_text: "退出账号";
-                        label_text: "";
-                        key_color: #f43f5e;
-                        is_dark: root.is_dark;
-                        clicked => { root.clear_action(); }
-                    }
-                }
-            }
-        }
-
-        VerticalLayout {
-            horizontal-stretch: 5;
-            spacing: 6px;
-            alignment: start;
-
-            Rectangle {
-                background: root.is_dark ? #070a12 : #f8fafc;
-                border-color: root.is_dark ? #141b29 : #e2e8f0;
-                border-width: 1px;
-                border-radius: 6px;
-
-                VerticalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    alignment: start;
-                    spacing: 4px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        Text { text: "CPU 负载"; color: root.is_dark ? #94a3b8 : #64748b; font-size: 11px; font-weight: 500; vertical-alignment: center; }
-                        Text { text: root.is_running ? "活跃" : "待命"; color: root.is_running ? (root.is_dark ? #10b981 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 10px; font-family: "Cascadia Mono"; font-weight: 600; vertical-alignment: center; }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 4px;
-                        alignment: start;
-                        Text {
-                            text: root.cpu_text;
-                            color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 20px;
-                            font-weight: 700;
-                            font-family: "Cascadia Mono";
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #141c2b : #e2e8f0;
-                        border-radius: 2px;
-                        height: 4px;
-
-                        Rectangle {
-                            x: 0;
-                            width: parent.width * Math.min(1.0, Math.max(0.0, root.cpu_pct));
-                            height: 4px;
-                            border-radius: 2px;
-                            background: root.is_running ? @linear-gradient(90deg, #38bdf8 0%, #10b981 100%) : (root.is_dark ? #1e293b : #cbd5e1);
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                background: root.is_dark ? #070a12 : #f8fafc;
-                border-color: root.is_dark ? #141b29 : #e2e8f0;
-                border-width: 1px;
-                border-radius: 6px;
-
-                VerticalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    alignment: start;
-                    spacing: 4px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        Text { text: "专用内存"; color: root.is_dark ? #94a3b8 : #64748b; font-size: 11px; font-weight: 500; vertical-alignment: center; }
-                        Text { text: "RSS"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10px; font-family: "Cascadia Mono"; font-weight: 600; vertical-alignment: center; }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 4px;
-                        alignment: start;
-                        Text {
-                            text: root.ram_text;
-                            color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 20px;
-                            font-weight: 700;
-                            font-family: "Cascadia Mono";
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #141c2b : #e2e8f0;
-                        border-radius: 2px;
-                        height: 4px;
-
-                        Rectangle {
-                            x: 0;
-                            width: parent.width * Math.min(1.0, Math.max(0.0, root.ram_pct));
-                            height: 4px;
-                            border-radius: 2px;
-                            background: root.is_running ? @linear-gradient(90deg, #10b981 0%, #06b6d4 100%) : (root.is_dark ? #1e293b : #cbd5e1);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if !root.is_wide : VerticalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        spacing: 6px;
-        alignment: start;
-
-        HorizontalLayout {
-            height: 24px;
-            alignment: space-between;
-
-            HorizontalLayout {
-                spacing: 8px;
-                alignment: start;
-
-                Rectangle {
-                    width: 14px;
-                    height: 14px;
-                    border-radius: 7px;
-                    background: root.is_running ? root.accent_color.transparentize(80%) : transparent;
-                    y: (parent.height - 14px) / 2;
-
-                    Rectangle {
-                        width: 6px;
-                        height: 6px;
-                        border-radius: 3px;
-                        background: root.is_running ? root.accent_color : (root.is_dark ? #475569 : #94a3b8);
-                        x: (parent.width - 6px) / 2;
-                        y: (parent.height - 6px) / 2;
-                    }
-                }
-
                 Text {
-                    text: root.title_text;
-                    color: root.is_dark ? #f1f5f9 : #0f172a;
-                    font-size: 13px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-
-                if root.tag_text != "" : Rectangle {
-                    background: root.accent_color.transparentize(88%);
-                    border-color: root.accent_color.transparentize(70%);
-                    border-width: 1px;
-                    border-radius: 3px;
-                    height: 18px;
-                    y: (parent.height - 18px) / 2;
-                    HorizontalLayout {
-                        padding-left: 5px;
-                        padding-right: 5px;
-                        Text {
-                            text: root.tag_text;
-                            color: root.accent_color;
-                            font-size: 10px;
-                            font-weight: 600;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                background: root.is_running ? root.accent_color.transparentize(88%) : (root.is_dark ? #0e131d : #eef2f7);
-                border-color: root.is_running ? root.accent_color.transparentize(65%) : (root.is_dark ? #1a2333 : #cbd5e1);
-                border-width: 1px;
-                border-radius: 4px;
-                height: 20px;
-                y: (parent.height - 20px) / 2;
-                HorizontalLayout {
-                    padding-left: 6px;
-                    padding-right: 6px;
-                    spacing: 4px;
-                    alignment: center;
-                    Text {
-                        text: root.is_running ? "在线" : "待命";
-                        color: root.is_running ? root.accent_color : (root.is_dark ? #64748b : #94a3b8);
-                        font-size: 10.5px;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                    }
+                    text: root.status_text;
+                    color: root.is_installed ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
                 }
             }
         }
 
         Rectangle {
+            width: 56px;
             height: 24px;
-            background: root.is_dark ? #070b12 : #f8fafc;
-            border-color: root.is_dark ? #131b28 : #e2e8f0;
+            y: (parent.height - 24px) / 2;
+            background: root.is_installed ? (ta.has_hover ? #f43f5e : rgba(244, 63, 94, 0.15)) : (ta.has_hover ? #34d399 : #10b981);
+            border-color: root.is_installed ? #f43f5e : #10b981;
             border-width: 1px;
             border-radius: 4px;
-            HorizontalLayout {
-                padding-left: 8px;
-                padding-right: 8px;
-                alignment: space-between;
 
-                HorizontalLayout {
-                    spacing: 4px;
-                    Text { text: "PID:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                    Text { text: root.pid_text; color: root.is_dark ? #e2e8f0 : #1e293b; font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; vertical-alignment: center; }
-                }
-
-                Text { text: root.env_tag; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-            }
-        }
-
-        CompactMetricRow {
-            label: "CPU";
-            pct: root.cpu_pct;
-            val_text: root.cpu_text;
-            bar_brush: root.is_running ? @linear-gradient(90deg, #38bdf8 0%, #10b981 100%) : (root.is_dark ? #1e293b : #cbd5e1);
-            is_dark: root.is_dark;
-        }
-
-        CompactMetricRow {
-            label: "内存";
-            pct: root.ram_pct;
-            val_text: root.ram_text;
-            bar_brush: root.is_running ? @linear-gradient(90deg, #10b981 0%, #06b6d4 100%) : (root.is_dark ? #1e293b : #cbd5e1);
-            is_dark: root.is_dark;
-        }
-
-        HorizontalLayout {
-            height: 26px;
-            spacing: 6px;
-            alignment: space-between;
-
-            if root.is_host : HorizontalLayout {
-                spacing: 6px;
-                ActionButton {
-                    key_text: root.is_running ? "唤醒" : "启动";
-                    label_text: "";
-                    key_color: root.accent_color;
-                    is_dark: root.is_dark;
-                    clicked => { root.bring_action(); }
-                }
+            ta := TouchArea {
+                clicked => { root.btn_clicked(); }
+                mouse-cursor: pointer;
             }
 
-            if !root.is_host : HorizontalLayout {
-                spacing: 5px;
-                alignment: start;
-
-                ActionButton {
-                    key_text: root.is_running ? "停止" : "启动";
-                    label_text: "";
-                    key_color: root.is_running ? #f43f5e : root.accent_color;
-                    is_dark: root.is_dark;
-                    clicked => { root.toggle_action(); }
-                }
-
-                if root.is_running : ActionButton {
-                    key_text: "唤醒";
-                    label_text: "";
-                    key_color: #38bdf8;
-                    is_dark: root.is_dark;
-                    clicked => { root.bring_action(); }
-                }
-
-                ActionButton {
-                    key_text: "退出账号";
-                    label_text: "";
-                    key_color: #f43f5e;
-                    is_dark: root.is_dark;
-                    clicked => { root.clear_action(); }
-                }
+            Text {
+                text: root.btn_text;
+                color: root.is_installed ? (ta.has_hover ? #ffffff : #f43f5e) : #ffffff;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: center;
             }
         }
     }
 }
 
 export component MainWindow inherits Window {
-    title: "Antigravity 分身管理器 v" + root.app_version;
+    title: "Antigravity 多开分身工具";
     icon: @image-url("../assets/icon.png");
-    preferred-width: 1360px;
-    preferred-height: 650px;
+    preferred-width: 1340px;
+    preferred-height: 740px;
     min-width: 1200px;
-    min-height: 600px;
-    background: root.is_dark ? (root.redraw_tick == 0 ? #07090e : #07090f) : (root.redraw_tick == 0 ? #f1f4f9 : #f1f4fa);
-    in-out property <int> redraw_tick: 0;
-    in-out property <bool> is_dark: true;
+    min-height: 680px;
+    background: root.is_dark ? (root.redraw_tick == 0 ? #070a13 : #070a14) : (root.redraw_tick == 0 ? #f1f5f9 : #f1f5fa);
 
-    in property <string> app_title: "Antigravity 分身管理器";
-    in property <string> app_subtitle: "";
-    in property <string> app_version: "1.1.0";
-    in property <string> kernel_status: "就绪";
-    in property <string> ram_overhead: "--";
-    in property <string> current_time: "--:--:--";
+    in-out property <bool> is_dark: true;
+    in-out property <int> redraw_tick: 0;
+    in property <string> toast_message: "就绪";
 
     in property <bool> host_running: false;
     in property <string> host_pid: "--";
-    in property <string> sandbox_root: "--";
     in property <string> host_port: "--";
-    in property <float> host_cpu: 0.8;
-    in property <float> host_ram: 342.6;
+    in property <float> host_cpu: 0.0;
+    in property <string> host_cpu_text: "0.0%";
+    in property <float> host_ram: 0.0;
+    in property <string> host_ram_text: "0 MB";
+    in property <string> host_scale_text: "158%";
 
-    in property <bool> sub_running: false;
-    in property <string> sub_pid: "--";
-    in property <string> sub_port: "--";
-    in property <float> sub_cpu: 0.0;
-    in property <float> sub_ram: 0.0;
+    in property <bool> patch_ag2_installed: true;
+    in property <string> patch_ag2_version: "--";
+    in property <bool> patch_ide_installed: false;
+    in property <string> patch_ide_version: "--";
+    in property <bool> proxy_injected: false;
+    in property <string> proxy_port_text: "7890";
+
+    in property <string> total_mem_text: "0.0 MB";
+    in property <float> total_mem_pct: 0.2;
+    in property <string> mem_breakdown_text: "主号 0M · 分身 0M";
 
     in property <bool> sub1_running: false;
     in property <string> sub1_pid: "--";
     in property <string> sub1_port: "--";
-    in property <float> sub1_cpu: 0.0;
-    in property <float> sub1_ram: 0.0;
+    in property <string> sub1_cpu_text: "--";
+    in property <string> sub1_ram_text: "--";
+    in property <bool> sub1_token_present: false;
+    in property <string> sub1_scale_text: "144%";
 
     in property <bool> sub2_running: false;
     in property <string> sub2_pid: "--";
     in property <string> sub2_port: "--";
-    in property <float> sub2_cpu: 0.0;
-    in property <float> sub2_ram: 0.0;
+    in property <string> sub2_cpu_text: "--";
+    in property <string> sub2_ram_text: "--";
+    in property <bool> sub2_token_present: false;
+    in property <string> sub2_scale_text: "100%";
 
     in property <bool> sub3_running: false;
     in property <string> sub3_pid: "--";
     in property <string> sub3_port: "--";
-    in property <float> sub3_cpu: 0.0;
-    in property <float> sub3_ram: 0.0;
+    in property <string> sub3_cpu_text: "--";
+    in property <string> sub3_ram_text: "--";
+    in property <bool> sub3_token_present: false;
+    in property <string> sub3_scale_text: "100%";
 
-    in property <string> total_ram: "342.6 MB";
-    in property <float> system_ram_total_mb: 32768.0;
-    in property <string> toast_message: "就绪";
-    in property <bool> token_present: false;
-
-    in property <string> proxy_status: "未注入";
-    in property <color> proxy_color: #64748b;
-    in property <string> proxy_btn_text: "接入代理";
-    in property <color> proxy_btn_color: #38bdf8;
-    in property <bool> proxy_deployed: false;
-    in-out property <bool> show_clear_confirm: false;
-    in-out property <int> clear_target_slot: 1;
-    in-out property <bool> show_extra_slots: false;
-    property <bool> is_slots_expanded: root.show_extra_slots || root.sub2_running || root.sub3_running;
-
-    in property <string> stream_source_name: "运行记录";
-    in property <[LogLineData]> log_lines: [];
-    in property <int> log_line_count: 0;
-    in property <int> current_stream_idx: 0;
+    in property <bool> sub4_running: false;
+    in property <string> sub4_pid: "--";
+    in property <string> sub4_port: "--";
+    in property <string> sub4_cpu_text: "--";
+    in property <string> sub4_ram_text: "--";
+    in property <bool> sub4_token_present: false;
+    in property <string> sub4_scale_text: "100%";
 
     callback toggle_theme();
-    callback action_toggle_sub(int);
-    callback action_bring_sub(int);
-    callback action_clear_sub(int);
-    callback action_bring_host();
+    callback action_launch_host();
+    callback action_launch_sub(int);
+    callback action_stop_sub(int);
+    callback action_clear_token(int);
+    callback action_open_sandbox(int);
+    callback action_open_app_dir();
+    callback action_clean_cache();
+    callback action_check_patch();
 
-    callback action_space();
-    callback action_kill();
-    callback action_restart();
-    callback action_clear();
-    callback action_proxy();
-    callback action_open();
-    callback cycle_stream_source();
-    callback select_stream_source(int);
-    callback action_clear_log();
-    callback action_quit();
+    callback toggle_patch_ag2();
+    callback toggle_patch_ide();
+    callback toggle_proxy();
 
-    forward-focus: focus_scope;
-
-    focus_scope := FocusScope {
-        x: 0;
-        y: 0;
-        width: 0;
-        height: 0;
-        key-pressed(event) => {
-            if (root.show_clear_confirm) {
-                if (event.text == Key.Escape) {
-                    root.show_clear_confirm = false;
-                    accept
-                } else if (event.text == Key.Return || event.text == "\n") {
-                    root.show_clear_confirm = false;
-                    root.action_clear_sub(root.clear_target_slot);
-                    accept
-                } else {
-                    accept
-                }
-            } else if (event.text == " ") {
-                if (root.sub_running) {
-                    root.action_kill();
-                } else {
-                    root.action_space();
-                }
-                accept
-            } else if (event.text == "k" || event.text == "K") {
-                if (root.sub_running) {
-                    root.action_kill();
-                }
-                accept
-            } else if (event.text == "r" || event.text == "R") {
-                if (root.sub_running) {
-                    root.action_restart();
-                }
-                accept
-            } else if (event.text == "c" || event.text == "C") {
-                if (root.token_present) {
-                    root.show_clear_confirm = true;
-                }
-                accept
-            } else if (event.text == "p" || event.text == "P") {
-                root.action_proxy();
-                accept
-            } else if (event.text == "o" || event.text == "O") {
-                root.action_open();
-                accept
-            } else if (event.text == "l" || event.text == "L") {
-                root.cycle_stream_source();
-                accept
-            } else if (event.text == "t" || event.text == "T") {
-                root.toggle_theme();
-                accept
-            } else {
-                reject
-            }
-        }
-    }
+    callback adjust_host_scale(int);
+    callback adjust_sub_scale(int, int);
+    callback reset_host_scale();
+    callback reset_sub_scale(int);
 
     VerticalLayout {
-        padding-top: 14px;
-        padding-bottom: 14px;
-        padding-left: 16px;
-        padding-right: 16px;
+        padding: 14px;
         spacing: 12px;
 
         HorizontalLayout {
             spacing: 12px;
-            height: 164px;
+            height: 250px;
 
-            CompactSlotCard {
-                title_text: "主账号";
-                tag_text: "默认";
-                accent_color: #10b981;
-                is_running: root.host_running;
-                pid_text: root.host_pid;
-                port_text: root.host_port;
-                env_tag: "本地主目录";
-                cpu_pct: root.host_cpu / 100.0;
-                cpu_text: (Math.round(root.host_cpu * 10.0) / 10.0) + "%";
-                ram_pct: Math.min(1.0, root.host_ram / Math.max(1.0, root.system_ram_total_mb));
-                ram_text: Math.round(root.host_ram) + " MB";
-                is_host: true;
-                action_btn_text: "唤醒";
-                is_dark: root.is_dark;
-                is_wide: !root.is_slots_expanded;
-                bring_action => { root.action_bring_host(); }
-            }
+            Rectangle {
+                horizontal-stretch: 1;
+                background: root.is_dark ? #0d1527 : #ffffff;
+                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+                border-width: 1px;
+                border-radius: 10px;
 
-            CompactSlotCard {
-                title_text: "分身 1";
-                tag_text: "";
-                accent_color: #38bdf8;
-                is_running: root.sub1_running;
-                pid_text: root.sub1_pid;
-                port_text: root.sub1_port;
-                env_tag: "独立目录 1";
-                cpu_pct: root.sub1_running ? (root.sub1_cpu / 100.0) : 0.0;
-                cpu_text: root.sub1_running ? ((Math.round(root.sub1_cpu * 10.0) / 10.0) + "%") : "—";
-                ram_pct: root.sub1_running ? Math.min(1.0, root.sub1_ram / Math.max(1.0, root.system_ram_total_mb)) : 0.0;
-                ram_text: root.sub1_running ? (Math.round(root.sub1_ram) + " MB") : "—";
-                is_host: false;
-                action_btn_text: root.sub1_running ? "停止" : "启动";
-                is_dark: root.is_dark;
-                is_wide: !root.is_slots_expanded;
-                toggle_action => { root.action_toggle_sub(1); }
-                bring_action => { root.action_bring_sub(1); }
-                clear_action => {
-                    root.clear_target_slot = 1;
-                    root.show_clear_confirm = true;
+                VerticalLayout {
+                    padding: 13px;
+                    spacing: 9px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 24px;
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: "主账号";
+                                color: root.is_dark ? #f8fafc : #0f172a;
+                                font-size: 13.5px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            Rectangle {
+                                background: root.is_dark ? rgba(56, 189, 248, 0.12) : #e0f2fe;
+                                border-color: rgba(56, 189, 248, 0.25);
+                                border-width: 1px;
+                                border-radius: 3px;
+                                height: 16px;
+                                y: (parent.height - 16px) / 2;
+                                HorizontalLayout {
+                                    padding-left: 5px;
+                                    padding-right: 5px;
+                                    Text {
+                                        text: "默认";
+                                        color: root.is_dark ? #38bdf8 : #0284c7;
+                                        font-size: 10px;
+                                        font-weight: 600;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            height: 22px;
+                            background: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15)) : (root.is_dark ? #090e1c : #f1f5f9);
+                            border-color: root.host_running ? rgba(16, 185, 129, 0.3) : (root.is_dark ? #162032 : #cbd5e1);
+                            border-width: 1px;
+                            border-radius: 4px;
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                spacing: 4px;
+                                alignment: center;
+                                Rectangle {
+                                    width: 6px;
+                                    height: 6px;
+                                    border-radius: 3px;
+                                    background: root.host_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                    y: (parent.height - 6px) / 2;
+                                }
+                                Text {
+                                    text: root.host_running ? ("运行中 (PID: " + root.host_pid + ")") : "未运行";
+                                    color: root.host_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        MetricBox {
+                            horizontal-stretch: 1;
+                            label: "CPU";
+                            val_text: root.host_cpu_text;
+                            extra_text: root.host_running ? "活跃" : "";
+                            pct: root.host_cpu / 100.0;
+                            fill_color: #10b981;
+                            is_dark: root.is_dark;
+                        }
+                        MetricBox {
+                            horizontal-stretch: 1;
+                            label: "内存";
+                            val_text: root.host_ram_text;
+                            extra_text: "RSS";
+                            pct: root.host_ram / 1024.0;
+                            fill_color: #38bdf8;
+                            is_dark: root.is_dark;
+                        }
+                    }
+
+                    Rectangle {
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.is_dark ? #162032 : #e2e8f0;
+                        border-width: 1px;
+                        border-radius: 6px;
+                        VerticalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
+                            spacing: 3px;
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: root.host_port; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; }
+                            }
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "账号状态:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: "已登录"; color: root.is_dark ? #34d399 : #059669; font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; }
+                            }
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "路径:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: "%APPDATA%\\Antigravity"; color: root.is_dark ? #94a3b8 : #64748b; font-size: 11px; font-family: "Cascadia Mono"; }
+                            }
+                        }
+                    }
+
+                    ScaleControl {
+                        scale_text: root.host_scale_text;
+                        is_dark: root.is_dark;
+                        dec_clicked => { root.adjust_host_scale(-10); }
+                        inc_clicked => { root.adjust_host_scale(10); }
+                        reset_clicked => { root.reset_host_scale(); }
+                    }
+
+                    CompactButton {
+                        text: root.host_running ? "打开" : "启动";
+                        btn_color: root.host_running ? #38bdf8 : #10b981;
+                        is_dark: root.is_dark;
+                        clicked => { root.action_launch_host(); }
+                    }
                 }
             }
 
-            if root.is_slots_expanded : CompactSlotCard {
-                title_text: "分身 2";
-                tag_text: "";
-                accent_color: #38bdf8;
-                is_running: root.sub2_running;
-                pid_text: root.sub2_pid;
-                port_text: root.sub2_port;
-                env_tag: "独立目录 2";
-                cpu_pct: root.sub2_running ? (root.sub2_cpu / 100.0) : 0.0;
-                cpu_text: root.sub2_running ? ((Math.round(root.sub2_cpu * 10.0) / 10.0) + "%") : "—";
-                ram_pct: root.sub2_running ? Math.min(1.0, root.sub2_ram / Math.max(1.0, root.system_ram_total_mb)) : 0.0;
-                ram_text: root.sub2_running ? (Math.round(root.sub2_ram) + " MB") : "—";
-                is_host: false;
-                action_btn_text: root.sub2_running ? "停止" : "启动";
-                is_dark: root.is_dark;
-                is_wide: false;
-                toggle_action => { root.action_toggle_sub(2); }
-                bring_action => { root.action_bring_sub(2); }
-                clear_action => {
-                    root.clear_target_slot = 2;
-                    root.show_clear_confirm = true;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: root.is_dark ? #0d1527 : #ffffff;
+                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+                border-width: 1px;
+                border-radius: 10px;
+
+                VerticalLayout {
+                    padding: 13px;
+                    spacing: 8px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 24px;
+                        Text {
+                            text: "汉化与代理";
+                            color: root.is_dark ? #f8fafc : #0f172a;
+                            font-size: 13.5px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        OutlineButton {
+                            text: "打开目录";
+                            is_dark: root.is_dark;
+                            clicked => { root.action_open_app_dir(); }
+                        }
+                    }
+
+                    PatchItemRow {
+                        title: "Antigravity 桌面版";
+                        status_text: root.patch_ag2_installed ? ("已汉化 (" + root.patch_ag2_version + ")") : (root.patch_ag2_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ag2_version + ")"));
+                        is_installed: root.patch_ag2_installed;
+                        btn_text: root.patch_ag2_installed ? "卸载" : "安装";
+                        is_dark: root.is_dark;
+                        btn_clicked => { root.toggle_patch_ag2(); }
+                    }
+
+                    PatchItemRow {
+                        title: "Antigravity IDE";
+                        status_text: root.patch_ide_installed ? ("已汉化 (" + root.patch_ide_version + ")") : (root.patch_ide_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ide_version + ")"));
+                        is_installed: root.patch_ide_installed;
+                        btn_text: root.patch_ide_installed ? "卸载" : "安装";
+                        is_dark: root.is_dark;
+                        btn_clicked => { root.toggle_patch_ide(); }
+                    }
+
+                    PatchItemRow {
+                        title: "系统代理 (" + root.proxy_port_text + ")";
+                        status_text: root.proxy_injected ? "已注入 (version.dll)" : "未注入";
+                        is_installed: root.proxy_injected;
+                        btn_text: root.proxy_injected ? "移除" : "注入";
+                        is_dark: root.is_dark;
+                        btn_clicked => { root.toggle_proxy(); }
+                    }
+
+                    OutlineButton {
+                        text: "检查补丁";
+                        is_dark: root.is_dark;
+                        clicked => { root.action_check_patch(); }
+                    }
                 }
             }
 
-            if root.is_slots_expanded : CompactSlotCard {
-                title_text: "分身 3";
-                tag_text: "";
-                accent_color: #38bdf8;
-                is_running: root.sub3_running;
-                pid_text: root.sub3_pid;
-                port_text: root.sub3_port;
-                env_tag: "独立目录 3";
-                cpu_pct: root.sub3_running ? (root.sub3_cpu / 100.0) : 0.0;
-                cpu_text: root.sub3_running ? ((Math.round(root.sub3_cpu * 10.0) / 10.0) + "%") : "—";
-                ram_pct: root.sub3_running ? Math.min(1.0, root.sub3_ram / Math.max(1.0, root.system_ram_total_mb)) : 0.0;
-                ram_text: root.sub3_running ? (Math.round(root.sub3_ram) + " MB") : "—";
-                is_host: false;
-                action_btn_text: root.sub3_running ? "停止" : "启动";
-                is_dark: root.is_dark;
-                is_wide: false;
-                toggle_action => { root.action_toggle_sub(3); }
-                bring_action => { root.action_bring_sub(3); }
-                clear_action => {
-                    root.clear_target_slot = 3;
-                    root.show_clear_confirm = true;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: root.is_dark ? #0d1527 : #ffffff;
+                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+                border-width: 1px;
+                border-radius: 10px;
+
+                VerticalLayout {
+                    padding: 13px;
+                    spacing: 9px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 24px;
+                        Text {
+                            text: "运行概览";
+                            color: root.is_dark ? #f8fafc : #0f172a;
+                            font-size: 13.5px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.mem_breakdown_text;
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 10.5px;
+                            font-family: "Cascadia Mono";
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle {
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.is_dark ? #162032 : #e2e8f0;
+                        border-width: 1px;
+                        border-radius: 6px;
+                        height: 48px;
+                        VerticalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
+                            spacing: 3px;
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "总内存"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10px; }
+                                Text { text: root.total_mem_text; color: root.is_dark ? #f8fafc : #0f172a; font-size: 14px; font-weight: 700; font-family: "Cascadia Mono"; }
+                            }
+                            Rectangle {
+                                height: 4px;
+                                background: root.is_dark ? #141c2b : #e2e8f0;
+                                border-radius: 2px;
+                                Rectangle {
+                                    x: 0;
+                                    width: parent.width * Math.min(1.0, Math.max(0.0, root.total_mem_pct));
+                                    height: 4px;
+                                    border-radius: 2px;
+                                    background: #38bdf8;
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.is_dark ? #162032 : #e2e8f0;
+                        border-width: 1px;
+                        border-radius: 6px;
+                        VerticalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
+                            spacing: 3px;
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "配置同步:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: "skills / rules / plugins / mcp"; color: root.is_dark ? #34d399 : #059669; font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; }
+                            }
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "凭据隔离:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: "jetski-standalone-oauth-token"; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; }
+                            }
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "代理状态:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 11px; font-family: "Cascadia Mono"; }
+                                Text { text: root.proxy_injected ? "127.0.0.1:7890 (在线)" : "未注入"; color: root.proxy_injected ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 11px; font-family: "Cascadia Mono"; font-weight: 600; }
+                            }
+                        }
+                    }
+
+                    OutlineButton {
+                        text: "清理缓存";
+                        is_dark: root.is_dark;
+                        clicked => { root.action_clean_cache(); }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            background: root.is_dark ? #0d1527 : #ffffff;
+            border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+            border-width: 1px;
+            border-radius: 10px;
+
+            VerticalLayout {
+                padding: 13px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    height: 26px;
+
+                    Text {
+                        text: "分身管理";
+                        color: root.is_dark ? #f8fafc : #0f172a;
+                        font-size: 13.5px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 26px;
+                        height: 26px;
+                        border-radius: 4px;
+                        border-color: root.is_dark ? #1e293b : #cbd5e1;
+                        border-width: 1px;
+                        background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
+
+                        theme_ta := TouchArea {
+                            clicked => { root.toggle_theme(); }
+                            mouse-cursor: pointer;
+                        }
+
+                        Text {
+                            text: root.is_dark ? "☀" : "🌙";
+                            color: root.is_dark ? #f8fafc : #0f172a;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 12px;
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.sub1_running ? rgba(16, 185, 129, 0.4) : (root.is_dark ? #162032 : #e2e8f0);
+                        border-width: 1px;
+                        border-radius: 8px;
+
+                        VerticalLayout {
+                            padding: 11px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                height: 22px;
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    Rectangle {
+                                        width: 6px;
+                                        height: 6px;
+                                        border-radius: 3px;
+                                        background: root.sub1_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                        y: (parent.height - 6px) / 2;
+                                    }
+                                    Text {
+                                        text: "分身 1";
+                                        color: root.is_dark ? #f8fafc : #0f172a;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: root.sub1_running ? ("PID: " + root.sub1_pid) : "未运行";
+                                    color: root.sub1_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "目录: data/instance_1";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 10.5px;
+                                font-family: "Cascadia Mono";
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub1_cpu_text; is_dark: root.is_dark; }
+                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub1_ram_text; is_dark: root.is_dark; }
+                            }
+
+                            Rectangle {
+                                background: root.is_dark ? #0d1527 : #ffffff;
+                                border-color: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+                                border-width: 1px;
+                                border-radius: 4px;
+                                VerticalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    padding-top: 4px;
+                                    padding-bottom: 4px;
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub1_port; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "账号:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub1_token_present ? "已登录" : "未登录"; color: root.sub1_token_present ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                }
+                            }
+
+                            ScaleControl {
+                                scale_text: root.sub1_scale_text;
+                                is_dark: root.is_dark;
+                                dec_clicked => { root.adjust_sub_scale(1, -10); }
+                                inc_clicked => { root.adjust_sub_scale(1, 10); }
+                                reset_clicked => { root.reset_sub_scale(1); }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: root.sub1_running ? "打开" : "启动";
+                                    btn_color: root.sub1_running ? #38bdf8 : #10b981;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_launch_sub(1); }
+                                }
+                                if root.sub1_running : CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: "停止";
+                                    btn_color: #f43f5e;
+                                    text_color: #ffffff;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_stop_sub(1); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "清理凭据";
+                                    is_dark: root.is_dark;
+                                    is_disabled: root.sub1_running || !root.sub1_token_present;
+                                    clicked => { root.action_clear_token(1); }
+                                }
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "打开目录";
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_open_sandbox(1); }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.sub2_running ? rgba(16, 185, 129, 0.4) : (root.is_dark ? #162032 : #e2e8f0);
+                        border-width: 1px;
+                        border-radius: 8px;
+
+                        VerticalLayout {
+                            padding: 11px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                height: 22px;
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    Rectangle {
+                                        width: 6px;
+                                        height: 6px;
+                                        border-radius: 3px;
+                                        background: root.sub2_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                        y: (parent.height - 6px) / 2;
+                                    }
+                                    Text {
+                                        text: "分身 2";
+                                        color: root.is_dark ? #f8fafc : #0f172a;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: root.sub2_running ? ("PID: " + root.sub2_pid) : "未运行";
+                                    color: root.sub2_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "目录: data/instance_2";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 10.5px;
+                                font-family: "Cascadia Mono";
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub2_cpu_text; is_dark: root.is_dark; }
+                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub2_ram_text; is_dark: root.is_dark; }
+                            }
+
+                            Rectangle {
+                                background: root.is_dark ? #0d1527 : #ffffff;
+                                border-color: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+                                border-width: 1px;
+                                border-radius: 4px;
+                                VerticalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    padding-top: 4px;
+                                    padding-bottom: 4px;
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub2_port; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "账号:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub2_token_present ? "已登录" : "未登录"; color: root.sub2_token_present ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                }
+                            }
+
+                            ScaleControl {
+                                scale_text: root.sub2_scale_text;
+                                is_dark: root.is_dark;
+                                dec_clicked => { root.adjust_sub_scale(2, -10); }
+                                inc_clicked => { root.adjust_sub_scale(2, 10); }
+                                reset_clicked => { root.reset_sub_scale(2); }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: root.sub2_running ? "打开" : "启动";
+                                    btn_color: root.sub2_running ? #38bdf8 : #10b981;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_launch_sub(2); }
+                                }
+                                if root.sub2_running : CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: "停止";
+                                    btn_color: #f43f5e;
+                                    text_color: #ffffff;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_stop_sub(2); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "清理凭据";
+                                    is_dark: root.is_dark;
+                                    is_disabled: root.sub2_running || !root.sub2_token_present;
+                                    clicked => { root.action_clear_token(2); }
+                                }
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "打开目录";
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_open_sandbox(2); }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.sub3_running ? rgba(16, 185, 129, 0.4) : (root.is_dark ? #162032 : #e2e8f0);
+                        border-width: 1px;
+                        border-radius: 8px;
+
+                        VerticalLayout {
+                            padding: 11px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                height: 22px;
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    Rectangle {
+                                        width: 6px;
+                                        height: 6px;
+                                        border-radius: 3px;
+                                        background: root.sub3_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                        y: (parent.height - 6px) / 2;
+                                    }
+                                    Text {
+                                        text: "分身 3";
+                                        color: root.is_dark ? #f8fafc : #0f172a;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: root.sub3_running ? ("PID: " + root.sub3_pid) : "未运行";
+                                    color: root.sub3_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "目录: data/instance_3";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 10.5px;
+                                font-family: "Cascadia Mono";
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub3_cpu_text; is_dark: root.is_dark; }
+                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub3_ram_text; is_dark: root.is_dark; }
+                            }
+
+                            Rectangle {
+                                background: root.is_dark ? #0d1527 : #ffffff;
+                                border-color: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+                                border-width: 1px;
+                                border-radius: 4px;
+                                VerticalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    padding-top: 4px;
+                                    padding-bottom: 4px;
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub3_port; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "账号:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub3_token_present ? "已登录" : "未登录"; color: root.sub3_token_present ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                }
+                            }
+
+                            ScaleControl {
+                                scale_text: root.sub3_scale_text;
+                                is_dark: root.is_dark;
+                                dec_clicked => { root.adjust_sub_scale(3, -10); }
+                                inc_clicked => { root.adjust_sub_scale(3, 10); }
+                                reset_clicked => { root.reset_sub_scale(3); }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: root.sub3_running ? "打开" : "启动";
+                                    btn_color: root.sub3_running ? #38bdf8 : #10b981;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_launch_sub(3); }
+                                }
+                                if root.sub3_running : CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: "停止";
+                                    btn_color: #f43f5e;
+                                    text_color: #ffffff;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_stop_sub(3); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "清理凭据";
+                                    is_dark: root.is_dark;
+                                    is_disabled: root.sub3_running || !root.sub3_token_present;
+                                    clicked => { root.action_clear_token(3); }
+                                }
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "打开目录";
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_open_sandbox(3); }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: root.is_dark ? #090e1c : #f8fafc;
+                        border-color: root.sub4_running ? rgba(16, 185, 129, 0.4) : (root.is_dark ? #162032 : #e2e8f0);
+                        border-width: 1px;
+                        border-radius: 8px;
+
+                        VerticalLayout {
+                            padding: 11px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                height: 22px;
+                                HorizontalLayout {
+                                    spacing: 5px;
+                                    Rectangle {
+                                        width: 6px;
+                                        height: 6px;
+                                        border-radius: 3px;
+                                        background: root.sub4_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                        y: (parent.height - 6px) / 2;
+                                    }
+                                    Text {
+                                        text: "分身 4";
+                                        color: root.is_dark ? #f8fafc : #0f172a;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    text: root.sub4_running ? ("PID: " + root.sub4_pid) : "未运行";
+                                    color: root.sub4_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Text {
+                                text: "目录: data/instance_4";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 10.5px;
+                                font-family: "Cascadia Mono";
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub4_cpu_text; is_dark: root.is_dark; }
+                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub4_ram_text; is_dark: root.is_dark; }
+                            }
+
+                            Rectangle {
+                                background: root.is_dark ? #0d1527 : #ffffff;
+                                border-color: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+                                border-width: 1px;
+                                border-radius: 4px;
+                                VerticalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    padding-top: 4px;
+                                    padding-bottom: 4px;
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "端口:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub4_port; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "账号:"; color: root.is_dark ? #64748b : #94a3b8; font-size: 10.5px; font-family: "Cascadia Mono"; }
+                                        Text { text: root.sub4_token_present ? "已登录" : "未登录"; color: root.sub4_token_present ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8); font-size: 10.5px; font-family: "Cascadia Mono"; font-weight: 600; }
+                                    }
+                                }
+                            }
+
+                            ScaleControl {
+                                scale_text: root.sub4_scale_text;
+                                is_dark: root.is_dark;
+                                dec_clicked => { root.adjust_sub_scale(4, -10); }
+                                inc_clicked => { root.adjust_sub_scale(4, 10); }
+                                reset_clicked => { root.reset_sub_scale(4); }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: root.sub4_running ? "打开" : "启动";
+                                    btn_color: root.sub4_running ? #38bdf8 : #10b981;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_launch_sub(4); }
+                                }
+                                if root.sub4_running : CompactButton {
+                                    horizontal-stretch: 1;
+                                    text: "停止";
+                                    btn_color: #f43f5e;
+                                    text_color: #ffffff;
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_stop_sub(4); }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "清理凭据";
+                                    is_dark: root.is_dark;
+                                    is_disabled: root.sub4_running || !root.sub4_token_present;
+                                    clicked => { root.action_clear_token(4); }
+                                }
+                                OutlineButton {
+                                    horizontal-stretch: 1;
+                                    text: "打开目录";
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_open_sandbox(4); }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
         HorizontalLayout {
-            spacing: 16px;
-            vertical-stretch: 1;
-
-            Rectangle {
-                background: root.is_dark ? #0e121b : #ffffff;
-                border-color: root.is_dark ? #1e293b : #e2e8f0;
-                border-width: 1px;
-                border-radius: 10px;
-                horizontal-stretch: 4;
-
-                VerticalLayout {
-                    alignment: start;
-                    padding: 16px;
-                    spacing: 12px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 22px;
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text { text: "运行概览"; color: root.is_dark ? #f1f5f9 : #0f172a; font-size: 14px; font-weight: 700; vertical-alignment: center; }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #0b0f18 : #f8fafc;
-                        border-color: root.is_dark ? #1e293b : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 8px;
-                        height: 48px;
-
-                        HorizontalLayout {
-                            padding-left: 14px;
-                            padding-right: 14px;
-                            alignment: space-between;
-
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 2px;
-                                HorizontalLayout {
-                                    spacing: 4px;
-                                    Text { text: root.total_ram; color: root.is_dark ? #f1f5f9 : #0f172a; font-size: 20px; font-weight: 800; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                                }
-                                Text { text: "内存占用"; color: root.is_dark ? #94a3b8 : #64748b; font-size: 11px; }
-                            }
-
-                            HorizontalLayout {
-                                alignment: end;
-                                spacing: 8px;
-
-                                Rectangle {
-                                    background: root.is_dark ? #0a0e17 : #f1f5f9;
-                                    border-color: root.is_dark ? #1e293b : #cbd5e1;
-                                    border-width: 1px;
-                                    border-radius: 5px;
-                                    height: 26px;
-                                    y: (parent.height - 26px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 8px;
-                                        padding-right: 8px;
-                                        spacing: 5px;
-                                        alignment: center;
-                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #34d399; y: (parent.height - 6px) / 2; }
-                                        Text { text: "主号 " + Math.round(root.host_ram) + " MB"; color: root.is_dark ? #cbd5e1 : #1e293b; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                                    }
-                                }
-
-                                Rectangle {
-                                    background: root.is_dark ? #0a0e17 : #f1f5f9;
-                                    border-color: root.is_dark ? #1e293b : #cbd5e1;
-                                    border-width: 1px;
-                                    border-radius: 5px;
-                                    height: 26px;
-                                    y: (parent.height - 26px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 8px;
-                                        padding-right: 8px;
-                                        spacing: 5px;
-                                        alignment: center;
-                                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: #38bdf8; y: (parent.height - 6px) / 2; }
-                                        Text { text: "分身 " + Math.round(root.sub_ram) + " MB"; color: root.is_dark ? #cbd5e1 : #1e293b; font-size: 11px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #0b0f18 : #ffffff;
-                        border-color: root.is_dark ? #1e293b : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 8px;
-                        clip: true;
-
-                        VerticalLayout {
-                            spacing: 0px;
-
-                            EnvRow {
-                                is_dark: root.is_dark;
-                                row_key: "LS 监听";
-                                row_val: root.host_port != "--" ? ("127.0.0.1:" + root.host_port) : "未检测到监听";
-                                status_text: root.host_port != "--" ? "在线" : "待命";
-                                status_color: root.host_port != "--" ? #10b981 : #64748b;
-                            }
-                            EnvRow {
-                                is_dark: root.is_dark;
-                                row_key: "符号链接";
-                                row_val: "skills / rules / plugins / mcp";
-                                status_text: "已就绪";
-                                status_color: #10b981;
-                            }
-                            EnvRow {
-                                is_dark: root.is_dark;
-                                row_key: "系统代理";
-                                row_val: "127.0.0.1:7890";
-                                status_text: root.proxy_deployed ? "已注入" : "未启用";
-                                status_color: root.proxy_deployed ? #10b981 : #64748b;
-                            }
-                            EnvRow {
-                                is_dark: root.is_dark;
-                                row_key: "独立凭据";
-                                row_val: "jetski-standalone-oauth-token";
-                                status_text: root.token_present ? "已登录" : "未登录";
-                                status_color: root.token_present ? #10b981 : #64748b;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #0b0f18 : #f8fafc;
-                        border-color: root.is_dark ? #1e293b : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 8px;
-                        height: 68px;
-
-                        VerticalLayout {
-                            padding-left: 14px;
-                            padding-right: 14px;
-                            spacing: 6px;
-                            alignment: center;
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: "系统代理注入"; color: root.is_dark ? #cbd5e1 : #0f172a; font-size: 13px; font-weight: 600; vertical-alignment: center; }
-                                StatusPill { text: root.proxy_status; pill_color: root.proxy_color; show_dot: true; height: 22px; is_dark: root.is_dark; }
-                            }
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: "本地端口: 7890"; color: #64748b; font-size: 12px; font-family: "Cascadia Mono"; vertical-alignment: center; }
-
-                                HorizontalLayout {
-                                    spacing: 8px;
-                                    alignment: end;
-
-                                    ActionButton {
-                                        key_text: "";
-                                        label_text: "打开目录";
-                                        key_color: #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_open(); }
-                                    }
-
-                                    ActionButton {
-                                        key_text: "";
-                                        label_text: root.proxy_deployed ? "移除代理" : "接入代理";
-                                        key_color: root.proxy_deployed ? #f43f5e : #38bdf8;
-                                        text_color: root.proxy_deployed ? (root.is_dark ? #fecdd3 : #9f1239) : (root.is_dark ? #f8fafc : #0369a1);
-                                        base_background: root.proxy_deployed ? (root.is_dark ? #3c1622 : #ffe4e6) : (root.is_dark ? #0e2a44 : #e0f2fe);
-                                        hover_background: root.proxy_deployed ? (root.is_dark ? #521c29 : #fecdd3) : (root.is_dark ? #143d63 : #bae6fd);
-                                        pressed_background: root.proxy_deployed ? (root.is_dark ? #270d15 : #fda4af) : (root.is_dark ? #081a2b : #7dd3fc);
-                                        base_border: root.proxy_deployed ? (root.is_dark ? #be123c : #f43f5e) : (root.is_dark ? #0284c7 : #38bdf8);
-                                        hover_border: root.proxy_deployed ? #fb7185 : #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_proxy(); }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                background: root.is_dark ? #0e121b : #ffffff;
-                border-color: root.is_dark ? #1e293b : #e2e8f0;
-                border-width: 1px;
-                border-radius: 10px;
-                horizontal-stretch: 6;
-
-                VerticalLayout {
-                    padding: 16px;
-                    spacing: 10px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 28px;
-
-                        HorizontalLayout {
-                            spacing: 4px;
-                            alignment: start;
-
-                            LogTab {
-                                is_dark: root.is_dark;
-                                icon: "📋";
-                                title: "运行记录";
-                                is_active: root.current_stream_idx == 0;
-                                clicked => { root.select_stream_source(0); }
-                            }
-                            LogTab {
-                                is_dark: root.is_dark;
-                                icon: "⚡";
-                                title: "主号";
-                                is_active: root.current_stream_idx == 1;
-                                clicked => { root.select_stream_source(1); }
-                            }
-                            LogTab {
-                                is_dark: root.is_dark;
-                                icon: "🛡️";
-                                title: "分身";
-                                is_active: root.current_stream_idx == 2;
-                                clicked => { root.select_stream_source(2); }
-                            }
-                            LogTab {
-                                is_dark: root.is_dark;
-                                icon: "🌐";
-                                title: "代理";
-                                is_active: root.current_stream_idx == 3;
-                                clicked => { root.select_stream_source(3); }
-                            }
-                            LogTab {
-                                is_dark: root.is_dark;
-                                icon: "📦";
-                                title: "客户端";
-                                is_active: root.current_stream_idx == 4;
-                                clicked => { root.select_stream_source(4); }
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: end;
-
-                            Rectangle {
-                                background: root.is_dark ? #131b2b : #f1f5f9;
-                                border-color: root.is_dark ? #27354f : #cbd5e1;
-                                border-width: 1px;
-                                border-radius: 6px;
-                                height: 28px;
-                                HorizontalLayout {
-                                    padding-left: 10px;
-                                    padding-right: 10px;
-                                    alignment: center;
-                                    Text {
-                                        text: root.log_line_count + " 行";
-                                        color: root.is_dark ? #94a3b8 : #475569;
-                                        font-size: 11px;
-                                        font-family: "Cascadia Mono";
-                                        vertical-alignment: center;
-                                        horizontal-alignment: center;
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                background: ta_clear.pressed ? (root.is_dark ? #0b1019 : #cbd5e1) : (ta_clear.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #131b2b : #f1f5f9));
-                                border-color: ta_clear.has_hover ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #27354f : #cbd5e1);
-                                border-width: 1px;
-                                border-radius: 6px;
-                                height: 28px;
-                                ta_clear := TouchArea {
-                                    clicked => { root.action_clear_log(); }
-                                    mouse-cursor: pointer;
-                                }
-                                HorizontalLayout {
-                                    padding-left: 12px;
-                                    padding-right: 12px;
-                                    alignment: center;
-                                    Text {
-                                        text: "清空";
-                                        color: ta_clear.has_hover ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #94a3b8 : #475569);
-                                        font-size: 11px;
-                                        font-weight: 600;
-                                        vertical-alignment: center;
-                                        horizontal-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #06080d : #ffffff;
-                        border-color: root.is_dark ? #1e293b : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 8px;
-                        vertical-stretch: 1;
-                        clip: true;
-
-                        Rectangle {
-                            x: 0;
-                            y: 0;
-                            width: 44px;
-                            height: parent.height;
-                            background: root.is_dark ? #090c13 : #f8fafc;
-                            border-color: root.is_dark ? #141b28 : #e2e8f0;
-                            border-width: 1px;
-                        }
-
-                        ScrollView {
-                            x: 0;
-                            y: 0;
-                            width: parent.width;
-                            height: parent.height;
-
-                            VerticalLayout {
-                                alignment: start;
-                                spacing: 1px;
-                                padding-top: 6px;
-                                padding-bottom: 6px;
-
-                                if root.log_lines.length == 0 : Rectangle {
-                                    height: 140px;
-                                    HorizontalLayout {
-                                        alignment: center;
-                                        VerticalLayout {
-                                            alignment: center;
-                                            spacing: 4px;
-                                            Text {
-                                                text: "无日志";
-                                                color: root.is_dark ? #475569 : #94a3b8;
-                                                font-size: 13px;
-                                                horizontal-alignment: center;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                for line in root.log_lines : Rectangle {
-                                    height: 22px;
-                                    background: ta_row.has_hover ? rgba(255, 255, 255, 0.04) : transparent;
-                                    ta_row := TouchArea {}
-
-                                    HorizontalLayout {
-                                        padding-left: 6px;
-                                        padding-right: 12px;
-                                        spacing: 8px;
-
-                                        Text {
-                                            width: 32px;
-                                            text: line.line_no;
-                                            color: root.is_dark ? #475569 : #94a3b8;
-                                            font-size: 11px;
-                                            font-family: "Cascadia Mono";
-                                            horizontal-alignment: right;
-                                            vertical-alignment: center;
-                                        }
-
-                                        Text {
-                                            width: 60px;
-                                            text: line.time_str;
-                                            color: root.is_dark ? #64748b : #64748b;
-                                            font-size: 11px;
-                                            font-family: "Cascadia Mono";
-                                            vertical-alignment: center;
-                                        }
-
-                                        Rectangle {
-                                            background: line.level_color.transparentize(85%);
-                                            border-color: line.level_color.transparentize(60%);
-                                            border-width: 1px;
-                                            border-radius: 3px;
-                                            height: 16px;
-                                            y: (parent.height - 16px) / 2;
-
-                                            HorizontalLayout {
-                                                padding-left: 5px;
-                                                padding-right: 5px;
-                                                alignment: center;
-                                                Text {
-                                                    text: line.level;
-                                                    color: line.level_color;
-                                                    font-size: 10px;
-                                                    font-weight: 700;
-                                                    font-family: "Cascadia Mono";
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        if line.tag != "" : Text {
-                                            text: line.tag;
-                                            color: line.tag_color;
-                                            font-size: 11px;
-                                            font-weight: 600;
-                                            font-family: "Cascadia Mono";
-                                            vertical-alignment: center;
-                                        }
-
-                                        Text {
-                                            text: line.text;
-                                            color: root.is_dark ? line.text_color : (line.level == "ERROR" ? #e11d48 : (line.level == "WARN" ? #b45309 : (line.text_color == #e2e8f0 ? #1e293b : line.text_color)));
-                                            font-size: 12px;
-                                            font-family: "Cascadia Mono";
-                                            vertical-alignment: center;
-                                            overflow: elide;
-                                            horizontal-stretch: 1;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            background: root.is_dark ? #0e121b : #ffffff;
-            border-color: root.is_dark ? #1e293b : #e2e8f0;
-            border-width: 1px;
-            border-radius: 8px;
-            height: 32px;
+            height: 20px;
+            alignment: space-between;
 
             HorizontalLayout {
-                padding-left: 14px;
-                padding-right: 8px;
-                alignment: space-between;
+                spacing: 6px;
+                alignment: start;
 
-                HorizontalLayout {
-                    spacing: 6px;
-                    alignment: start;
-
-                    Text { text: "◆"; color: root.is_dark ? #38bdf8 : #0284c7; font-size: 13px; vertical-alignment: center; }
-                    Text { text: root.toast_message; color: root.is_dark ? #94a3b8 : #1e293b; font-size: 13px; vertical-alignment: center; }
-                }
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-
-                    Rectangle {
-                        background: root.is_dark ? #141b2b : #f1f5f9;
-                        border-color: root.is_dark ? #2a3648 : #cbd5e1;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 24px;
-                        y: (parent.height - 24px) / 2;
-
-                        HorizontalLayout {
-                            padding-left: 8px;
-                            padding-right: 8px;
-                            spacing: 4px;
-                            alignment: center;
-
-                            Text {
-                                text: root.is_slots_expanded ? "双开模式" : "四开扩展";
-                                color: root.is_dark ? #38bdf8 : #0284c7;
-                                font-size: 11px;
-                                font-weight: 600;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        TouchArea {
-                            clicked => {
-                                root.show_extra_slots = !root.is_slots_expanded;
-                            }
-                            mouse-cursor: pointer;
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #141b2b : #f1f5f9;
-                        border-color: root.is_dark ? #2a3648 : #cbd5e1;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 24px;
-                        y: (parent.height - 24px) / 2;
-
-                        HorizontalLayout {
-                            padding-left: 8px;
-                            padding-right: 8px;
-                            spacing: 4px;
-                            alignment: center;
-
-                            Text {
-                                text: root.is_dark ? "☀️ 浅色" : "🌙 深色";
-                                color: root.is_dark ? #38bdf8 : #0284c7;
-                                font-size: 11px;
-                                font-weight: 600;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        TouchArea {
-                            clicked => {
-                                root.toggle_theme();
-                            }
-                            mouse-cursor: pointer;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (root.show_clear_confirm) : Rectangle {
-        x: 0;
-        y: 0;
-        width: parent.width;
-        height: parent.height;
-        background: #000000bd;
-
-        TouchArea {
-        }
-
-        Rectangle {
-            width: 440px;
-            height: 180px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: #0f141f;
-            border-color: #334155;
-            border-width: 1px;
-            border-radius: 10px;
-
-            VerticalLayout {
-                padding: 20px;
-                spacing: 14px;
-                alignment: space-between;
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: start;
-                    Text {
-                        text: "⚠";
-                        color: #fb7185;
-                        font-size: 16px;
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: "退出分身账号确认";
-                        color: #f1f5f9;
-                        font-size: 15px;
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
+                Text {
+                    text: "◆";
+                    color: #38bdf8;
+                    font-size: 11px;
+                    vertical-alignment: center;
                 }
 
                 Text {
-                    text: "将退出该分身登录状态，下次启动需重新登录 Google 账号。是否继续？";
-                    color: #94a3b8;
-                    font-size: 13px;
-                    wrap: word-wrap;
-                }
-
-                HorizontalLayout {
-                    spacing: 12px;
-                    alignment: end;
-
-                    Rectangle {
-                        width: 96px;
-                        height: 30px;
-                        background: ta_dlg_cancel.has_hover ? #1e293b : #141b28;
-                        border-color: #334155;
-                        border-width: 1px;
-                        border-radius: 6px;
-
-                        ta_dlg_cancel := TouchArea {
-                            clicked => {
-                                root.show_clear_confirm = false;
-                            }
-                            mouse-cursor: pointer;
-                        }
-
-                        Text {
-                            text: "取消 (Esc)";
-                            color: #cbd5e1;
-                            font-size: 12px;
-                            font-weight: 600;
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
-
-                    Rectangle {
-                        width: 120px;
-                        height: 30px;
-                        background: ta_dlg_ok.has_hover ? #9f1239 : #be123c;
-                        border-color: #fb7185;
-                        border-width: 1px;
-                        border-radius: 6px;
-
-                        ta_dlg_ok := TouchArea {
-                            clicked => {
-                                root.show_clear_confirm = false;
-                                root.action_clear_sub(root.clear_target_slot);
-                            }
-                            mouse-cursor: pointer;
-                        }
-
-                        Text {
-                            text: "确认退出 (Enter)";
-                            color: #ffffff;
-                            font-size: 12px;
-                            font-weight: 600;
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
+                    text: root.toast_message;
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 11.5px;
+                    vertical-alignment: center;
                 }
             }
         }

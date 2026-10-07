@@ -27,15 +27,15 @@ pub struct TelemetryMonitor {
     sys: System,
     pub host: ProcessStats,
     pub sub: ProcessStats,
-    pub subs: [ProcessStats; 3],
+    pub subs: [ProcessStats; 4],
     pub total_memory_mb: f64,
     pub system_total_ram_mb: f64,
     cached_host_ls_pid: Option<u32>,
     cached_host_port: Option<u16>,
     host_port_retry_count: u32,
-    cached_sub_ls_pids: [Option<u32>; 3],
-    cached_sub_ports: [Option<u16>; 3],
-    sub_port_retry_counts: [u32; 3],
+    cached_sub_ls_pids: [Option<u32>; 4],
+    cached_sub_ports: [Option<u16>; 4],
+    sub_port_retry_counts: [u32; 4],
 }
 
 fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32) -> bool {
@@ -72,23 +72,28 @@ impl TelemetryMonitor {
             sys,
             host: ProcessStats::default(),
             sub: ProcessStats::default(),
-            subs: [ProcessStats::default(), ProcessStats::default(), ProcessStats::default()],
+            subs: [
+                ProcessStats::default(),
+                ProcessStats::default(),
+                ProcessStats::default(),
+                ProcessStats::default(),
+            ],
             total_memory_mb: 0.0,
             system_total_ram_mb,
             cached_host_ls_pid: None,
             cached_host_port: None,
             host_port_retry_count: 0,
-            cached_sub_ls_pids: [None; 3],
-            cached_sub_ports: [None; 3],
-            sub_port_retry_counts: [0; 3],
+            cached_sub_ls_pids: [None; 4],
+            cached_sub_ports: [None; 4],
+            sub_port_retry_counts: [0; 4],
         }
     }
 
     pub fn refresh_single(&mut self, known_sub_pid: Option<u32>) {
-        self.refresh([known_sub_pid, None, None]);
+        self.refresh([known_sub_pid, None, None, None]);
     }
 
-    pub fn refresh(&mut self, known_sub_pids: [Option<u32>; 3]) {
+    pub fn refresh(&mut self, known_sub_pids: [Option<u32>; 4]) {
         self.sys.refresh_memory();
         let refresh_kind = ProcessRefreshKind::nothing()
             .with_memory()
@@ -107,7 +112,10 @@ impl TelemetryMonitor {
                 continue;
             }
             let name = proc.name().to_string_lossy().to_lowercase();
-            let is_antigravity = (name == "antigravity.exe" || name == "antigravity") && !name.contains("ide") && !name.contains("multi") && !name.contains("cockpit");
+            let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
+                && !name.contains("ide")
+                && !name.contains("multi")
+                && !name.contains("cockpit");
             if !is_antigravity {
                 continue;
             }
@@ -122,8 +130,8 @@ impl TelemetryMonitor {
             let is_main_electron = !cmd_line.contains("--type=");
 
             let mut matched_slot = None;
-            for slot in 0..3 {
-                let tag = format!("instance_{}", slot + 2);
+            for slot in 0..4 {
+                let tag = format!("instance_{}", slot + 1);
                 if cmd_line.contains(&tag) {
                     matched_slot = Some(slot);
                     break;
@@ -135,14 +143,14 @@ impl TelemetryMonitor {
                     active_sub_pids[slot] = Some(pid_u32);
                 }
             } else if is_main_electron && host_electron_pid.is_none() {
-                let has_any_sub_tag = (0..3).any(|s| cmd_line.contains(&format!("instance_{}", s + 2)));
+                let has_any_sub_tag = (0..4).any(|s| cmd_line.contains(&format!("instance_{}", s + 1)));
                 if !has_any_sub_tag {
                     host_electron_pid = Some(pid_u32);
                 }
             }
         }
 
-        for slot in 0..3 {
+        for slot in 0..4 {
             if active_sub_pids[slot].is_none() {
                 if let Some(kpid) = known_sub_pids[slot] {
                     if self.sys.process(sysinfo::Pid::from_u32(kpid)).is_some() {
@@ -153,9 +161,9 @@ impl TelemetryMonitor {
         }
 
         let mut sub_electron_pids = active_sub_pids;
-        let mut sub_ls_pids = [None, None, None];
-        let mut sub_cpus = [0.0f32, 0.0f32, 0.0f32];
-        let mut sub_mem_bytes = [0u64, 0u64, 0u64];
+        let mut sub_ls_pids = [None, None, None, None];
+        let mut sub_cpus = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
+        let mut sub_mem_bytes = [0u64, 0u64, 0u64, 0u64];
 
         let mut host_ls_pid = None;
         let mut host_cpu = 0.0f32;
@@ -167,8 +175,12 @@ impl TelemetryMonitor {
                 continue;
             }
             let name = proc.name().to_string_lossy().to_lowercase();
-            let is_antigravity = (name == "antigravity.exe" || name == "antigravity") && !name.contains("ide") && !name.contains("multi") && !name.contains("cockpit");
-            let is_ls = (name == "language_server.exe" || name == "language_server" || name.contains("jetski")) && !name.contains("ide");
+            let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
+                && !name.contains("ide")
+                && !name.contains("multi")
+                && !name.contains("cockpit");
+            let is_ls = (name == "language_server.exe" || name == "language_server" || name.contains("jetski"))
+                && !name.contains("ide");
 
             if !is_antigravity && !is_ls {
                 continue;
@@ -182,8 +194,8 @@ impl TelemetryMonitor {
                 .join(" ");
 
             let mut matched_slot = None;
-            for slot in 0..3 {
-                let tag = format!("instance_{}", slot + 2);
+            for slot in 0..4 {
+                let tag = format!("instance_{}", slot + 1);
                 let is_slot_tag = cmd_line.contains(&tag);
                 let is_slot_main = active_sub_pids[slot] == Some(pid_u32);
                 let is_slot_descendant = active_sub_pids[slot]
@@ -241,7 +253,7 @@ impl TelemetryMonitor {
             self.host_port_retry_count = 0;
         }
 
-        for slot in 0..3 {
+        for slot in 0..4 {
             let ls_pid = sub_ls_pids[slot];
             if ls_pid != self.cached_sub_ls_pids[slot] {
                 self.cached_sub_ls_pids[slot] = ls_pid;
@@ -276,7 +288,7 @@ impl TelemetryMonitor {
             ls_port: self.cached_host_port,
         };
 
-        for slot in 0..3 {
+        for slot in 0..4 {
             self.subs[slot] = ProcessStats {
                 is_running: sub_electron_pids[slot].is_some(),
                 electron_pid: sub_electron_pids[slot],
@@ -289,9 +301,7 @@ impl TelemetryMonitor {
 
         self.sub = self.subs[0].clone();
         self.total_memory_mb = self.host.memory_rss_mb
-            + self.subs[0].memory_rss_mb
-            + self.subs[1].memory_rss_mb
-            + self.subs[2].memory_rss_mb;
+            + self.subs.iter().map(|s| s.memory_rss_mb).sum::<f64>();
         let total_ram = (self.sys.total_memory() as f64) / (1024.0 * 1024.0);
         if total_ram > 0.0 {
             self.system_total_ram_mb = total_ram;
