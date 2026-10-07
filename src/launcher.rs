@@ -561,9 +561,16 @@ impl LauncherConfig {
                 .join("workbench")
                 .join("jetskiAgent.js");
 
+            let langpack_dir = env::var("USERPROFILE").map(|home| {
+                PathBuf::from(home)
+                    .join(".antigravity-ide")
+                    .join("extensions")
+                    .join("ms-ceintl.vscode-language-pack-zh-hans-1.106.0")
+            });
+
             if jetski_script.exists() {
                 if let Ok(meta) = jetski_script.metadata() {
-                    meta.len() > 50000
+                    meta.len() > 50000 || langpack_dir.map(|p| p.exists()).unwrap_or(false)
                 } else {
                     false
                 }
@@ -611,40 +618,30 @@ impl LauncherConfig {
         let (cur_patched, _) = Self::check_ide_patch_status();
         let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
         let builder_dir = base.join("tools").join("ide_patch_builder");
+        let engine_script = builder_dir.join("tools").join("engine.js");
 
-        if cur_patched {
-            let restore_script = builder_dir.join("tools").join("apply.js");
-            if restore_script.exists() {
-                let out = Command::new("node")
-                    .arg(&restore_script)
-                    .arg("--restore")
-                    .current_dir(&builder_dir)
-                    .creation_flags(WIN32_DETACHED_FLAGS)
-                    .output()
-                    .context("Failed to run node apply.js --restore")?;
-                if !out.status.success() {
-                    let err = String::from_utf8_lossy(&out.stderr);
-                    anyhow::bail!("还原失败: {}", err.trim());
-                }
-            }
-            Ok(false)
-        } else {
-            let setup_script = builder_dir.join("tools").join("setup.js");
-            if !setup_script.exists() {
-                anyhow::bail!("未找到 IDE 汉化引擎 tools/ide_patch_builder/tools/setup.js");
-            }
-            let out = Command::new("node")
-                .arg(&setup_script)
-                .current_dir(&builder_dir)
-                .creation_flags(WIN32_DETACHED_FLAGS)
-                .output()
-                .context("Failed to run node setup.js")?;
-            if !out.status.success() {
-                let err = String::from_utf8_lossy(&out.stderr);
+        if !engine_script.exists() {
+            anyhow::bail!("未找到 IDE 汉化引擎 tools/ide_patch_builder/tools/engine.js");
+        }
+
+        let arg = if cur_patched { "--uninstall" } else { "--install" };
+        let out = Command::new("node")
+            .arg(&engine_script)
+            .arg(arg)
+            .current_dir(&builder_dir)
+            .creation_flags(WIN32_DETACHED_FLAGS)
+            .output()
+            .context("Failed to run node engine.js")?;
+
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            if cur_patched {
+                anyhow::bail!("还原失败: {}", err.trim());
+            } else {
                 anyhow::bail!("安装失败: {}", err.trim());
             }
-            Ok(true)
         }
+        Ok(!cur_patched)
     }
 }
 
