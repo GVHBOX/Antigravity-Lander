@@ -496,9 +496,9 @@ impl LauncherConfig {
         if let Ok(local) = env::var("LOCALAPPDATA") {
             let app_dir = PathBuf::from(&local).join("Programs").join("antigravity");
             let exe = app_dir.join("Antigravity.exe");
-            let res_dir = app_dir.join("resources");
-            let bak = res_dir.join("app.asar.bak");
-            let is_patched = bak.exists();
+            let asar = app_dir.join("resources").join("app.asar");
+
+            let is_patched = asar_has_injection_markers(&asar);
 
             let ver = if exe.exists() {
                 get_pe_version(&exe).map(|v| format!("v{}", v)).unwrap_or_else(|| "已安装".to_string())
@@ -512,119 +512,79 @@ impl LauncherConfig {
 
     pub fn toggle_ag2_patch() -> Result<bool> {
         let local = env::var("LOCALAPPDATA").context("LOCALAPPDATA not set")?;
-        let res_dir = PathBuf::from(local)
-            .join("Programs")
-            .join("antigravity")
-            .join("resources");
+        let app_dir = PathBuf::from(local).join("Programs").join("antigravity");
+        let res_dir = app_dir.join("resources");
         let asar = res_dir.join("app.asar");
-        let bak = res_dir.join("app.asar.bak");
-        let zh_backup = res_dir.join("app.asar.zh");
-        let local_patch = Self::resolve_base_dir()
-            .map(|b| b.join("data").join("patch").join("app.asar"))
-            .unwrap_or_else(|_| PathBuf::from("data").join("patch").join("app.asar"));
+        let exe = app_dir.join("Antigravity.exe");
 
-        if bak.exists() {
-            if asar.exists() {
-                let _ = fs::copy(&asar, &zh_backup);
-                let _ = fs::remove_file(&asar);
-            }
-            fs::rename(&bak, &asar)?;
+        if !asar.exists() {
+            anyhow::bail!("未找到 {:?}", asar);
+        }
+
+        let installed = get_pe_version(&exe);
+
+        if asar_has_injection_markers(&asar) {
+            Self::restore_ag2_from_same_version_backup(&asar, &res_dir, &installed)?;
             Ok(false)
-        } else if zh_backup.exists() {
-            if asar.exists() {
-                fs::copy(&asar, &bak)?;
-            }
-            fs::copy(&zh_backup, &asar)?;
-            Ok(true)
-        } else if local_patch.exists() {
-            if asar.exists() {
-                fs::copy(&asar, &bak)?;
-            }
-            fs::copy(&local_patch, &asar)?;
-            Ok(true)
         } else {
-            anyhow::bail!("未找到汉化包文件（请将汉化 app.asar 放入 data/patch 目录）")
+            Self::install_ag2_from_cached_or_engine(&asar, &res_dir, &installed)?;
+            Ok(true)
         }
     }
 
-    pub fn check_ide_patch_status() -> (bool, String) {
-        let is_patched = if let Ok(local) = env::var("LOCALAPPDATA") {
-            let jetski_script = PathBuf::from(&local)
-                .join("Programs")
-                .join("Antigravity IDE")
-                .join("resources")
-                .join("app")
-                .join("out")
-                .join("vs")
-                .join("code")
-                .join("electron-browser")
-                .join("workbench")
-                .join("jetskiAgent.js");
-
-            let langpack_dir = env::var("USERPROFILE").map(|home| {
-                PathBuf::from(home)
-                    .join(".antigravity-ide")
-                    .join("extensions")
-                    .join("ms-ceintl.vscode-language-pack-zh-hans-1.106.0")
-            });
-
-            if jetski_script.exists() {
-                if let Ok(meta) = jetski_script.metadata() {
-                    meta.len() > 50000 || langpack_dir.map(|p| p.exists()).unwrap_or(false)
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        } else {
-            false
+    fn restore_ag2_from_same_version_backup(
+        asar: &std::path::Path,
+        res_dir: &std::path::Path,
+        installed: &Option<String>,
+    ) -> Result<()> {
+        let bak = res_dir.join("app.asar.bak");
+        let backup_matches_host = match (installed, asar_version(&bak)) {
+            (Some(host), Some(bak)) => host == &bak,
+            _ => false,
         };
-
-        let mut ver = None;
-        if let Ok(local) = env::var("LOCALAPPDATA") {
-            let ide_dir = PathBuf::from(&local).join("Programs").join("Antigravity IDE");
-            let exe = ide_dir.join("Antigravity IDE.exe");
-            let product_json = ide_dir.join("resources").join("app").join("product.json");
-
-            if product_json.exists() {
-                if let Ok(content) = fs::read_to_string(&product_json) {
-                    for line in content.lines() {
-                        if line.contains("\"ideVersion\"") {
-                            if let Some(v) = line.split(':').nth(1) {
-                                let clean = v.trim().trim_matches(|c| c == '"' || c == ',' || c == ' ');
-                                if !clean.is_empty() {
-                                    ver = Some(format!("v{}", clean));
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if ver.is_none() && exe.exists() {
-                ver = get_pe_version(&exe).map(|v| format!("v{}", v));
-            }
-            if let Some(v) = ver {
-                return (is_patched, v);
-            } else if exe.exists() {
-                return (is_patched, "已安装".to_string());
-            }
+        if backup_matches_host {
+            fs::copy(&bak, asar)?;
+            Ok(())
+        } else {
+            Self::run_patch_engine("--restore")
         }
-        (false, "未安装".to_string())
     }
 
-    pub fn toggle_ide_patch() -> Result<bool> {
-        let (cur_patched, _) = Self::check_ide_patch_status();
-        let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let builder_dir = base.join("tools").join("ide_patch_builder");
-        let engine_script = builder_dir.join("tools").join("engine.js");
-
-        if !engine_script.exists() {
-            anyhow::bail!("未找到 IDE 汉化引擎 tools/ide_patch_builder/tools/engine.js");
+    fn install_ag2_from_cached_or_engine(
+        asar: &std::path::Path,
+        res_dir: &std::path::Path,
+        installed: &Option<String>,
+    ) -> Result<()> {
+        let cached = Self::cached_ag2_patch_path()
+            .filter(|p| installed.as_ref().map(|v| cached_patch_matches_host_version(p, v)).unwrap_or(false));
+        match cached {
+            Some(patch) => {
+                let bak = res_dir.join("app.asar.bak");
+                fs::copy(asar, &bak)?;
+                fs::copy(&patch, asar)?;
+                Ok(())
+            }
+            None => Self::run_patch_engine("--install"),
         }
+    }
 
-        let arg = if cur_patched { "--uninstall" } else { "--install" };
+    fn cached_ag2_patch_path() -> Option<PathBuf> {
+        let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let patch = base.join("data").join("patch").join("app.asar");
+        if patch.exists() {
+            Some(patch)
+        } else {
+            None
+        }
+    }
+
+    fn run_patch_engine(arg: &str) -> Result<()> {
+        let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let builder_dir = base.join("tools").join("patch_builder");
+        let engine_script = builder_dir.join("tools").join("engine.js");
+        if !engine_script.exists() {
+            anyhow::bail!("未找到汉化引擎 tools/patch_builder/tools/engine.js");
+        }
         let out = Command::new("node")
             .arg(&engine_script)
             .arg(arg)
@@ -633,15 +593,131 @@ impl LauncherConfig {
             .output()
             .context("Failed to run node engine.js")?;
 
-        if !out.status.success() {
+        if out.status.success() {
+            Ok(())
+        } else {
             let err = String::from_utf8_lossy(&out.stderr);
-            if cur_patched {
-                anyhow::bail!("还原失败: {}", err.trim());
-            } else {
-                anyhow::bail!("安装失败: {}", err.trim());
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let detail = if err.trim().is_empty() { stdout } else { err };
+            anyhow::bail!("{}", detail.trim())
+        }
+    }
+}
+
+const LOCALIZED_MARKERS: [&str; 3] = [
+    "Antigravity 2.0 Web UI DOM Localization Engine",
+    "Antigravity 2.0 Native Menu",
+    "menuTranslationMap",
+];
+
+fn asar_has_injection_markers(asar: &std::path::Path) -> bool {
+    let Ok(data) = fs::read(asar) else {
+        return false;
+    };
+    LOCALIZED_MARKERS
+        .iter()
+        .any(|m| find_bytes(&data, m.as_bytes()).is_some())
+}
+
+fn asar_version(asar: &std::path::Path) -> Option<String> {
+    let data = fs::read(asar).ok()?;
+    if data.len() < 16 {
+        return None;
+    }
+    let json_len = u32::from_le_bytes(data[12..16].try_into().ok()?) as usize;
+    if data.len() < 16 + json_len {
+        return None;
+    }
+    let header = std::str::from_utf8(&data[16..16 + json_len]).ok()?;
+    let pkg = asar_entry_text(&data, header, "package.json")?;
+    json_string_field(&pkg, "version")
+}
+
+fn root_files_direct_child(header: &str, name: &str) -> Option<String> {
+    let key = format!("\"{}\"", name);
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut index = 0usize;
+    let mut string_start = 0usize;
+    let bytes: Vec<char> = header.chars().collect();
+
+    while index < bytes.len() {
+        let ch = bytes[index];
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+                let literal: String = bytes[string_start..=index].iter().collect();
+                let after: String = bytes[index + 1..].iter().take(40).collect();
+                if depth == 2 && literal == key && after.trim_start().starts_with(':') {
+                    let rest: String = bytes[index + 1..].iter().collect();
+                    let body = rest.find('{')? + 1;
+                    return Some(rest[body..].to_string());
+                }
+            }
+        } else {
+            match ch {
+                '"' => {
+                    in_string = true;
+                    string_start = index;
+                }
+                '{' | '[' => depth += 1,
+                '}' | ']' => depth = depth.saturating_sub(1),
+                _ => {}
             }
         }
-        Ok(!cur_patched)
+        index += 1;
+    }
+    None
+}
+
+fn json_field_usize(text: &str, key: &str) -> Option<usize> {
+    let at = text.find(key)? + key.len();
+    let rest = &text[at..];
+    let colon = rest.find(':')? + 1;
+    let tail = rest[colon..].trim_start().trim_start_matches('"');
+    let end = tail.find(|c: char| !c.is_ascii_digit())?;
+    tail[..end].parse().ok()
+}
+
+fn asar_entry_text(data: &[u8], header: &str, name: &str) -> Option<String> {
+    let data_base = 8 + u32::from_le_bytes(data[4..8].try_into().ok()?) as usize;
+    let node = root_files_direct_child(header, name)?;
+    let offset = json_field_usize(&node, "\"offset\"")?;
+    let size = json_field_usize(&node, "\"size\"")?;
+    let start = data_base + offset;
+    if data.len() < start + size {
+        return None;
+    }
+    String::from_utf8(data[start..start + size].to_vec()).ok()
+}
+
+fn json_string_field(text: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{}\"", key);
+    let at = text.find(&needle)? + needle.len();
+    let rest = &text[at..];
+    let colon = rest.find(':')? + 1;
+    let tail = rest[colon..].trim_start();
+    let open = tail.find('"')? + 1;
+    let close = tail[open..].find('"')? + open;
+    Some(tail[open..close].to_string())
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn cached_patch_matches_host_version(patch: &std::path::Path, installed: &str) -> bool {
+    match asar_version(patch) {
+        Some(v) => v == installed,
+        None => false,
     }
 }
 

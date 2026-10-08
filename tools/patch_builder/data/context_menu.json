@@ -1,0 +1,22 @@
+{
+  "Cut": "剪切",
+  "Copy": "复制",
+  "Paste": "粘贴",
+  "Select All": "全选",
+  "Undo": "撤销",
+  "Redo": "重做",
+  "Delete": "删除",
+  "New Conversation": "新建对话",
+  "Fork Conversation": "派生对话",
+  "Rename": "重命名",
+  "Pin": "置顶",
+  "Unpin": "取消置顶",
+  "Close": "关闭",
+  "Close Others": "关闭其他",
+  "Close All": "全部关闭",
+  "Copy Path": "复制路径",
+  "Copy Relative Path": "复制相对路径",
+  "Reveal in File Explorer": "在文件资源管理器中显示",
+  "Reveal in Finder": "在访达中显示",
+  "Open in Terminal": "在终端中打开"
+}

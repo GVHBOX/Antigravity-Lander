@@ -239,7 +239,7 @@ impl App {
 
     pub fn toggle_or_deploy_proxy(&mut self) {
         let status = crate::proxy::ProxyManager::check_status();
-        if status.is_any_deployed() {
+        if status.is_fully_deployed() {
             match crate::proxy::ProxyManager::remove_all() {
                 Ok(msg) => {
                     self.add_log("PROXY", &msg);
@@ -256,10 +256,14 @@ impl App {
                 Ok(msg) => {
                     self.add_log("PROXY", &msg);
                     self.set_toast(msg, false);
-                    if !status.port_online {
+                    let now = crate::proxy::ProxyManager::check_status();
+                    let pending = now.pending_targets();
+                    if !pending.is_empty() {
+                        self.add_log("WARN", &format!("代理未写入: {}", pending.join(" & ")));
+                    }
+                    if !now.port_online {
                         self.add_log("WARN", "本地 7890 端口未监听。");
                     }
-
                 }
                 Err(e) => {
                     let err_msg = format!("部署代理失败: {}", e);

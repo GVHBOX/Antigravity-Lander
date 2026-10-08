@@ -348,9 +348,8 @@ export component MainWindow inherits Window {
 
     in property <bool> patch_ag2_installed: true;
     in property <string> patch_ag2_version: "--";
-    in property <bool> patch_ide_installed: false;
-    in property <string> patch_ide_version: "--";
     in property <bool> proxy_injected: false;
+    in property <string> proxy_status_text: "未注入";
     in property <string> proxy_port_text: "7890";
 
     in property <string> total_mem_text: "0.0 MB";
@@ -389,6 +388,9 @@ export component MainWindow inherits Window {
     in property <bool> sub4_token_present: false;
     in property <string> sub4_scale_text: "100%";
 
+    in-out property <bool> confirm_modal_visible: false;
+    in-out property <int> confirm_modal_slot: 0;
+
     callback toggle_theme();
     callback action_launch_host();
     callback action_launch_sub(int);
@@ -400,7 +402,6 @@ export component MainWindow inherits Window {
     callback action_check_patch();
 
     callback toggle_patch_ag2();
-    callback toggle_patch_ide();
     callback toggle_proxy();
 
     callback adjust_host_scale(int);
@@ -597,17 +598,8 @@ export component MainWindow inherits Window {
                     }
 
                     PatchItemRow {
-                        title: "Antigravity IDE";
-                        status_text: root.patch_ide_installed ? ("已汉化 (" + root.patch_ide_version + ")") : (root.patch_ide_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ide_version + ")"));
-                        is_installed: root.patch_ide_installed;
-                        btn_text: root.patch_ide_installed ? "卸载" : "安装";
-                        is_dark: root.is_dark;
-                        btn_clicked => { root.toggle_patch_ide(); }
-                    }
-
-                    PatchItemRow {
                         title: "系统代理 (" + root.proxy_port_text + ")";
-                        status_text: root.proxy_injected ? "已注入 (version.dll)" : "未注入";
+                        status_text: root.proxy_status_text;
                         is_installed: root.proxy_injected;
                         btn_text: root.proxy_injected ? "移除" : "注入";
                         is_dark: root.is_dark;
@@ -882,7 +874,10 @@ export component MainWindow inherits Window {
                                     text: "清理凭据";
                                     is_dark: root.is_dark;
                                     is_disabled: root.sub1_running || !root.sub1_token_present;
-                                    clicked => { root.action_clear_token(1); }
+                                    clicked => {
+                                        root.confirm_modal_slot = 1;
+                                        root.confirm_modal_visible = true;
+                                    }
                                 }
                                 OutlineButton {
                                     horizontal-stretch: 1;
@@ -1005,7 +1000,10 @@ export component MainWindow inherits Window {
                                     text: "清理凭据";
                                     is_dark: root.is_dark;
                                     is_disabled: root.sub2_running || !root.sub2_token_present;
-                                    clicked => { root.action_clear_token(2); }
+                                    clicked => {
+                                        root.confirm_modal_slot = 2;
+                                        root.confirm_modal_visible = true;
+                                    }
                                 }
                                 OutlineButton {
                                     horizontal-stretch: 1;
@@ -1128,7 +1126,10 @@ export component MainWindow inherits Window {
                                     text: "清理凭据";
                                     is_dark: root.is_dark;
                                     is_disabled: root.sub3_running || !root.sub3_token_present;
-                                    clicked => { root.action_clear_token(3); }
+                                    clicked => {
+                                        root.confirm_modal_slot = 3;
+                                        root.confirm_modal_visible = true;
+                                    }
                                 }
                                 OutlineButton {
                                     horizontal-stretch: 1;
@@ -1251,7 +1252,10 @@ export component MainWindow inherits Window {
                                     text: "清理凭据";
                                     is_dark: root.is_dark;
                                     is_disabled: root.sub4_running || !root.sub4_token_present;
-                                    clicked => { root.action_clear_token(4); }
+                                    clicked => {
+                                        root.confirm_modal_slot = 4;
+                                        root.confirm_modal_visible = true;
+                                    }
                                 }
                                 OutlineButton {
                                     horizontal-stretch: 1;
@@ -1286,6 +1290,77 @@ export component MainWindow inherits Window {
                     color: root.is_dark ? #94a3b8 : #64748b;
                     font-size: 11.5px;
                     vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    if root.confirm_modal_visible : Rectangle {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        background: root.is_dark ? rgba(0, 0, 0, 0.72) : rgba(0, 0, 0, 0.45);
+
+        TouchArea {
+            clicked => {
+                root.confirm_modal_visible = false;
+            }
+        }
+
+        Rectangle {
+            width: 320px;
+            height: 136px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: root.is_dark ? #0f172a : #ffffff;
+            border-color: root.is_dark ? #334155 : #cbd5e1;
+            border-width: 1px;
+            border-radius: 8px;
+
+            TouchArea {}
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                Text {
+                    text: "清理凭据";
+                    color: root.is_dark ? #f8fafc : #0f172a;
+                    font-size: 14px;
+                    font-weight: 700;
+                }
+
+                Text {
+                    text: "分身 " + root.confirm_modal_slot + " 登录凭据";
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 12px;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+
+                    OutlineButton {
+                        width: 72px;
+                        text: "取消";
+                        is_dark: root.is_dark;
+                        clicked => {
+                            root.confirm_modal_visible = false;
+                        }
+                    }
+
+                    CompactButton {
+                        width: 80px;
+                        text: "清理";
+                        btn_color: #f43f5e;
+                        text_color: #ffffff;
+                        is_dark: root.is_dark;
+                        clicked => {
+                            root.confirm_modal_visible = false;
+                            root.action_clear_token(root.confirm_modal_slot);
+                        }
+                    }
                 }
             }
         }

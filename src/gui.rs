@@ -436,12 +436,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let (ag2, ver1) = LauncherConfig::check_ag2_patch_status();
                 ui.set_patch_ag2_installed(ag2);
                 ui.set_patch_ag2_version(ver1.clone().into());
-                let (ide, ver2) = LauncherConfig::check_ide_patch_status();
-                ui.set_patch_ide_installed(ide);
-                ui.set_patch_ide_version(ver2.clone().into());
                 let p = ProxyManager::check_status();
                 ui.set_proxy_injected(p.is_any_deployed());
-                ui.set_toast_message(format!("版本检测已刷新 (桌面版 {}, IDE {})", ver1, ver2).into());
+                ui.set_proxy_status_text(p.status_text().into());
+                ui.set_toast_message(format!("版本检测已刷新 ({})", ver1).into());
             }
         }
     });
@@ -463,32 +461,17 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    main_window.on_toggle_patch_ide({
-        let ui_weak = main_window.as_weak();
-        move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                match LauncherConfig::toggle_ide_patch() {
-                    Ok(state) => {
-                        ui.set_patch_ide_installed(state);
-                        ui.set_toast_message(if state { "已安装 IDE 汉化" } else { "已还原 IDE 语言包" }.into());
-                    }
-                    Err(e) => {
-                        ui.set_toast_message(format!("{}", e).into());
-                    }
-                }
-            }
-        }
-    });
-
     main_window.on_toggle_proxy({
         let ui_weak = main_window.as_weak();
         move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let status = ProxyManager::check_status();
-                if status.is_any_deployed() {
+                if status.is_fully_deployed() {
                     match ProxyManager::remove_all() {
                         Ok(_) => {
-                            ui.set_proxy_injected(false);
+                            let now = ProxyManager::check_status();
+                            ui.set_proxy_injected(now.is_any_deployed());
+                            ui.set_proxy_status_text(now.status_text().into());
                             ui.set_toast_message("已移除系统代理".into());
                         }
                         Err(e) => {
@@ -498,8 +481,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 } else {
                     match ProxyManager::deploy_all() {
                         Ok(_) => {
-                            ui.set_proxy_injected(true);
-                            ui.set_toast_message("已开启系统代理".into());
+                            let now = ProxyManager::check_status();
+                            ui.set_proxy_injected(now.is_any_deployed());
+                            ui.set_proxy_status_text(now.status_text().into());
+                            let pending = now.pending_targets();
+                            if pending.is_empty() {
+                                ui.set_toast_message("已开启系统代理".into());
+                            } else {
+                                ui.set_toast_message(format!("代理未写入: {}", pending.join(" & ")).into());
+                            }
                         }
                         Err(e) => {
                             ui.set_toast_message(format!("开启代理失败: {}", e).into());
@@ -716,12 +706,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let (ag2, ver) = LauncherConfig::check_ag2_patch_status();
             ui.set_patch_ag2_installed(ag2);
             ui.set_patch_ag2_version(ver.into());
-            let (ide, ide_ver) = LauncherConfig::check_ide_patch_status();
-            ui.set_patch_ide_installed(ide);
-            ui.set_patch_ide_version(ide_ver.into());
 
             let p_status = ProxyManager::check_status();
             ui.set_proxy_injected(p_status.is_any_deployed());
+            ui.set_proxy_status_text(p_status.status_text().into());
         }
     });
 
