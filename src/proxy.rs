@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use anyhow::Result;
-use std::env;
 use std::fs;
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
@@ -133,13 +132,7 @@ pub struct ProxyManager;
 
 impl ProxyManager {
     pub fn app_dir() -> Option<PathBuf> {
-        let local_app_data = env::var("LOCALAPPDATA").ok()?;
-        let dir = PathBuf::from(local_app_data).join("Programs").join("antigravity");
-        if dir.exists() {
-            Some(dir)
-        } else {
-            None
-        }
+        crate::launcher::LauncherConfig::detect_app_dir().filter(|p| p.exists())
     }
 
     pub fn is_port_online(port: u16) -> bool {
@@ -214,7 +207,7 @@ impl ProxyManager {
         }
 
         let Some(dir) = Self::app_dir() else {
-            anyhow::bail!("未找到 Antigravity 安装目录！");
+            anyhow::bail!("未找到 Antigravity 安装目录");
         };
 
         Self::deploy_to_dir(&dir)?;
@@ -227,7 +220,7 @@ impl ProxyManager {
         }
 
         let Some(dir) = Self::app_dir() else {
-            anyhow::bail!("未找到 Antigravity 安装目录！");
+            anyhow::bail!("未找到 Antigravity 安装目录");
         };
 
         let mut summary = RemovalSummary {

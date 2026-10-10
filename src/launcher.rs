@@ -135,6 +135,11 @@ pub struct SandboxCache {
     pub bytes: u64,
 }
 
+pub struct CleanResult {
+    pub freed_bytes: u64,
+    pub has_locked_files: bool,
+}
+
 pub struct LauncherConfig {
     pub slot: usize,
     pub executable_path: PathBuf,
@@ -165,11 +170,7 @@ impl LauncherConfig {
         let roaming_dir = sandbox_root.join("AppData").join("Roaming");
         let token_path = home_dir.join(".gemini").join("jetski-standalone-oauth-token");
 
-        let local_app_data = env::var("LOCALAPPDATA").context("LOCALAPPDATA is not set")?;
-        let executable_path = PathBuf::from(local_app_data)
-            .join("Programs")
-            .join("antigravity")
-            .join("Antigravity.exe");
+        let executable_path = Self::detect_executable_path();
 
         Ok(Self {
             slot,
@@ -201,6 +202,114 @@ impl LauncherConfig {
             }
         }
         env::current_dir().context("Failed to get current directory")
+    }
+
+    pub fn detect_app_dir() -> Option<PathBuf> {
+        let mut sys = sysinfo::System::new();
+        let refresh_kind = sysinfo::ProcessRefreshKind::nothing()
+            .with_exe(sysinfo::UpdateKind::OnlyIfNotSet);
+        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
+        let self_pid = std::process::id();
+        for (pid, proc) in sys.processes() {
+            if pid.as_u32() == self_pid {
+                continue;
+            }
+            let name = proc.name().to_string_lossy().to_lowercase();
+            if (name == "antigravity.exe" || name == "antigravity")
+                && !name.contains("multi")
+                && !name.contains("cockpit")
+            {
+                if let Some(exe_path) = proc.exe() {
+                    if let Some(dir) = exe_path.parent() {
+                        if dir.join("Antigravity.exe").exists() || dir.join("antigravity.exe").exists() {
+                            return Some(dir.to_path_buf());
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Ok(local) = env::var("LOCALAPPDATA") {
+            let p = PathBuf::from(local).join("Programs").join("antigravity");
+            if p.join("Antigravity.exe").exists() || p.join("antigravity.exe").exists() {
+                return Some(p);
+            }
+        }
+
+        for var in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
+            if let Ok(pf) = env::var(var) {
+                let p1 = PathBuf::from(&pf).join("antigravity");
+                if p1.join("Antigravity.exe").exists() || p1.join("antigravity.exe").exists() {
+                    return Some(p1);
+                }
+                let p2 = PathBuf::from(&pf).join("Google").join("antigravity");
+                if p2.join("Antigravity.exe").exists() || p2.join("antigravity.exe").exists() {
+                    return Some(p2);
+                }
+            }
+        }
+
+        for d in ['C', 'D', 'E', 'F'] {
+            let p = PathBuf::from(format!("{}:\\Programs\\antigravity", d));
+            if p.join("Antigravity.exe").exists() || p.join("antigravity.exe").exists() {
+                return Some(p);
+            }
+        }
+
+        if let Ok(local) = env::var("LOCALAPPDATA") {
+            return Some(PathBuf::from(local).join("Programs").join("antigravity"));
+        }
+
+        None
+    }
+
+    pub fn detect_executable_path() -> PathBuf {
+        if let Some(dir) = Self::detect_app_dir() {
+            let exe1 = dir.join("Antigravity.exe");
+            if exe1.exists() {
+                return exe1;
+            }
+            let exe2 = dir.join("antigravity.exe");
+            if exe2.exists() {
+                return exe2;
+            }
+            exe1
+        } else {
+            PathBuf::from("Antigravity.exe")
+        }
+    }
+
+    pub fn find_node_executable() -> Option<PathBuf> {
+        if let Ok(output) = Command::new("node")
+            .arg("-v")
+            .creation_flags(WIN32_DETACHED_FLAGS)
+            .output()
+        {
+            if output.status.success() {
+                return Some(PathBuf::from("node"));
+            }
+        }
+        for var in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
+            if let Ok(pf) = env::var(var) {
+                let p = PathBuf::from(pf).join("nodejs").join("node.exe");
+                if p.exists() {
+                    return Some(p);
+                }
+            }
+        }
+        if let Ok(local) = env::var("LOCALAPPDATA") {
+            let p = PathBuf::from(local).join("Programs").join("node").join("node.exe");
+            if p.exists() {
+                return Some(p);
+            }
+        }
+        if let Ok(appdata) = env::var("APPDATA") {
+            let p = PathBuf::from(appdata).join("nvm").join("nodejs").join("node.exe");
+            if p.exists() {
+                return Some(p);
+            }
+        }
+        None
     }
 
 fn resolve_host_user_dir() -> Option<PathBuf> {
@@ -319,7 +428,7 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
 
         if !self.executable_path.exists() {
             anyhow::bail!(
-                "Antigravity.exe not found at {:?}. Please verify installation.",
+                "未找到 Antigravity.exe: {:?}",
                 self.executable_path
             );
         }
@@ -402,15 +511,11 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn spawn_host_native() -> Result<u32> {
-        let local_app_data = env::var("LOCALAPPDATA").context("LOCALAPPDATA is not set")?;
-        let executable_path = PathBuf::from(local_app_data)
-            .join("Programs")
-            .join("antigravity")
-            .join("Antigravity.exe");
+        let executable_path = Self::detect_executable_path();
 
         if !executable_path.exists() {
             anyhow::bail!(
-                "Antigravity.exe not found at {:?}. Please verify installation.",
+                "未找到 Antigravity.exe: {:?}",
                 executable_path
             );
         }
@@ -512,16 +617,9 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn open_app_dir_in_explorer() -> Result<()> {
-        let path = if let Ok(local) = env::var("LOCALAPPDATA") {
-            let p = PathBuf::from(local).join("Programs").join("antigravity");
-            if p.exists() {
-                p
-            } else {
-                env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-            }
-        } else {
+        let path = Self::detect_app_dir().unwrap_or_else(|| {
             env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-        };
+        });
         Command::new("explorer.exe")
             .arg(&path)
             .spawn()
@@ -543,17 +641,37 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
             .collect()
     }
 
-    pub fn clean_sandbox_cache(running_slots: &[bool; 4]) -> Result<()> {
+    pub fn clean_sandbox_cache(running_slots: &[bool; 4]) -> Result<CleanResult> {
+        let before_caches = Self::scan_sandbox_cache(running_slots);
+        let before_total: u64 = before_caches.iter().map(|c| c.bytes).sum();
+        let mut has_locked_files = false;
+
         for slot in 1..=4 {
             if running_slots[slot - 1] {
                 continue;
             }
             let conf = Self::for_slot(slot)?;
             for dir in Self::cache_dirs(&conf) {
-                let _ = fs::remove_dir_all(&dir);
+                if dir.exists() {
+                    if fs::remove_dir_all(&dir).is_err() {
+                        has_locked_files = true;
+                    }
+                }
             }
         }
-        Ok(())
+
+        let after_caches = Self::scan_sandbox_cache(running_slots);
+        let after_total: u64 = after_caches.iter().map(|c| c.bytes).sum();
+        let freed_bytes = before_total.saturating_sub(after_total);
+
+        if after_total > 0 {
+            has_locked_files = true;
+        }
+
+        Ok(CleanResult {
+            freed_bytes,
+            has_locked_files,
+        })
     }
 
     pub fn is_antigravity_running() -> bool {
@@ -598,8 +716,7 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn check_ag2_patch_status() -> (bool, String) {
-        if let Ok(local) = env::var("LOCALAPPDATA") {
-            let app_dir = PathBuf::from(&local).join("Programs").join("antigravity");
+        if let Some(app_dir) = Self::detect_app_dir() {
             let exe = app_dir.join("Antigravity.exe");
             let asar = app_dir.join("resources").join("app.asar");
 
@@ -620,8 +737,9 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
             anyhow::bail!("Antigravity 运行中");
         }
 
-        let local = env::var("LOCALAPPDATA").context("LOCALAPPDATA not set")?;
-        let app_dir = PathBuf::from(local).join("Programs").join("antigravity");
+        let Some(app_dir) = Self::detect_app_dir() else {
+            anyhow::bail!("未找到 Antigravity 安装目录");
+        };
         let res_dir = app_dir.join("resources");
         let asar = res_dir.join("app.asar");
         let exe = app_dir.join("Antigravity.exe");
@@ -694,13 +812,16 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
         if !engine_script.exists() {
             anyhow::bail!("未找到汉化引擎 tools/patch_builder/tools/engine.js");
         }
-        let out = Command::new("node")
+        let Some(node_exe) = Self::find_node_executable() else {
+            anyhow::bail!("未检测到 Node.js 环境，无法构建汉化包");
+        };
+        let out = Command::new(&node_exe)
             .arg(&engine_script)
             .arg(arg)
             .current_dir(&builder_dir)
             .creation_flags(WIN32_DETACHED_FLAGS)
             .output()
-            .context("Failed to run node engine.js")?;
+            .with_context(|| format!("运行 Node.js 失败: {:?}", node_exe))?;
 
         if out.status.success() {
             Ok(())

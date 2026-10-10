@@ -190,7 +190,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let monitor = Arc::new(Mutex::new(TelemetryMonitor::new()));
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
-    let scanned_cache_bytes_clean = Arc::clone(&scanned_cache_bytes);
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
 
     let main_window = MainWindow::new()?;
@@ -209,14 +208,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let tray_menu = tray_icon::menu::Menu::new();
     let item_show = tray_icon::menu::MenuItem::new("显示窗口", true, None);
     let item_sub1 = tray_icon::menu::MenuItem::new("启动/打开分身 1", true, None);
+    let item_sub2 = tray_icon::menu::MenuItem::new("启动/打开分身 2", true, None);
+    let item_sub3 = tray_icon::menu::MenuItem::new("启动/打开分身 3", true, None);
+    let item_sub4 = tray_icon::menu::MenuItem::new("启动/打开分身 4", true, None);
     let sep = tray_icon::menu::PredefinedMenuItem::separator();
     let item_quit = tray_icon::menu::MenuItem::new("退出", true, None);
 
     let show_id = item_show.id().clone();
     let sub1_id = item_sub1.id().clone();
+    let sub2_id = item_sub2.id().clone();
+    let sub3_id = item_sub3.id().clone();
+    let sub4_id = item_sub4.id().clone();
     let quit_id = item_quit.id().clone();
 
-    tray_menu.append_items(&[&item_show, &item_sub1, &sep, &item_quit])?;
+    tray_menu.append_items(&[
+        &item_show,
+        &item_sub1,
+        &item_sub2,
+        &item_sub3,
+        &item_sub4,
+        &sep,
+        &item_quit,
+    ])?;
     let tray_icon_img = tray_icon::Icon::from_rgba(ICON_RGBA.to_vec(), 32, 32)?;
     let _tray = tray_icon::TrayIconBuilder::new()
         .with_menu(Box::new(tray_menu))
@@ -227,6 +240,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     let sub_pids_tray = Arc::clone(&sub_pids);
     let ui_weak_tray = main_window.as_weak();
+    let mon_tray = Arc::clone(&monitor);
 
     tray_icon::TrayIconEvent::set_event_handler(Some({
         let ui_weak = ui_weak_tray.clone();
@@ -250,24 +264,46 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     tray_icon::menu::MenuEvent::set_event_handler(Some({
         let pid_lock = sub_pids_tray;
         let ui_weak = ui_weak_tray.clone();
+        let mon_arc = mon_tray;
         move |event: tray_icon::menu::MenuEvent| {
             if event.id == show_id {
                 #[cfg(target_os = "windows")]
                 show_cockpit_from_tray(&ui_weak);
-            } else if event.id == sub1_id {
-                let pid_lock = pid_lock.clone();
-                let _ = slint::invoke_from_event_loop(move || {
-                    let mut p = pid_lock.lock().unwrap();
-                    if let Ok(c) = LauncherConfig::for_slot(1) {
-                        if let Some(pid) = p[0] {
-                            c.bring_to_front(pid);
-                        } else if let Ok(new_pid) = c.spawn_detached() {
-                            p[0] = Some(new_pid);
-                        }
-                    }
-                });
             } else if event.id == quit_id {
                 std::process::exit(0);
+            } else {
+                let target_slot = if event.id == sub1_id {
+                    Some(1usize)
+                } else if event.id == sub2_id {
+                    Some(2usize)
+                } else if event.id == sub3_id {
+                    Some(3usize)
+                } else if event.id == sub4_id {
+                    Some(4usize)
+                } else {
+                    None
+                };
+
+                if let Some(slot) = target_slot {
+                    let pid_lock = pid_lock.clone();
+                    let mon_arc = Arc::clone(&mon_arc);
+                    let _ = slint::invoke_from_event_loop(move || {
+                        let idx = slot - 1;
+                        let running_pid = {
+                            let mon = mon_arc.lock().unwrap();
+                            let pids = pid_lock.lock().unwrap();
+                            mon.subs[idx].electron_pid.or(pids[idx])
+                        };
+                        if let Ok(c) = LauncherConfig::for_slot(slot) {
+                            if let Some(pid) = running_pid {
+                                c.bring_to_front(pid);
+                            } else if let Ok(new_pid) = c.spawn_detached() {
+                                let mut pids = pid_lock.lock().unwrap();
+                                pids[idx] = Some(new_pid);
+                            }
+                        }
+                    });
+                }
             }
         }
     }));
@@ -507,7 +543,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     main_window.on_action_clean_cache({
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
-        let cache_bytes = Arc::clone(&scanned_cache_bytes_clean);
         move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
@@ -522,11 +557,16 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     mon.subs[3].is_running,
                 ]
             };
-            let bytes = *cache_bytes.lock().unwrap();
             match LauncherConfig::clean_sandbox_cache(&running) {
-                Ok(()) => {
-                    let mb = bytes as f64 / (1024.0 * 1024.0);
-                    ui.set_toast_message(format!("缓存已清理 ({:.1} MB)", mb).into());
+                Ok(res) => {
+                    let mb = res.freed_bytes as f64 / (1024.0 * 1024.0);
+                    if res.has_locked_files && mb > 0.0 {
+                        ui.set_toast_message(format!("已清理 {:.1} MB，部分文件被占用", mb).into());
+                    } else if res.has_locked_files && mb == 0.0 {
+                        ui.set_toast_message("文件被占用，无法清理".into());
+                    } else {
+                        ui.set_toast_message(format!("缓存已清理 ({:.1} MB)", mb).into());
+                    }
                 }
                 Err(e) => {
                     ui.set_toast_message(format!("清理缓存失败: {}", e).into());
