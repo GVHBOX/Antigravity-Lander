@@ -11,5 +11,8 @@
     "build-patch": "node tools/engine.js --build-patch",
     "clean-cache": "node tools/engine.js --clean-cache"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@electron/asar": "^4.3.1"
+  }
 }

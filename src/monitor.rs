@@ -89,6 +89,14 @@ impl TelemetryMonitor {
         }
     }
 
+    pub fn is_pid_alive(&self, pid: u32) -> bool {
+        self.sys.process(sysinfo::Pid::from_u32(pid)).is_some()
+    }
+
+    pub fn process_memory_mb(&self, pid: u32) -> Option<f64> {
+        self.sys.process(sysinfo::Pid::from_u32(pid)).map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
+    }
+
     pub fn refresh_single(&mut self, known_sub_pid: Option<u32>) {
         self.refresh([known_sub_pid, None, None, None]);
     }
@@ -103,8 +111,8 @@ impl TelemetryMonitor {
         self.sys.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
 
         let self_pid = std::process::id();
-        let mut active_sub_pids = known_sub_pids;
         let mut host_electron_pid = None;
+        let mut sub_main_pids = [None; 4];
 
         for (pid, proc) in self.sys.processes() {
             let pid_u32 = pid.as_u32();
@@ -113,7 +121,6 @@ impl TelemetryMonitor {
             }
             let name = proc.name().to_string_lossy().to_lowercase();
             let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
-                && !name.contains("ide")
                 && !name.contains("multi")
                 && !name.contains("cockpit");
             if !is_antigravity {
@@ -132,35 +139,28 @@ impl TelemetryMonitor {
             let mut matched_slot = None;
             for slot in 0..4 {
                 let tag = format!("instance_{}", slot + 1);
-                if cmd_line.contains(&tag) {
+                if cmd_line.contains(&tag) || (known_sub_pids[slot] == Some(pid_u32) && is_main_electron) {
                     matched_slot = Some(slot);
                     break;
                 }
             }
 
             if let Some(slot) = matched_slot {
-                if is_main_electron || active_sub_pids[slot].is_none() {
-                    active_sub_pids[slot] = Some(pid_u32);
+                if is_main_electron && sub_main_pids[slot].is_none() {
+                    sub_main_pids[slot] = Some(pid_u32);
                 }
             } else if is_main_electron && host_electron_pid.is_none() {
                 let has_any_sub_tag = (0..4).any(|s| cmd_line.contains(&format!("instance_{}", s + 1)));
-                if !has_any_sub_tag {
+                let is_any_known_sub = known_sub_pids.iter().any(|k| *k == Some(pid_u32));
+                if !has_any_sub_tag && !is_any_known_sub {
                     host_electron_pid = Some(pid_u32);
                 }
             }
         }
 
-        for slot in 0..4 {
-            if active_sub_pids[slot].is_none() {
-                if let Some(kpid) = known_sub_pids[slot] {
-                    if self.sys.process(sysinfo::Pid::from_u32(kpid)).is_some() {
-                        active_sub_pids[slot] = Some(kpid);
-                    }
-                }
-            }
-        }
+        let active_sub_pids = sub_main_pids;
 
-        let mut sub_electron_pids = active_sub_pids;
+        let sub_electron_pids = active_sub_pids;
         let mut sub_ls_pids = [None, None, None, None];
         let mut sub_cpus = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
         let mut sub_mem_bytes = [0u64, 0u64, 0u64, 0u64];
@@ -176,11 +176,9 @@ impl TelemetryMonitor {
             }
             let name = proc.name().to_string_lossy().to_lowercase();
             let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
-                && !name.contains("ide")
                 && !name.contains("multi")
                 && !name.contains("cockpit");
-            let is_ls = (name == "language_server.exe" || name == "language_server" || name.contains("jetski"))
-                && !name.contains("ide");
+            let is_ls = name == "language_server.exe" || name == "language_server" || name.contains("jetski");
 
             if !is_antigravity && !is_ls {
                 continue;
@@ -211,8 +209,6 @@ impl TelemetryMonitor {
             if let Some(slot) = matched_slot {
                 if is_ls && sub_ls_pids[slot].is_none() {
                     sub_ls_pids[slot] = Some(pid_u32);
-                } else if is_antigravity && sub_electron_pids[slot].is_none() {
-                    sub_electron_pids[slot] = Some(pid_u32);
                 }
                 sub_cpus[slot] += proc.cpu_usage();
                 sub_mem_bytes[slot] += proc.memory();
@@ -221,13 +217,10 @@ impl TelemetryMonitor {
                 let is_host_descendant = host_electron_pid
                     .map(|main_pid| is_descendant_of(&self.sys, *pid, main_pid))
                     .unwrap_or(false);
-                let is_fallback_host_electron = is_antigravity && !cmd_line.contains("--type=") && host_electron_pid.is_none();
 
-                if is_host_main || is_host_descendant || is_fallback_host_electron || host_electron_pid.is_some() {
+                if is_host_main || is_host_descendant {
                     if is_ls && host_ls_pid.is_none() {
                         host_ls_pid = Some(pid_u32);
-                    } else if is_antigravity && host_electron_pid.is_none() {
-                        host_electron_pid = Some(pid_u32);
                     }
                     host_cpu += proc.cpu_usage();
                     host_mem_bytes += proc.memory();

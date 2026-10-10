@@ -122,6 +122,19 @@ impl ScaleSettings {
     }
 }
 
+const CACHE_TARGETS: [&str; 5] = [
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+];
+
+pub struct SandboxCache {
+    pub slot: usize,
+    pub bytes: u64,
+}
+
 pub struct LauncherConfig {
     pub slot: usize,
     pub executable_path: PathBuf,
@@ -134,6 +147,14 @@ pub struct LauncherConfig {
 impl LauncherConfig {
     pub fn new() -> Result<Self> {
         Self::for_slot(1)
+    }
+
+    pub fn ensure_all_sandboxes() -> Result<()> {
+        for slot in 1..=4 {
+            let conf = Self::for_slot(slot)?;
+            conf.ensure_sandbox_dirs()?;
+        }
+        Ok(())
     }
 
     pub fn for_slot(slot: usize) -> Result<Self> {
@@ -182,6 +203,29 @@ impl LauncherConfig {
         env::current_dir().context("Failed to get current directory")
     }
 
+fn resolve_host_user_dir() -> Option<PathBuf> {
+    if let (Ok(drive), Ok(path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
+        let p = PathBuf::from(format!("{}{}", drive, path));
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let (Ok(drive), Ok(user)) = (env::var("SystemDrive"), env::var("USERNAME")) {
+        let p = PathBuf::from(drive).join("Users").join(user);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let Ok(user) = env::var("USERPROFILE") {
+        let p = PathBuf::from(user);
+        let s = p.to_string_lossy().replace('/', "\\");
+        if !s.contains("\\data\\instance_") && p.exists() {
+            return Some(p);
+        }
+    }
+    None
+}
+
     pub fn ensure_sandbox_dirs(&self) -> Result<()> {
         fs::create_dir_all(&self.home_dir)
             .with_context(|| format!("Failed to create home dir: {:?}", self.home_dir))?;
@@ -191,8 +235,7 @@ impl LauncherConfig {
         let sandbox_config = self.home_dir.join(".gemini").join("config");
         let _ = fs::create_dir_all(&sandbox_config);
 
-        if let Ok(real_user) = env::var("USERPROFILE") {
-            let host_user = PathBuf::from(&real_user);
+        if let Some(host_user) = Self::resolve_host_user_dir() {
 
             let host_locallow = host_user.join("AppData").join("LocalLow");
             let sub_appdata = self.home_dir.join("AppData");
@@ -318,7 +361,7 @@ impl LauncherConfig {
             .output()
             .with_context(|| format!("Failed to execute taskkill for PID {}", pid))?;
 
-        if output.status.success() {
+        if output.status.success() || output.status.code() == Some(128) {
             return Ok(());
         }
 
@@ -338,6 +381,24 @@ impl LauncherConfig {
             pid,
             stderr.trim()
         )
+    }
+
+    pub fn kill_all_antigravity() -> Result<()> {
+        let _ = Command::new("taskkill")
+            .args(["/F", "/IM", "Antigravity.exe", "/T"])
+            .creation_flags(WIN32_DETACHED_FLAGS)
+            .output();
+        let _ = Command::new("taskkill")
+            .args(["/F", "/IM", "language_server.exe", "/T"])
+            .creation_flags(WIN32_DETACHED_FLAGS)
+            .output();
+        for _ in 0..30 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if !Self::is_antigravity_running() {
+                break;
+            }
+        }
+        Ok(())
     }
 
     pub fn spawn_host_native() -> Result<u32> {
@@ -377,7 +438,7 @@ impl LauncherConfig {
             use windows_sys::Win32::UI::WindowsAndMessaging::{
                 BringWindowToTop, EnumWindows, GetForegroundWindow,
                 GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic,
-                IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE,
+                IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
             };
 
             struct SearchState {
@@ -398,8 +459,9 @@ impl LauncherConfig {
                         let w = rect.right - rect.left;
                         let h = rect.bottom - rect.top;
                         let title_len = GetWindowTextLengthW(hwnd);
+                        let is_iconic = IsIconic(hwnd) != 0;
 
-                        if w > 100 && h > 100 && title_len > 0 {
+                        if ((w > 100 && h > 100) || is_iconic) && title_len > 0 {
                             state.best_hwnd = hwnd;
                             state.found_main = true;
                             return 0;
@@ -428,14 +490,18 @@ impl LauncherConfig {
                 };
                 let cur_thread = GetCurrentThreadId();
 
+                if IsIconic(state.best_hwnd) != 0 {
+                    ShowWindow(state.best_hwnd, SW_RESTORE);
+                } else {
+                    ShowWindow(state.best_hwnd, SW_SHOW);
+                }
+
                 if fg_thread != 0 && fg_thread != cur_thread {
                     AttachThreadInput(cur_thread, fg_thread, 1);
-                    ShowWindow(state.best_hwnd, SW_RESTORE);
                     SetForegroundWindow(state.best_hwnd);
                     BringWindowToTop(state.best_hwnd);
                     AttachThreadInput(cur_thread, fg_thread, 0);
                 } else {
-                    ShowWindow(state.best_hwnd, SW_RESTORE);
                     SetForegroundWindow(state.best_hwnd);
                     BringWindowToTop(state.best_hwnd);
                 }
@@ -463,33 +529,72 @@ impl LauncherConfig {
         Ok(())
     }
 
-    pub fn clean_inactive_caches(running_slots: &[bool]) -> usize {
-        let mut cleaned_bytes = 0usize;
-        let base = PathBuf::from("data");
+    pub fn scan_sandbox_cache(running_slots: &[bool; 4]) -> Vec<SandboxCache> {
+        (1..=4)
+            .filter(|slot| !running_slots[slot - 1])
+            .filter_map(|slot| {
+                let conf = Self::for_slot(slot).ok()?;
+                let bytes = Self::cache_dirs(&conf)
+                    .iter()
+                    .map(|dir| dir_size(dir))
+                    .sum::<u64>();
+                (bytes > 0).then_some(SandboxCache { slot, bytes })
+            })
+            .collect()
+    }
+
+    pub fn clean_sandbox_cache(running_slots: &[bool; 4]) -> Result<()> {
         for slot in 1..=4 {
-            if slot - 1 < running_slots.len() && running_slots[slot - 1] {
+            if running_slots[slot - 1] {
                 continue;
             }
-            let inst_dir = base.join(format!("instance_{}", slot));
-            let app_data = inst_dir.join("app_data").join("Antigravity");
-            if !app_data.exists() {
-                continue;
-            }
-            for target in ["Cache", "Code Cache", "GPUCache"] {
-                let cache_dir = app_data.join(target);
-                if cache_dir.exists() {
-                    if let Ok(entries) = fs::read_dir(&cache_dir) {
-                        for entry in entries.flatten() {
-                            if let Ok(meta) = entry.metadata() {
-                                cleaned_bytes += meta.len() as usize;
-                            }
-                        }
-                    }
-                    let _ = fs::remove_dir_all(&cache_dir);
-                }
+            let conf = Self::for_slot(slot)?;
+            for dir in Self::cache_dirs(&conf) {
+                let _ = fs::remove_dir_all(&dir);
             }
         }
-        cleaned_bytes
+        Ok(())
+    }
+
+    pub fn is_antigravity_running() -> bool {
+        let mut sys = sysinfo::System::new();
+        let refresh_kind = sysinfo::ProcessRefreshKind::nothing();
+        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
+        let self_pid = std::process::id();
+        for (pid, proc) in sys.processes() {
+            if pid.as_u32() == self_pid {
+                continue;
+            }
+            let name = proc.name().to_string_lossy().to_lowercase();
+            if (name == "antigravity.exe" || name == "antigravity")
+                && !name.contains("multi")
+                && !name.contains("cockpit")
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn cache_dirs(&self) -> Vec<PathBuf> {
+        let user_data = self.roaming_dir.join("Antigravity");
+        CACHE_TARGETS
+            .iter()
+            .filter_map(|name| {
+                let dir = user_data.join(name);
+                let inside = dir.parent().map(|p| p == user_data).unwrap_or(false);
+                let allowed = dir
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| CACHE_TARGETS.contains(&n))
+                    .unwrap_or(false);
+                let plain_dir = fs::symlink_metadata(&dir)
+                    .map(|m| m.is_dir())
+                    .unwrap_or(false);
+                let stays_inside = is_within(&dir, &user_data);
+                (inside && allowed && plain_dir && stays_inside).then_some(dir)
+            })
+            .collect()
     }
 
     pub fn check_ag2_patch_status() -> (bool, String) {
@@ -511,6 +616,10 @@ impl LauncherConfig {
     }
 
     pub fn toggle_ag2_patch() -> Result<bool> {
+        if Self::is_antigravity_running() {
+            anyhow::bail!("Antigravity 运行中");
+        }
+
         let local = env::var("LOCALAPPDATA").context("LOCALAPPDATA not set")?;
         let app_dir = PathBuf::from(local).join("Programs").join("antigravity");
         let res_dir = app_dir.join("resources");
@@ -714,6 +823,31 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
 
+fn dir_size(dir: &std::path::Path) -> u64 {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut total = 0u64;
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() {
+            total += dir_size(&entry.path());
+        } else if file_type.is_file() {
+            total += entry.metadata().map(|m| m.len()).unwrap_or(0);
+        }
+    }
+    total
+}
+
+fn is_within(target: &std::path::Path, root: &std::path::Path) -> bool {
+    match (fs::canonicalize(target), fs::canonicalize(root)) {
+        (Ok(target_real), Ok(root_real)) => target_real.starts_with(root_real),
+        _ => false,
+    }
+}
+
 fn cached_patch_matches_host_version(patch: &std::path::Path, installed: &str) -> bool {
     match asar_version(patch) {
         Some(v) => v == installed,
@@ -759,4 +893,3 @@ fn get_pe_version(path: &std::path::Path) -> Option<String> {
         Some(format!("{}.{}.{}", major, minor, patch))
     }
 }
-

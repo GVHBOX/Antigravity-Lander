@@ -20,11 +20,11 @@ pub struct App {
     pub sub_known_pid: Option<u32>,
     pub launcher_rss_mb: f64,
     pub should_quit: bool,
-    sys: sysinfo::System,
 }
 
 impl App {
     pub fn new() -> anyhow::Result<Self> {
+        let _ = LauncherConfig::ensure_all_sandboxes();
         let config = LauncherConfig::new()?;
         let monitor = TelemetryMonitor::new();
         let mut app = Self {
@@ -37,7 +37,6 @@ impl App {
             sub_known_pid: None,
             launcher_rss_mb: 5.2,
             should_quit: false,
-            sys: sysinfo::System::new(),
         };
 
         app.init_logs();
@@ -90,23 +89,25 @@ impl App {
 
         if let Some(pid) = self.monitor.sub.electron_pid {
             self.sub_known_pid = Some(pid);
-        } else if !self.monitor.sub.is_running {
-            self.sub_known_pid = None;
+        } else if let Some(known_pid) = self.sub_known_pid {
+            if !self.monitor.is_pid_alive(known_pid) {
+                self.sub_known_pid = None;
+            }
         }
 
         let current_pid = std::process::id();
-        self.sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[sysinfo::Pid::from_u32(current_pid)]), true);
-        if let Some(proc) = self.sys.process(sysinfo::Pid::from_u32(current_pid)) {
-            self.launcher_rss_mb = (proc.memory() as f64) / (1024.0 * 1024.0);
+        if let Some(mb) = self.monitor.process_memory_mb(current_pid) {
+            self.launcher_rss_mb = mb;
         }
     }
 
     pub fn launch_or_bring_to_front(&mut self) {
-        if let Some(pid) = self.sub_known_pid {
+        let running_pid = self.sub_known_pid.or(self.monitor.sub.electron_pid);
+        if let Some(pid) = running_pid {
             let brought = self.config.bring_to_front(pid);
             if brought {
                 let msg = if self.language == Language::Zh {
-                    format!("已唤醒分身窗口 (PID: {})。", pid)
+                    format!("已打开分身窗口 (PID: {})。", pid)
                 } else {
                     format!("Brought sub-instance window (PID: {}) to foreground.", pid)
                 };
@@ -114,7 +115,7 @@ impl App {
                 self.set_toast(msg, false);
             } else {
                 let msg = if self.language == Language::Zh {
-                    format!("分身正在独立运行中 (PID: {})。", pid)
+                    format!("分身正在运行 (PID: {})。", pid)
                 } else {
                     format!("Sub-instance is running (PID: {}).", pid)
                 };
@@ -126,9 +127,9 @@ impl App {
                 Ok(new_pid) => {
                     self.sub_known_pid = Some(new_pid);
                     let msg = if self.language == Language::Zh {
-                        format!("分身已在后台启动 (PID: {})。", new_pid)
+                        format!("分身已启动 (PID: {})。", new_pid)
                     } else {
-                        format!("Detached sub-instance spawned (PID: {}). Immune to terminal exit.", new_pid)
+                        format!("Detached sub-instance spawned (PID: {}).", new_pid)
                     };
                     self.add_log("SPAWN", &msg);
                     self.set_toast(msg, false);
@@ -223,9 +224,9 @@ impl App {
         match self.config.open_sandbox_in_explorer() {
             Ok(_) => {
                 let msg = if self.language == Language::Zh {
-                    "已在 Windows 资源管理器中打开数据目录。"
+                    "已打开数据目录。"
                 } else {
-                    "Opened data directory in Windows Explorer."
+                    "Opened data directory."
                 };
                 self.add_log("DATA", msg);
                 self.set_toast(msg, false);
@@ -238,10 +239,15 @@ impl App {
     }
 
     pub fn toggle_or_deploy_proxy(&mut self) {
+        if crate::proxy::ProxyManager::is_antigravity_running() {
+            self.set_toast("Antigravity 运行中", true);
+            return;
+        }
         let status = crate::proxy::ProxyManager::check_status();
         if status.is_fully_deployed() {
             match crate::proxy::ProxyManager::remove_all() {
-                Ok(msg) => {
+                Ok(summary) => {
+                    let msg = summary.status_text();
                     self.add_log("PROXY", &msg);
                     self.set_toast(msg, false);
                 }
@@ -275,12 +281,13 @@ impl App {
     }
 
     fn init_logs(&mut self) {
+        let dir_str = self.config.sandbox_root.display().to_string();
         if self.language == Language::Zh {
             self.add_log("SYSTEM", "管理程序就绪。");
-            self.add_log("DATA", "数据目录: data/instance_2");
+            self.add_log("DATA", format!("数据目录: {}", dir_str));
         } else {
             self.add_log("SYSTEM", "Manager ready.");
-            self.add_log("DATA", "Data directory: data/instance_2");
+            self.add_log("DATA", format!("Data directory: {}", dir_str));
         }
     }
 }

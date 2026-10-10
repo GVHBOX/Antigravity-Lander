@@ -364,12 +364,12 @@ fn render_sandbox_inspector(frame: &mut Frame, area: Rect, app: &App) {
     let lines = vec![
         Line::from(vec![
             Span::styled(" USERPROFILE : ", Style::default().fg(COLOR_SLATE_MUTED)),
-            Span::styled("...\\data\\instance_2\\home", Style::default().fg(Color::White)),
+            Span::styled(format!("...\\data\\{}\\home", app.config.sandbox_root.file_name().and_then(|f| f.to_str()).unwrap_or("instance_1")), Style::default().fg(Color::White)),
             Span::styled(format!(" [{}]", s.tag_isolated), Style::default().fg(COLOR_EMERALD).bold()),
         ]),
         Line::from(vec![
             Span::styled(" APPDATA     : ", Style::default().fg(COLOR_SLATE_MUTED)),
-            Span::styled("...\\data\\instance_2\\AppData\\Roaming", Style::default().fg(Color::White)),
+            Span::styled(format!("...\\data\\{}\\AppData\\Roaming", app.config.sandbox_root.file_name().and_then(|f| f.to_str()).unwrap_or("instance_1")), Style::default().fg(Color::White)),
             Span::styled(format!(" [{}]", s.tag_isolated), Style::default().fg(COLOR_EMERALD).bold()),
         ]),
         Line::from(vec![

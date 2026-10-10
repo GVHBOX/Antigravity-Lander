@@ -54,6 +54,18 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
 }
 
 #[cfg(target_os = "windows")]
+struct BrushHandle(windows_sys::Win32::Graphics::Gdi::HBRUSH);
+#[cfg(target_os = "windows")]
+unsafe impl Send for BrushHandle {}
+#[cfg(target_os = "windows")]
+unsafe impl Sync for BrushHandle {}
+
+#[cfg(target_os = "windows")]
+static DARK_BRUSH: std::sync::OnceLock<BrushHandle> = std::sync::OnceLock::new();
+#[cfg(target_os = "windows")]
+static LIGHT_BRUSH: std::sync::OnceLock<BrushHandle> = std::sync::OnceLock::new();
+
+#[cfg(target_os = "windows")]
 fn apply_dark_window_attributes(hwnd: windows_sys::Win32::Foundation::HWND) {
     use windows_sys::Win32::Graphics::Dwm::{
         DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
@@ -79,7 +91,9 @@ fn apply_dark_window_attributes(hwnd: windows_sys::Win32::Foundation::HWND) {
             &caption_color as *const _ as *const _,
             std::mem::size_of::<u32>() as u32,
         );
-        let brush = CreateSolidBrush(0x000E0907);
+        let brush = DARK_BRUSH.get_or_init(|| {
+            BrushHandle(CreateSolidBrush(0x000E0907))
+        }).0;
         if !brush.is_null() {
             SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, brush as _);
         }
@@ -112,7 +126,9 @@ fn apply_light_window_attributes(hwnd: windows_sys::Win32::Foundation::HWND) {
             &caption_color as *const _ as *const _,
             std::mem::size_of::<u32>() as u32,
         );
-        let brush = CreateSolidBrush(0x00F9F4F1);
+        let brush = LIGHT_BRUSH.get_or_init(|| {
+            BrushHandle(CreateSolidBrush(0x00F9F4F1))
+        }).0;
         if !brush.is_null() {
             SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, brush as _);
         }
@@ -162,10 +178,20 @@ fn show_cockpit_from_tray(ui_weak: &slint::Weak<MainWindow>) {
     });
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PendingPatchAction {
+    TogglePatchAg2,
+    ToggleProxy,
+}
+
 pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
+    let _ = LauncherConfig::ensure_all_sandboxes();
     let sub_pids = Arc::new(Mutex::new([None::<u32>; 4]));
     let monitor = Arc::new(Mutex::new(TelemetryMonitor::new()));
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
+    let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
+    let scanned_cache_bytes_clean = Arc::clone(&scanned_cache_bytes);
+    let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
 
     let main_window = MainWindow::new()?;
     main_window.set_is_dark(true);
@@ -284,8 +310,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
                 if let Some(pid) = pid_opt {
                     if let Ok(conf) = LauncherConfig::for_slot(1) {
-                        conf.bring_to_front(pid);
-                        ui.set_toast_message(format!("主账号已打开 (PID: {})", pid).into());
+                        if conf.bring_to_front(pid) {
+                            ui.set_toast_message(format!("主账号已打开 (PID: {})", pid).into());
+                        } else {
+                            ui.set_toast_message(format!("主账号正在运行 (PID: {})", pid).into());
+                        }
                     }
                 } else {
                     match LauncherConfig::spawn_host_native() {
@@ -303,6 +332,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_launch_sub({
         let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
             if slot < 1 || slot > 4 {
@@ -317,13 +347,23 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         return;
                     }
                 };
-                let mut pids = sub_pids.lock().unwrap();
-                if let Some(pid) = pids[idx] {
-                    conf.bring_to_front(pid);
-                    ui.set_toast_message(format!("分身 {} 已打开 (PID: {})", slot, pid).into());
+
+                let running_pid = {
+                    let mon = mon_arc.lock().unwrap();
+                    let pids = sub_pids.lock().unwrap();
+                    mon.subs[idx].electron_pid.or(pids[idx])
+                };
+
+                if let Some(pid) = running_pid {
+                    if conf.bring_to_front(pid) {
+                        ui.set_toast_message(format!("分身 {} 已打开 (PID: {})", slot, pid).into());
+                    } else {
+                        ui.set_toast_message(format!("分身 {} 正在运行 (PID: {})", slot, pid).into());
+                    }
                 } else {
                     match conf.spawn_detached() {
                         Ok(new_pid) => {
+                            let mut pids = sub_pids.lock().unwrap();
                             pids[idx] = Some(new_pid);
                             ui.set_toast_message(format!("分身 {} 已启动 (PID: {})", slot, new_pid).into());
                         }
@@ -338,6 +378,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_stop_sub({
         let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
             if slot < 1 || slot > 4 {
@@ -349,11 +390,25 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     Ok(c) => c,
                     Err(_) => return,
                 };
-                let mut pids = sub_pids.lock().unwrap();
-                if let Some(pid) = pids[idx] {
-                    let _ = conf.kill_sub_instance_by_pid(pid);
-                    pids[idx] = None;
-                    ui.set_toast_message(format!("分身 {} 已停止 (PID: {})", slot, pid).into());
+                let pid_to_kill = {
+                    let mon = mon_arc.lock().unwrap();
+                    let pids = sub_pids.lock().unwrap();
+                    mon.subs[idx].electron_pid.or(pids[idx])
+                };
+                if let Some(pid) = pid_to_kill {
+                    match conf.kill_sub_instance_by_pid(pid) {
+                        Ok(()) => {
+                            let mut pids = sub_pids.lock().unwrap();
+                            pids[idx] = None;
+                            let mut mon = mon_arc.lock().unwrap();
+                            mon.subs[idx].is_running = false;
+                            mon.subs[idx].electron_pid = None;
+                            ui.set_toast_message(format!("分身 {} 已停止 (PID: {})", slot, pid).into());
+                        }
+                        Err(e) => {
+                            ui.set_toast_message(format!("停止分身 {} 失败: {}", slot, e).into());
+                        }
+                    }
                 } else {
                     ui.set_toast_message(format!("分身 {} 未在运行", slot).into());
                 }
@@ -413,18 +468,69 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    main_window.on_action_scan_cache({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        let cache_bytes = Arc::clone(&scanned_cache_bytes);
+        move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let running = {
+                let mon = mon_arc.lock().unwrap();
+                [
+                    mon.subs[0].is_running,
+                    mon.subs[1].is_running,
+                    mon.subs[2].is_running,
+                    mon.subs[3].is_running,
+                ]
+            };
+            let found = LauncherConfig::scan_sandbox_cache(&running);
+            if found.is_empty() {
+                ui.set_toast_message("没有可清理的缓存".into());
+                return;
+            }
+            let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+            *cache_bytes.lock().unwrap() = total_bytes;
+            let total = total_bytes as f64 / (1024.0 * 1024.0);
+            let detail = found
+                .iter()
+                .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
+                .collect::<Vec<_>>()
+                .join("\n");
+            ui.set_cache_detail_text(detail.into());
+            ui.set_cache_total_text(format!("共 {:.1} MB", total).into());
+            ui.set_clean_modal_visible(true);
+        }
+    });
+
     main_window.on_action_clean_cache({
         let ui_weak = main_window.as_weak();
-        let sub_pids = Arc::clone(&sub_pids);
+        let mon_arc = Arc::clone(&monitor);
+        let cache_bytes = Arc::clone(&scanned_cache_bytes_clean);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let running = {
-                    let p = sub_pids.lock().unwrap();
-                    [p[0].is_some(), p[1].is_some(), p[2].is_some(), p[3].is_some()]
-                };
-                let bytes = LauncherConfig::clean_inactive_caches(&running);
-                let mb = (bytes as f64) / (1024.0 * 1024.0);
-                ui.set_toast_message(format!("缓存已清理 ({:.1} MB)", mb).into());
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            ui.set_clean_modal_visible(false);
+            let running = {
+                let mon = mon_arc.lock().unwrap();
+                [
+                    mon.subs[0].is_running,
+                    mon.subs[1].is_running,
+                    mon.subs[2].is_running,
+                    mon.subs[3].is_running,
+                ]
+            };
+            let bytes = *cache_bytes.lock().unwrap();
+            match LauncherConfig::clean_sandbox_cache(&running) {
+                Ok(()) => {
+                    let mb = bytes as f64 / (1024.0 * 1024.0);
+                    ui.set_toast_message(format!("缓存已清理 ({:.1} MB)", mb).into());
+                }
+                Err(e) => {
+                    ui.set_toast_message(format!("清理缓存失败: {}", e).into());
+                }
             }
         }
     });
@@ -437,17 +543,26 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 ui.set_patch_ag2_installed(ag2);
                 ui.set_patch_ag2_version(ver1.clone().into());
                 let p = ProxyManager::check_status();
-                ui.set_proxy_injected(p.is_any_deployed());
+                ui.set_proxy_injected(p.is_fully_deployed());
                 ui.set_proxy_status_text(p.status_text().into());
                 ui.set_toast_message(format!("版本检测已刷新 ({})", ver1).into());
             }
         }
     });
 
+    let pending_ag2 = Arc::clone(&pending_patch_action);
     main_window.on_toggle_patch_ag2({
         let ui_weak = main_window.as_weak();
         move || {
             if let Some(ui) = ui_weak.upgrade() {
+                if LauncherConfig::is_antigravity_running() {
+                    *pending_ag2.lock().unwrap() = Some(PendingPatchAction::TogglePatchAg2);
+                    ui.set_patch_modal_title("Antigravity 正在运行".into());
+                    ui.set_patch_modal_msg("文件被运行中的实例占用，需退出后继续。".into());
+                    ui.set_patch_modal_btn_text("关闭并应用".into());
+                    ui.set_patch_modal_visible(true);
+                    return;
+                }
                 match LauncherConfig::toggle_ag2_patch() {
                     Ok(state) => {
                         ui.set_patch_ag2_installed(state);
@@ -461,18 +576,27 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let pending_proxy = Arc::clone(&pending_patch_action);
     main_window.on_toggle_proxy({
         let ui_weak = main_window.as_weak();
         move || {
             if let Some(ui) = ui_weak.upgrade() {
+                if ProxyManager::is_antigravity_running() {
+                    *pending_proxy.lock().unwrap() = Some(PendingPatchAction::ToggleProxy);
+                    ui.set_patch_modal_title("Antigravity 正在运行".into());
+                    ui.set_patch_modal_msg("文件被运行中的实例占用，需退出后继续。".into());
+                    ui.set_patch_modal_btn_text("关闭并应用".into());
+                    ui.set_patch_modal_visible(true);
+                    return;
+                }
                 let status = ProxyManager::check_status();
                 if status.is_fully_deployed() {
                     match ProxyManager::remove_all() {
-                        Ok(_) => {
+                        Ok(summary) => {
                             let now = ProxyManager::check_status();
-                            ui.set_proxy_injected(now.is_any_deployed());
+                            ui.set_proxy_injected(now.is_fully_deployed());
                             ui.set_proxy_status_text(now.status_text().into());
-                            ui.set_toast_message("已移除系统代理".into());
+                            ui.set_toast_message(summary.status_text().into());
                         }
                         Err(e) => {
                             ui.set_toast_message(format!("移除代理失败: {}", e).into());
@@ -480,21 +604,72 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
                 } else {
                     match ProxyManager::deploy_all() {
-                        Ok(_) => {
+                        Ok(msg) => {
                             let now = ProxyManager::check_status();
-                            ui.set_proxy_injected(now.is_any_deployed());
+                            ui.set_proxy_injected(now.is_fully_deployed());
                             ui.set_proxy_status_text(now.status_text().into());
-                            let pending = now.pending_targets();
-                            if pending.is_empty() {
-                                ui.set_toast_message("已开启系统代理".into());
-                            } else {
-                                ui.set_toast_message(format!("代理未写入: {}", pending.join(" & ")).into());
-                            }
+                            ui.set_toast_message(msg.into());
                         }
                         Err(e) => {
                             ui.set_toast_message(format!("开启代理失败: {}", e).into());
                         }
                     }
+                }
+            }
+        }
+    });
+
+    let pending_confirm = Arc::clone(&pending_patch_action);
+    main_window.on_action_patch_modal_confirm({
+        let ui_weak = main_window.as_weak();
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let action = pending_confirm.lock().unwrap().take();
+                let _ = LauncherConfig::kill_all_antigravity();
+                match action {
+                    Some(PendingPatchAction::TogglePatchAg2) => {
+                        match LauncherConfig::toggle_ag2_patch() {
+                            Ok(state) => {
+                                ui.set_patch_ag2_installed(state);
+                                let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
+                                ui.set_patch_ag2_installed(is_patched);
+                                ui.set_patch_ag2_version(ver.into());
+                                ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
+                            }
+                            Err(e) => {
+                                ui.set_toast_message(format!("{}", e).into());
+                            }
+                        }
+                    }
+                    Some(PendingPatchAction::ToggleProxy) => {
+                        let status = ProxyManager::check_status();
+                        if status.is_fully_deployed() {
+                            match ProxyManager::remove_all() {
+                                Ok(summary) => {
+                                    let now = ProxyManager::check_status();
+                                    ui.set_proxy_injected(now.is_fully_deployed());
+                                    ui.set_proxy_status_text(now.status_text().into());
+                                    ui.set_toast_message(summary.status_text().into());
+                                }
+                                Err(e) => {
+                                    ui.set_toast_message(format!("移除代理失败: {}", e).into());
+                                }
+                            }
+                        } else {
+                            match ProxyManager::deploy_all() {
+                                Ok(msg) => {
+                                    let now = ProxyManager::check_status();
+                                    ui.set_proxy_injected(now.is_fully_deployed());
+                                    ui.set_proxy_status_text(now.status_text().into());
+                                    ui.set_toast_message(msg.into());
+                                }
+                                Err(e) => {
+                                    ui.set_toast_message(format!("开启代理失败: {}", e).into());
+                                }
+                            }
+                        }
+                    }
+                    None => {}
                 }
             }
         }
@@ -584,7 +759,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     let timer = Timer::default();
     let ui_weak_mon = main_window.as_weak();
-    let ui_weak_activate = main_window.as_weak();
     let monitor_timer = Arc::clone(&monitor);
     let sub_pids_mon = Arc::clone(&sub_pids);
 
@@ -596,13 +770,27 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let mut was_iconic = false;
     #[cfg(windows)]
     let mut configured_dark = false;
+    #[cfg(windows)]
+    let mut cached_hwnd: windows_sys::Win32::Foundation::HWND = std::ptr::null_mut();
 
     #[cfg(windows)]
     restore_timer.start(TimerMode::Repeated, std::time::Duration::from_millis(50), move || {
-        let hwnd = get_cockpit_hwnd();
-        if hwnd.is_null() {
-            return;
+        if unsafe {
+            windows_sys::Win32::System::Threading::WaitForSingleObject(activation_event, 0)
+        } == 0
+        {
+            show_cockpit_from_tray(&ui_weak_restore);
         }
+
+        if cached_hwnd.is_null()
+            || unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsWindow(cached_hwnd) == 0 }
+        {
+            cached_hwnd = get_cockpit_hwnd();
+            if cached_hwnd.is_null() {
+                return;
+            }
+        }
+        let hwnd = cached_hwnd;
         if !configured_dark {
             apply_dark_window_attributes(hwnd);
             configured_dark = true;
@@ -632,16 +820,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
-            #[cfg(windows)]
-            {
-                if unsafe {
-                    windows_sys::Win32::System::Threading::WaitForSingleObject(activation_event, 0)
-                } == 0
-                {
-                    show_cockpit_from_tray(&ui_weak_activate);
-                }
-            }
-
             let mut mon = monitor_timer.lock().unwrap();
             let known_subs = *sub_pids_mon.lock().unwrap();
             mon.refresh(known_subs);
@@ -708,7 +886,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_patch_ag2_version(ver.into());
 
             let p_status = ProxyManager::check_status();
-            ui.set_proxy_injected(p_status.is_any_deployed());
+            ui.set_proxy_injected(p_status.is_fully_deployed());
             ui.set_proxy_status_text(p_status.status_text().into());
         }
     });

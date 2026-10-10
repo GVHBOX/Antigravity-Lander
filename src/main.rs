@@ -6,7 +6,6 @@ mod i18n;
 mod launcher;
 mod monitor;
 mod proxy;
-mod streamer;
 mod ui;
 
 use anyhow::{anyhow, Result};

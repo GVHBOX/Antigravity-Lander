@@ -86,6 +86,387 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       return text.replace(trimmed, fixed);
     }
 
+    if (/^Send feedback as\s*[:：]?\s*(.+)$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Send feedback as\s*[:：]?\s*(.+)$/i, '以 $1 身份发送反馈');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Describe the bug you encountered[…\.]*$/i.test(trimmed)) {
+      const fixed = (trimmed.endsWith('...') || trimmed.endsWith('…')) ? '请描述您遇到的 Bug...' : '请描述您遇到的 Bug';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Please list the steps to reproduce the issue[…\.:：]*$/i.test(trimmed)) {
+      const fixed = /[.。]$/.test(trimmed) ? '请列出复现该问题的步骤。' : (/[：:]$/.test(trimmed) ? '请列出复现该问题的步骤：' : '请列出复现该问题的步骤');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^(?:to\s+)?ask for content changes for legal reasons[.。]?$/i.test(trimmed)) {
+      const hasDot = /[.。]$/.test(trimmed);
+      const fixed = (trimmed.toLowerCase().startsWith('to') ? '以因法律原因申请更改内容' : '因法律原因申请更改内容') + (hasDot ? '。' : '');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Visit\s+Legal Help\s+to ask for content changes for legal reasons[.。]?$/i.test(trimmed)) {
+      const fixed = '访问法律帮助以因法律原因申请更改内容。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Legal Help$/i.test(trimmed)) {
+      const fixed = '法律帮助';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Open\s+IDE$/i.test(trimmed)) {
+      const fixed = '打开 IDE';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Open\s+(?:in\s+)?Antigravity\s+IDE$/i.test(trimmed)) {
+      const fixed = '在 Antigravity IDE 中打开';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^New\s+Worktree$/i.test(trimmed)) {
+      const fixed = '新建工作树';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Local(\s*[\^v▾▼▴▲])?$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Local/i, '本地');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^This page is going away soon[.。]?$/i.test(trimmed)) {
+      const fixed = '此页面即将停用';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search conversations with.*in the top left[.。]?$/i.test(trimmed)) {
+      const fixed = '使用左上角的 🔍 搜索对话。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search conversations with\s*$/i.test(trimmed)) {
+      const fixed = '使用左上角';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^in the top left[.。]?$/i.test(trimmed)) {
+      const fixed = '搜索对话。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^View archived in the sidebar.*menu\)[.。]?$/i.test(trimmed)) {
+      const fixed = '在侧边栏查看已归档对话（通过筛选菜单）。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^View archived in the sidebar\s*\(?$/i.test(trimmed)) {
+      const fixed = '在侧边栏查看已归档（';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Create with Prompt$/i.test(trimmed)) {
+      const fixed = '通过提示词创建';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^[+＋]?\s*New$/i.test(trimmed)) {
+      const hasPlus = trimmed.startsWith('+') || trimmed.startsWith('＋');
+      const fixed = hasPlus ? '+ 新建' : '新建';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^New\s+Automation$/i.test(trimmed)) {
+      const fixed = '新建自动化';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Enter automation name[…\.]*$/i.test(trimmed)) {
+      const fixed = (trimmed.endsWith('...') || trimmed.endsWith('…')) ? '输入自动化名称...' : '输入自动化名称';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Daily(\s*[▾▼▴▲v\^])?$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Daily/i, '每天');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Weekly(\s*[▾▼▴▲v\^])?$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Weekly/i, '每周');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Monthly(\s*[▾▼▴▲v\^])?$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Monthly/i, '每月');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Hourly(\s*[▾▼▴▲v\^])?$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^Hourly/i, '每小时');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^around$/i.test(trimmed)) {
+      const fixed = '大约在';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Prompt$/i.test(trimmed)) {
+      const fixed = '提示词';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Enter a prompt for the agent to run[…\.]*$/i.test(trimmed)) {
+      const fixed = (trimmed.endsWith('...') || trimmed.endsWith('…')) ? '输入供智能体运行的提示词...' : '输入供智能体运行的提示词';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^All automations run as Flash[.。]?$/i.test(trimmed)) {
+      const fixed = '所有自动化均以 Flash 模型运行。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Add\s+Automation$/i.test(trimmed)) {
+      const fixed = '添加自动化';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^No automations configured[.。]?$/i.test(trimmed)) {
+      const fixed = '未配置任何自动化。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search automations[…\.]*$/i.test(trimmed)) {
+      const fixed = '搜索自动化...';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search customizations[…\.]*$/i.test(trimmed)) {
+      const fixed = '搜索自定义配置...';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Installed$/i.test(trimmed)) {
+      const fixed = '已安装';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^[+＋]\s*See\s+(\d+)\s+more$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^[+＋]\s*See\s+(\d+)\s+more$/i, '+ 展开其余 $1 项');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^See\s+(\d+)\s+more$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^See\s+(\d+)\s+more$/i, '展开其余 $1 项');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^[-－]\s*See\s+(\d+)\s+less$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^[-－]\s*See\s+(\d+)\s+less$/i, '- 收起其余 $1 项');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^See\s+(\d+)\s+less$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^See\s+(\d+)\s+less$/i, '收起其余 $1 项');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^[-－]\s*See less$/i.test(trimmed) || /^See less$/i.test(trimmed)) {
+      const fixed = trimmed.startsWith('-') || trimmed.startsWith('－') ? '- 收起' : '收起';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^[+＋]\s*See more$/i.test(trimmed) || /^See more$/i.test(trimmed)) {
+      const fixed = trimmed.startsWith('+') || trimmed.startsWith('＋') ? '+ 展开' : '展开';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Workspace$/i.test(trimmed)) {
+      const fixed = 'Google 工作区';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Connect to Google Workspace, including Docs, Sheets, Slides, Drive, and Calendar[.。]?$/i.test(trimmed) ||
+        /连接到 Google Workspace，包括 Docs、Sheets、Slides、Drive 和 Calendar/i.test(trimmed)) {
+      const fixed = '连接到 Google 工作区，包括文档、表格、幻灯片、云端硬盘和日历。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Curated collection of agent skills for science(?: tasks)?[.。]?$/i.test(trimmed)) {
+      const fixed = '专为科学计算、学术研究与实验探索任务精选的智能体技能集合。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Build applications with the Gemini Interactions API and Live API.*$/i.test(trimmed)) {
+      const fixed = '使用 Gemini Interactions API 与 Live API 构建应用，包括文本、图像、视频和语音生成、托管智能体以及实时多模态流式交互。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Using the Google Antigravity Python SDK to build AI agents[.。]?$/i.test(trimmed)) {
+      const fixed = '使用官方 Google Antigravity Python SDK 构建自定义 AI 智能体。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Prototype, build & run modern apps that users love with Firebase.*$/i.test(trimmed)) {
+      const fixed = '基于 Firebase 的后端服务、AI 与运维基础设施，快速原型设计、构建并运行深受用户喜爱的现代应用程序。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Core tools and knowledge required to develop for Android[.。]?$/i.test(trimmed)) {
+      const fixed = '面向 Android 应用开发所需的核心工具集与专业知识库。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Reliable automation, in-depth debugging, and performance analysis in Chrome using Chrome DevTools and Puppeteer[.。]?$/i.test(trimmed)) {
+      const fixed = '在 Chrome 中结合 Chrome DevTools 与 Puppeteer 实现可靠的自动化、深度调试与性能分析。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Official plugin for Dart and Flutter that installs.*$/i.test(trimmed)) {
+      const fixed = 'Dart 与 Flutter 官方插件，提供技能、规则、智能体与 MCP 服务，支持通过单一代码库构建原生高性能应用。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search and retrieve official documentation across Google Cloud.*$/i.test(trimmed)) {
+      const fixed = '检索 Google Cloud、Gemini、Android、Firebase、Flutter 与 Web 的官方文档。需 Google Cloud 凭据 (ADC) 或 API 密钥。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Integration skill and tools for Google Maps Platform APIs[.。]?$/i.test(trimmed)) {
+      const fixed = '面向 Google Maps Platform API 的集成技能与开发工具。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Keep your coding agent up to date with the latest web best practices[.。]?$/i.test(trimmed)) {
+      const fixed = '让您的编程智能体紧跟最新的现代 Web 开发最佳实践。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^This plugin provides a specialized suite of skills for data engineers.*$/i.test(trimmed)) {
+      const fixed = '专为 Google Cloud 数据工程师与数据库从业者打造的专业技能套件。支持使用自然语言构建复杂数据管道、编写 Spark 与 BigQuery SQL Notebook，并编排端到端工作流。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Build on Google's developer platforms, including Android, Chrome, Gemini, and Google Cloud[.。]?$/i.test(trimmed)) {
+      const fixed = '基于 Google 开发者平台进行构建，包括 Android、Chrome、Gemini 和 Google Cloud。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Read, draft, and edit docs[.。]?$/i.test(trimmed)) {
+      const fixed = '阅读、起草和编辑文档。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Read, write, and format spreadsheets[.。]?$/i.test(trimmed)) {
+      const fixed = '读取、写入并格式化电子表格。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Read, edit, and export presentations[.。]?$/i.test(trimmed)) {
+      const fixed = '阅读、编辑并导出演示文稿。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Search, upload, download, and share files[.。]?$/i.test(trimmed)) {
+      const fixed = '搜索、上传、下载和共享文件。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Check availability, schedule events, and RSVP[.。]?$/i.test(trimmed)) {
+      const fixed = '查看空闲时间、安排日程并回复邀请。';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Docs$/i.test(trimmed)) {
+      const fixed = 'Google 文档';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Sheets$/i.test(trimmed)) {
+      const fixed = 'Google 表格';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Slides$/i.test(trimmed)) {
+      const fixed = 'Google 幻灯片';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Drive$/i.test(trimmed)) {
+      const fixed = 'Google 云端硬盘';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Google Calendar$/i.test(trimmed)) {
+      const fixed = 'Google 日历';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
     if (/^Invalid tool call$/i.test(trimmed)) {
       const fixed = '无效的工具调用';
       if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
@@ -803,11 +1184,55 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
   // 性能优化 3：已处理文本节点记忆化 WeakSet，消除父容器重绘时的重复遍历
   const translatedNodes = new WeakSet();
 
+  function shouldSkipElementSubtree(element) {
+    if (!element || !element.tagName) return false;
+    const tag = element.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'PRE') {
+      return true;
+    }
+    if (tag === 'CODE') {
+      const textContent = (element.innerText || element.textContent || '').trim();
+      const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working)$/i.test(textContent);
+      if (!isActionPill) return true;
+    }
+    if (element.getAttribute) {
+      if (
+        element.getAttribute('contenteditable') === 'true' ||
+        element.getAttribute('data-lexical-editor') === 'true' ||
+        element.getAttribute('data-language') ||
+        element.getAttribute('data-code') ||
+        element.getAttribute('role') === 'code'
+      ) {
+        return true;
+      }
+    }
+    if (element.classList) {
+      if (
+        element.classList.contains('monaco-editor') ||
+        element.classList.contains('editor-instance') ||
+        element.classList.contains('thought-content') ||
+        element.classList.contains('thinking-content') ||
+        element.classList.contains('thought-box') ||
+        element.classList.contains('group/user-input-step') ||
+        element.classList.contains('user-message') ||
+        element.classList.contains('chat-input')
+      ) {
+        return true;
+      }
+    }
+    if (element.className && typeof element.className === 'string') {
+      if (codeClassPattern.test(element.className)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function translateNode(node) {
     if (!node) return;
-    if (shouldSkipNode(node)) return;
 
     if (node.nodeType === Node.TEXT_NODE) {
+      if (shouldSkipNode(node)) return;
       if (translatedNodes.has(node)) return;
       const original = node.nodeValue;
       if (!original || !original.trim()) return;
@@ -819,7 +1244,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
         translatedNodes.add(node);
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      ['placeholder', 'title', 'aria-label', 'value'].forEach(attr => {
+      ['placeholder', 'title', 'aria-label', 'data-placeholder', 'value'].forEach(attr => {
         if (node.hasAttribute && node.hasAttribute(attr)) {
           // 双重锁死：绝对不翻译任何输入框或编辑区的用户 value 属性
           if (attr === 'value' && (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA')) {
@@ -830,6 +1255,9 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
             const translated = translateString(original);
             if (original !== translated) {
               node.setAttribute(attr, translated);
+              if (attr === 'placeholder' && 'placeholder' in node) {
+                try { node.placeholder = translated; } catch (_) {}
+              }
             }
           }
         }
@@ -837,6 +1265,9 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       if (node.shadowRoot) {
         observeRoot(node.shadowRoot);
         translateNode(node.shadowRoot);
+      }
+      if (shouldSkipElementSubtree(node)) {
+        return;
       }
       for (let i = 0; i < node.childNodes.length; i++) {
         translateNode(node.childNodes[i]);
@@ -853,7 +1284,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     subtree: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['placeholder', 'title', 'aria-label', 'value']
+    attributeFilter: ['placeholder', 'title', 'aria-label', 'value', 'data-placeholder']
   };
 
   const observedRoots = new WeakSet();
@@ -888,16 +1319,17 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       // 1. 批量处理属性变更
       if (pendingAttrNodes.size > 0) {
         for (const [target, attrs] of pendingAttrNodes) {
-          if (!shouldSkipNode(target)) {
-            for (const attrName of attrs) {
-              if (attrName === 'value' && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-                continue;
-              }
-              const original = target.getAttribute(attrName);
-              if (original) {
-                const translated = translateString(original);
-                if (original !== translated) {
-                  target.setAttribute(attrName, translated);
+          for (const attrName of attrs) {
+            if (attrName === 'value' && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+              continue;
+            }
+            const original = target.getAttribute(attrName);
+            if (original && (target.tagName !== 'INPUT' || target.type === 'button' || target.type === 'submit' || attrName !== 'value')) {
+              const translated = translateString(original);
+              if (original !== translated) {
+                target.setAttribute(attrName, translated);
+                if (attrName === 'placeholder' && 'placeholder' in target) {
+                  try { target.placeholder = translated; } catch (_) {}
                 }
               }
             }
@@ -949,9 +1381,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
           if (node.shadowRoot) {
             observeRoot(node.shadowRoot);
           }
-          if (!shouldSkipNode(node)) {
-            translateNode(node);
-          }
+          translateNode(node);
         }
       }
     } catch (e) {

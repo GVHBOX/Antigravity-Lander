@@ -108,8 +108,29 @@ function getHostUsername() {
 }
 
 function getAsarCmd() {
+  const localMjs = path.join(WORKSPACE_DIR, 'node_modules', '@electron', 'asar', 'bin', 'asar.mjs');
+  if (fs.existsSync(localMjs)) {
+    return `"${process.execPath}" "${localMjs}"`;
+  }
+  const localBin = path.join(WORKSPACE_DIR, 'node_modules', '.bin', process.platform === 'win32' ? 'asar.cmd' : 'asar');
+  if (fs.existsSync(localBin)) {
+    return `"${localBin}"`;
+  }
+  const userHome = os.homedir();
+  const npxCacheDir = path.join(process.env.LOCALAPPDATA || path.join(userHome, 'AppData', 'Local'), 'npm-cache', '_npx');
+  if (fs.existsSync(npxCacheDir)) {
+    try {
+      const hashes = fs.readdirSync(npxCacheDir);
+      for (const h of hashes) {
+        const candidate = path.join(npxCacheDir, h, 'node_modules', '@electron', 'asar', 'bin', 'asar.mjs');
+        if (fs.existsSync(candidate)) {
+          return `"${process.execPath}" "${candidate}"`;
+        }
+      }
+    } catch {}
+  }
   const major = parseInt(process.versions.node.split('.')[0], 10);
-  return major >= 18 ? 'npx -y @electron/asar' : 'npx -y asar@3.2.0';
+  return major >= 18 ? 'npx --prefer-offline -y @electron/asar' : 'npx --prefer-offline -y asar@3.2.0';
 }
 
 function isAppRunning() {
