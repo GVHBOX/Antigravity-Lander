@@ -345,42 +345,36 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
         let _ = fs::create_dir_all(&sandbox_config);
 
         if let Some(host_user) = Self::resolve_host_user_dir() {
-
             let host_locallow = host_user.join("AppData").join("LocalLow");
-            let sub_appdata = self.home_dir.join("AppData");
-            let sub_locallow = sub_appdata.join("LocalLow");
-            if host_locallow.exists() {
-                let is_junc = sub_locallow
-                    .symlink_metadata()
-                    .map(|m| {
-                        use std::os::windows::fs::MetadataExt;
-                        m.file_attributes() & 0x400 != 0
-                    })
-                    .unwrap_or(false);
-                if !is_junc {
-                    if sub_locallow.exists() {
-                        let _ = fs::remove_dir_all(&sub_locallow);
-                    }
-                    if !sub_locallow.exists() {
-                        let _ = fs::create_dir_all(&sub_appdata);
-                        let _ = Command::new("cmd")
-                            .args(["/c", "mklink", "/J", &sub_locallow.to_string_lossy(), &host_locallow.to_string_lossy()])
-                            .creation_flags(WIN32_DETACHED_FLAGS)
-                            .output();
-                    }
-                }
+            let sub_locallow = self.home_dir.join("AppData").join("LocalLow");
+            ensure_junction(&sub_locallow, &host_locallow);
+
+            let shell_folders = [
+                "Desktop",
+                "Downloads",
+                "Documents",
+                "Pictures",
+                "Videos",
+                "Music",
+                "Links",
+                "Favorites",
+            ];
+            for folder in shell_folders {
+                ensure_junction(&self.home_dir.join(folder), &host_user.join(folder));
             }
+
+            let host_ms_roaming = host_user.join("AppData").join("Roaming").join("Microsoft");
+            ensure_junction(&self.roaming_dir.join("Microsoft"), &host_ms_roaming);
+            ensure_junction(&self.home_dir.join("AppData").join("Roaming").join("Microsoft"), &host_ms_roaming);
+
+            let host_ms_local = host_user.join("AppData").join("Local").join("Microsoft");
+            ensure_junction(&self.home_dir.join("AppData").join("Local").join("Microsoft"), &host_ms_local);
 
             let shared_dirs = ["skills", "rules", "plugins", "sidecars"];
             for dir_name in shared_dirs {
                 let host_dir = host_user.join(".gemini").join("config").join(dir_name);
                 let sub_dir = sandbox_config.join(dir_name);
-                if host_dir.exists() && !sub_dir.exists() {
-                    let _ = Command::new("cmd")
-                        .args(["/c", "mklink", "/J", &sub_dir.to_string_lossy(), &host_dir.to_string_lossy()])
-                        .creation_flags(WIN32_DETACHED_FLAGS)
-                        .output();
-                }
+                ensure_junction(&sub_dir, &host_dir);
             }
 
             let host_mcp = host_user.join(".gemini").join("config").join("mcp_config.json");
@@ -832,6 +826,53 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
             anyhow::bail!("{}", detail.trim())
         }
     }
+}
+
+fn is_replaceable_shell_dir(dir: &std::path::Path) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_lowercase();
+        if name == "desktop.ini" || name == "antigravity.lnk" {
+            continue;
+        }
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            if is_replaceable_shell_dir(&entry.path()) {
+                continue;
+            }
+        }
+        return false;
+    }
+    true
+}
+
+fn ensure_junction(link: &std::path::Path, target: &std::path::Path) {
+    if !target.exists() {
+        return;
+    }
+    use std::os::windows::fs::MetadataExt;
+    let is_junc = link
+        .symlink_metadata()
+        .map(|m| m.file_attributes() & 0x400 != 0)
+        .unwrap_or(false);
+    if is_junc {
+        return;
+    }
+    if link.exists() {
+        if is_replaceable_shell_dir(link) {
+            let _ = fs::remove_dir_all(link);
+        } else {
+            return;
+        }
+    }
+    if let Some(parent) = link.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = Command::new("cmd")
+        .args(["/c", "mklink", "/J", &link.to_string_lossy(), &target.to_string_lossy()])
+        .creation_flags(WIN32_DETACHED_FLAGS)
+        .output();
 }
 
 const LOCALIZED_MARKERS: [&str; 3] = [
