@@ -89,10 +89,10 @@ impl App {
 
         if let Some(pid) = self.monitor.sub.electron_pid {
             self.sub_known_pid = Some(pid);
-        } else if let Some(known_pid) = self.sub_known_pid {
-            if !self.monitor.is_pid_alive(known_pid) {
-                self.sub_known_pid = None;
-            }
+        } else if let Some(known_pid) = self.sub_known_pid
+            && !self.monitor.is_pid_alive(known_pid)
+        {
+            self.sub_known_pid = None;
         }
 
         let current_pid = std::process::id();
@@ -265,7 +265,7 @@ impl App {
                     let now = crate::proxy::ProxyManager::check_status();
                     let pending = now.pending_targets();
                     if !pending.is_empty() {
-                        self.add_log("WARN", &format!("代理未写入: {}", pending.join(" & ")));
+                        self.add_log("WARN", format!("代理未写入: {}", pending.join(" & ")));
                     }
                     if !now.port_online {
                         self.add_log("WARN", "本地 7890 端口未监听。");

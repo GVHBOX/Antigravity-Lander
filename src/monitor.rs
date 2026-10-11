@@ -8,6 +8,7 @@ pub struct ProcessStats {
     pub cpu_usage: f32,
     pub memory_rss_mb: f64,
     pub ls_port: Option<u16>,
+    pub ls_csrf: Option<String>,
 }
 
 impl Default for ProcessStats {
@@ -19,6 +20,7 @@ impl Default for ProcessStats {
             cpu_usage: 0.0,
             memory_rss_mb: 0.0,
             ls_port: None,
+            ls_csrf: None,
         }
     }
 }
@@ -32,10 +34,29 @@ pub struct TelemetryMonitor {
     pub system_total_ram_mb: f64,
     cached_host_ls_pid: Option<u32>,
     cached_host_port: Option<u16>,
+    cached_host_csrf: Option<String>,
     host_port_retry_count: u32,
     cached_sub_ls_pids: [Option<u32>; 4],
     cached_sub_ports: [Option<u16>; 4],
+    cached_sub_csrfs: [Option<String>; 4],
     sub_port_retry_counts: [u32; 4],
+}
+
+fn extract_csrf_token(cmd: &[std::ffi::OsString]) -> Option<String> {
+    let full = cmd
+        .iter()
+        .map(|s| s.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if let Some(pos) = full.find("--csrf_token") {
+        let rest = full[pos + "--csrf_token".len()..].trim_start_matches(|c| c == ' ' || c == '=');
+        let token = rest.split_whitespace().next()?.trim_matches('"');
+        if !token.is_empty() {
+            return Some(token.to_string());
+        }
+    }
+    None
 }
 
 fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32) -> bool {
@@ -54,6 +75,15 @@ fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32
         }
     }
     false
+}
+
+fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
+    let tag = format!("instance_{}", slot + 1);
+    let win_data = format!("data\\{}", tag);
+    let unix_data = format!("data/{}", tag);
+    (cmd_line.contains("--user-data-dir=") && cmd_line.contains(&tag))
+        || cmd_line.contains(&win_data)
+        || cmd_line.contains(&unix_data)
 }
 
 impl TelemetryMonitor {
@@ -82,9 +112,11 @@ impl TelemetryMonitor {
             system_total_ram_mb,
             cached_host_ls_pid: None,
             cached_host_port: None,
+            cached_host_csrf: None,
             host_port_retry_count: 0,
             cached_sub_ls_pids: [None; 4],
             cached_sub_ports: [None; 4],
+            cached_sub_csrfs: [None, None, None, None],
             sub_port_retry_counts: [0; 4],
         }
     }
@@ -95,6 +127,11 @@ impl TelemetryMonitor {
 
     pub fn process_memory_mb(&self, pid: u32) -> Option<f64> {
         self.sys.process(sysinfo::Pid::from_u32(pid)).map(|p| (p.memory() as f64) / (1024.0 * 1024.0))
+    }
+
+    pub fn host_uptime_seconds(&self) -> Option<u64> {
+        let pid = self.host.electron_pid?;
+        self.sys.process(sysinfo::Pid::from_u32(pid)).map(|p| p.run_time())
     }
 
     pub fn refresh_single(&mut self, known_sub_pid: Option<u32>) {
@@ -138,8 +175,7 @@ impl TelemetryMonitor {
 
             let mut matched_slot = None;
             for slot in 0..4 {
-                let tag = format!("instance_{}", slot + 1);
-                if cmd_line.contains(&tag) || (known_sub_pids[slot] == Some(pid_u32) && is_main_electron) {
+                if matches_instance_slot(&cmd_line, slot) || (known_sub_pids[slot] == Some(pid_u32) && is_main_electron) {
                     matched_slot = Some(slot);
                     break;
                 }
@@ -150,7 +186,7 @@ impl TelemetryMonitor {
                     sub_main_pids[slot] = Some(pid_u32);
                 }
             } else if is_main_electron && host_electron_pid.is_none() {
-                let has_any_sub_tag = (0..4).any(|s| cmd_line.contains(&format!("instance_{}", s + 1)));
+                let has_any_sub_tag = (0..4).any(|s| matches_instance_slot(&cmd_line, s));
                 let is_any_known_sub = known_sub_pids.iter().any(|k| *k == Some(pid_u32));
                 if !has_any_sub_tag && !is_any_known_sub {
                     host_electron_pid = Some(pid_u32);
@@ -162,10 +198,12 @@ impl TelemetryMonitor {
 
         let sub_electron_pids = active_sub_pids;
         let mut sub_ls_pids = [None, None, None, None];
+        let mut sub_ls_csrfs = [None, None, None, None];
         let mut sub_cpus = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
         let mut sub_mem_bytes = [0u64, 0u64, 0u64, 0u64];
 
         let mut host_ls_pid = None;
+        let mut host_ls_csrf = None;
         let mut host_cpu = 0.0f32;
         let mut host_mem_bytes = 0u64;
 
@@ -193,8 +231,7 @@ impl TelemetryMonitor {
 
             let mut matched_slot = None;
             for slot in 0..4 {
-                let tag = format!("instance_{}", slot + 1);
-                let is_slot_tag = cmd_line.contains(&tag);
+                let is_slot_tag = matches_instance_slot(&cmd_line, slot);
                 let is_slot_main = active_sub_pids[slot] == Some(pid_u32);
                 let is_slot_descendant = active_sub_pids[slot]
                     .map(|main_pid| is_descendant_of(&self.sys, *pid, main_pid))
@@ -209,6 +246,7 @@ impl TelemetryMonitor {
             if let Some(slot) = matched_slot {
                 if is_ls && sub_ls_pids[slot].is_none() {
                     sub_ls_pids[slot] = Some(pid_u32);
+                    sub_ls_csrfs[slot] = extract_csrf_token(proc.cmd());
                 }
                 sub_cpus[slot] += proc.cpu_usage();
                 sub_mem_bytes[slot] += proc.memory();
@@ -221,6 +259,7 @@ impl TelemetryMonitor {
                 if is_host_main || is_host_descendant {
                     if is_ls && host_ls_pid.is_none() {
                         host_ls_pid = Some(pid_u32);
+                        host_ls_csrf = extract_csrf_token(proc.cmd());
                     }
                     host_cpu += proc.cpu_usage();
                     host_mem_bytes += proc.memory();
@@ -231,7 +270,10 @@ impl TelemetryMonitor {
         if host_ls_pid != self.cached_host_ls_pid {
             self.cached_host_ls_pid = host_ls_pid;
             self.cached_host_port = None;
+            self.cached_host_csrf = host_ls_csrf;
             self.host_port_retry_count = 0;
+        } else if host_ls_csrf.is_some() && self.cached_host_csrf.is_none() {
+            self.cached_host_csrf = host_ls_csrf;
         }
 
         if let Some(pid) = host_ls_pid {
@@ -243,6 +285,7 @@ impl TelemetryMonitor {
             }
         } else {
             self.cached_host_port = None;
+            self.cached_host_csrf = None;
             self.host_port_retry_count = 0;
         }
 
@@ -251,7 +294,10 @@ impl TelemetryMonitor {
             if ls_pid != self.cached_sub_ls_pids[slot] {
                 self.cached_sub_ls_pids[slot] = ls_pid;
                 self.cached_sub_ports[slot] = None;
+                self.cached_sub_csrfs[slot] = sub_ls_csrfs[slot].clone();
                 self.sub_port_retry_counts[slot] = 0;
+            } else if sub_ls_csrfs[slot].is_some() && self.cached_sub_csrfs[slot].is_none() {
+                self.cached_sub_csrfs[slot] = sub_ls_csrfs[slot].clone();
             }
 
             if let Some(pid) = ls_pid {
@@ -263,6 +309,7 @@ impl TelemetryMonitor {
                 }
             } else {
                 self.cached_sub_ports[slot] = None;
+                self.cached_sub_csrfs[slot] = None;
                 self.sub_port_retry_counts[slot] = 0;
             }
         }
@@ -279,6 +326,7 @@ impl TelemetryMonitor {
             cpu_usage: (host_cpu / num_cpus).min(100.0),
             memory_rss_mb: (host_mem_bytes as f64) / (1024.0 * 1024.0),
             ls_port: self.cached_host_port,
+            ls_csrf: self.cached_host_csrf.clone(),
         };
 
         for slot in 0..4 {
@@ -289,6 +337,7 @@ impl TelemetryMonitor {
                 cpu_usage: (sub_cpus[slot] / num_cpus).min(100.0),
                 memory_rss_mb: (sub_mem_bytes[slot] as f64) / (1024.0 * 1024.0),
                 ls_port: self.cached_sub_ports[slot],
+                ls_csrf: self.cached_sub_csrfs[slot].clone(),
             };
         }
 
@@ -314,6 +363,7 @@ fn detect_listening_port(pid: u32) -> Option<u16> {
 
     let text = String::from_utf8_lossy(&output.stdout);
     let target = pid.to_string();
+    let mut ports = Vec::new();
     for line in text.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 5 || !parts[0].eq_ignore_ascii_case("tcp") {
@@ -329,8 +379,9 @@ fn detect_listening_port(pid: u32) -> Option<u16> {
             .rfind(':')
             .and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok())
         {
-            return Some(port);
+            ports.push(port);
         }
     }
-    None
+    ports.sort_unstable();
+    ports.last().copied()
 }

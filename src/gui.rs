@@ -1,11 +1,111 @@
 use crate::launcher::{LauncherConfig, ScaleSettings};
 use crate::monitor::TelemetryMonitor;
 use crate::proxy::ProxyManager;
+use crate::quota::InstanceQuotaState;
+use crate::session::{format_tokens, scan_sandbox_sessions, InstanceSessions};
 use anyhow::Result;
 use slint::{CloseRequestResponse, ComponentHandle, Timer, TimerMode};
 use std::sync::{Arc, Mutex};
 
 slint::include_modules!();
+
+fn to_session_ui_model(groups: &[crate::session::SessionGroup]) -> slint::ModelRc<SessionUiItem> {
+    let mut ui_vec: Vec<SessionUiItem> = Vec::new();
+    for g in groups {
+        let count_str = format!("{} 个会话", g.sessions.len());
+        ui_vec.push(SessionUiItem {
+            is_group_header: true,
+            group_name: g.project_name.as_str().into(),
+            group_count_str: count_str.into(),
+            group_has_running: g.has_running,
+            id: "".into(),
+            title: "".into(),
+            context_str: "".into(),
+            cache_rate_str: "".into(),
+            time_ago_str: "".into(),
+            is_running: false,
+        });
+        for it in &g.sessions {
+            let short_id = if it.id.len() >= 8 { &it.id[..8] } else { &it.id };
+            ui_vec.push(SessionUiItem {
+                is_group_header: false,
+                group_name: "".into(),
+                group_count_str: "".into(),
+                group_has_running: false,
+                id: short_id.into(),
+                title: it.title.as_str().into(),
+                context_str: it.context_str.as_str().into(),
+                cache_rate_str: it.cache_rate_str.as_str().into(),
+                time_ago_str: it.time_ago_str.as_str().into(),
+                is_running: it.is_running,
+            });
+        }
+    }
+    std::rc::Rc::new(slint::VecModel::from(ui_vec)).into()
+}
+
+fn apply_quota_to_ui(
+    state: Option<&InstanceQuotaState>,
+    is_dark: bool,
+    set_profile: impl FnOnce(&str, &str, &str, Option<&std::path::Path>),
+    set_weekly: impl FnOnce(&str, &str, slint::Image),
+    set_five_h: impl FnOnce(&str, &str, slint::Image),
+) {
+    if let Some(st) = state {
+        if st.is_available {
+            set_profile(
+                &st.profile.name,
+                &st.profile.email,
+                &st.profile.tier,
+                st.profile.avatar_path.as_deref(),
+            );
+            let weekly_ring = if st.weekly.remaining_pct >= 0.0 && !st.weekly.pct_text.is_empty() && st.weekly.pct_text != "--" {
+                crate::quota::render_quota_ring(st.weekly.remaining_pct, is_dark)
+            } else {
+                crate::quota::render_quota_ring(-1.0, is_dark)
+            };
+            let weekly_pct = if st.weekly.pct_text.is_empty() { "--" } else { &st.weekly.pct_text };
+            set_weekly(weekly_pct, &st.weekly.reset_text, weekly_ring);
+
+            let five_h_ring = if st.five_h.remaining_pct >= 0.0 && !st.five_h.pct_text.is_empty() && st.five_h.pct_text != "--" {
+                crate::quota::render_quota_ring(st.five_h.remaining_pct, is_dark)
+            } else {
+                crate::quota::render_quota_ring(-1.0, is_dark)
+            };
+            let five_h_pct = if st.five_h.pct_text.is_empty() { "--" } else { &st.five_h.pct_text };
+            set_five_h(five_h_pct, &st.five_h.reset_text, five_h_ring);
+            return;
+        }
+    }
+    set_profile("--", "--", "", None);
+    set_weekly("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
+    set_five_h("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
+}
+
+fn load_avatar_image(path: Option<&std::path::Path>) -> (slint::Image, bool) {
+    if let Some(p) = path {
+        if p.exists() {
+            if let Ok(img) = slint::Image::load_from_path(p) {
+                if img.size().width > 0 {
+                    return (img, true);
+                }
+            }
+        }
+    }
+    (slint::Image::default(), false)
+}
+
+fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, String) {
+    if let Some(s) = sessions.groups.first().and_then(|g| g.sessions.first()) {
+        (
+            s.project_name.clone(),
+            format!("{} ({})", s.context_str, s.cache_rate_str),
+            format!("最近更新: {}", s.time_ago_str),
+        )
+    } else {
+        ("无活动会话".to_string(), "".to_string(), "等待初始化".to_string())
+    }
+}
 
 #[cfg(target_os = "windows")]
 fn trim_working_set() {
@@ -136,6 +236,59 @@ fn apply_light_window_attributes(hwnd: windows_sys::Win32::Foundation::HWND) {
 }
 
 #[cfg(target_os = "windows")]
+fn center_and_scale_cockpit_window(hwnd: windows_sys::Win32::Foundation::HWND) {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, SystemParametersInfoW, SPI_GETWORKAREA, SWP_FRAMECHANGED, SWP_NOZORDER,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+
+    unsafe {
+        let mut work_area: RECT = std::mem::zeroed();
+        let ok = SystemParametersInfoW(
+            SPI_GETWORKAREA,
+            0,
+            &mut work_area as *mut _ as *mut std::ffi::c_void,
+            0,
+        );
+        if ok != 0 {
+            let work_w = work_area.right - work_area.left;
+            let work_h = work_area.bottom - work_area.top;
+            let target_w = (work_w - 40).clamp(1200, 1840);
+            let target_h = (work_h - 40).clamp(680, 1000);
+            let x = work_area.left + (work_w - target_w) / 2;
+            let y = work_area.top + (work_h - target_h) / 2;
+            SetWindowPos(
+                hwnd,
+                std::ptr::null_mut(),
+                x,
+                y,
+                target_w,
+                target_h,
+                SWP_NOZORDER | SWP_FRAMECHANGED,
+            );
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn set_cockpit_always_on_top(pinned: bool) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE,
+    };
+    let hwnd = get_cockpit_hwnd();
+    if !hwnd.is_null() {
+        let insert_after = if pinned { HWND_TOPMOST } else { HWND_NOTOPMOST };
+        unsafe {
+            SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn hide_cockpit_to_tray(ui_weak: &slint::Weak<MainWindow>) {
     if let Some(ui) = ui_weak.upgrade() {
         let _ = ui.window().hide();
@@ -166,6 +319,9 @@ fn show_cockpit_from_tray(ui_weak: &slint::Weak<MainWindow>) {
             } else {
                 apply_light_window_attributes(hwnd);
             }
+            if ui.get_is_pinned() {
+                set_cockpit_always_on_top(true);
+            }
             unsafe {
                 if IsIconic(hwnd) != 0 {
                     ShowWindow(hwnd, SW_RESTORE);
@@ -191,9 +347,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
+    let sessions_store = Arc::new(Mutex::new([InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default()]));
+    let live_session_slot = Arc::new(Mutex::new(2usize));
 
     let main_window = MainWindow::new()?;
     main_window.set_is_dark(true);
+    main_window.set_live_session_target_slot(2);
+    main_window.set_live_session_target_text("分身 2".into());
 
     {
         let scales = scale_settings.lock().unwrap();
@@ -338,6 +498,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    main_window.on_toggle_pin_window({
+        let ui_weak = main_window.as_weak();
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let next = !ui.get_is_pinned();
+                ui.set_is_pinned(next);
+                #[cfg(target_os = "windows")]
+                set_cockpit_always_on_top(next);
+                ui.set_toast_message(if next { "窗口已固定置顶" } else { "已取消窗口置顶" }.into());
+            }
+        }
+    });
+
     main_window.on_action_launch_host({
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
@@ -363,6 +536,145 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
                 }
             }
+        }
+    });
+
+    main_window.on_action_stop_host({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
+                if let Some(pid) = pid_opt {
+                    if let Ok(conf) = LauncherConfig::for_slot(1) {
+                        match conf.kill_sub_instance_by_pid(pid) {
+                            Ok(()) => {
+                                let mut mon = mon_arc.lock().unwrap();
+                                mon.host.is_running = false;
+                                mon.host.electron_pid = None;
+                                ui.set_toast_message(format!("主账号已停止 (PID: {})", pid).into());
+                            }
+                            Err(e) => {
+                                ui.set_toast_message(format!("停止主账号失败: {}", e).into());
+                            }
+                        }
+                    }
+                } else {
+                    ui.set_toast_message("主账号未在运行".into());
+                }
+            }
+        }
+    });
+
+    main_window.on_action_launch_all({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        let sub_pids = Arc::clone(&sub_pids);
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let mut started = 0;
+                let is_host_running = mon_arc.lock().unwrap().host.is_running;
+                if !is_host_running {
+                    if LauncherConfig::spawn_host_native().is_ok() {
+                        started += 1;
+                    }
+                }
+                for slot in 1..=4 {
+                    let idx = slot - 1;
+                    let is_sub_running = {
+                        let mon = mon_arc.lock().unwrap();
+                        let pids = sub_pids.lock().unwrap();
+                        mon.subs[idx].is_running || pids[idx].is_some()
+                    };
+                    if !is_sub_running {
+                        if let Ok(conf) = LauncherConfig::for_slot(slot) {
+                            if let Ok(new_pid) = conf.spawn_detached() {
+                                let mut pids = sub_pids.lock().unwrap();
+                                pids[idx] = Some(new_pid);
+                                started += 1;
+                            }
+                        }
+                    }
+                }
+                ui.set_toast_message(format!("已启动 {} 个实例", started).into());
+            }
+        }
+    });
+
+    main_window.on_action_stop_all({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        let sub_pids = Arc::clone(&sub_pids);
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let _ = LauncherConfig::kill_all_antigravity();
+                {
+                    let mut pids = sub_pids.lock().unwrap();
+                    for p in pids.iter_mut() {
+                        *p = None;
+                    }
+                }
+                {
+                    let mut mon = mon_arc.lock().unwrap();
+                    mon.host.is_running = false;
+                    mon.host.electron_pid = None;
+                    for s in mon.subs.iter_mut() {
+                        s.is_running = false;
+                        s.electron_pid = None;
+                    }
+                }
+                ui.set_toast_message("已停止全部运行中实例".into());
+            }
+        }
+    });
+
+    main_window.on_action_refresh_telemetry({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        let sub_pids = Arc::clone(&sub_pids);
+        move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let known_subs = *sub_pids.lock().unwrap();
+                mon_arc.lock().unwrap().refresh(known_subs);
+                ui.set_toast_message("遥测数据已刷新".into());
+            }
+        }
+    });
+
+    main_window.on_action_open_clean_modal({
+        let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
+        let cache_bytes = Arc::clone(&scanned_cache_bytes);
+        move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let running = {
+                let mon = mon_arc.lock().unwrap();
+                [
+                    mon.subs[0].is_running,
+                    mon.subs[1].is_running,
+                    mon.subs[2].is_running,
+                    mon.subs[3].is_running,
+                ]
+            };
+            let found = LauncherConfig::scan_sandbox_cache(&running);
+            if found.is_empty() {
+                ui.set_toast_message("没有可清理的缓存".into());
+                return;
+            }
+            let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+            *cache_bytes.lock().unwrap() = total_bytes;
+            let total = total_bytes as f64 / (1024.0 * 1024.0);
+            let detail = found
+                .iter()
+                .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
+                .collect::<Vec<_>>()
+                .join("\n");
+            ui.set_cache_detail_text(detail.into());
+            ui.set_cache_total_text(format!("共 {:.1} MB", total).into());
+            ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", total).into());
+            ui.set_clean_modal_visible(true);
         }
     });
 
@@ -536,6 +848,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 .join("\n");
             ui.set_cache_detail_text(detail.into());
             ui.set_cache_total_text(format!("共 {:.1} MB", total).into());
+            ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", total).into());
             ui.set_clean_modal_visible(true);
         }
     });
@@ -560,6 +873,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             match LauncherConfig::clean_sandbox_cache(&running) {
                 Ok(res) => {
                     let mb = res.freed_bytes as f64 / (1024.0 * 1024.0);
+                    let after_found = LauncherConfig::scan_sandbox_cache(&running);
+                    let after_total: u64 = after_found.iter().map(|c| c.bytes).sum();
+                    let after_mb = after_total as f64 / (1024.0 * 1024.0);
+                    ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", after_mb).into());
                     if res.has_locked_files && mb > 0.0 {
                         ui.set_toast_message(format!("已清理 {:.1} MB，部分文件被占用", mb).into());
                     } else if res.has_locked_files && mb == 0.0 {
@@ -797,10 +1114,190 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let sessions_store_modal = Arc::clone(&sessions_store);
+    main_window.on_show_session_modal({
+        let ui_weak = main_window.as_weak();
+        move |slot| {
+            if let Some(ui) = ui_weak.upgrade() {
+                let slot_idx = (slot as usize).clamp(0, 4);
+                let title = if slot == 0 {
+                    "主账号 会话监视".to_string()
+                } else {
+                    format!("分身 {} 会话监视", slot)
+                };
+                let store = sessions_store_modal.lock().unwrap();
+                let model = to_session_ui_model(&store[slot_idx].groups);
+                ui.set_session_modal_slot(slot);
+                ui.set_session_modal_title(title.into());
+                ui.set_session_modal_items(model);
+                ui.set_session_modal_visible(true);
+            }
+        }
+    });
+
+    let live_slot_cb = Arc::clone(&live_session_slot);
+    main_window.on_switch_live_session_target({
+        let ui_weak = main_window.as_weak();
+        move |next_slot| {
+            let slot = (next_slot as usize) % 5;
+            *live_slot_cb.lock().unwrap() = slot;
+            if let Some(ui) = ui_weak.upgrade() {
+                let target_text = match slot {
+                    0 => "主账号",
+                    1 => "分身 1",
+                    2 => "分身 2",
+                    3 => "分身 3",
+                    4 => "分身 4",
+                    _ => "分身 2",
+                };
+                ui.set_live_session_target_slot(slot as i32);
+                ui.set_live_session_target_text(target_text.into());
+                ui.set_toast_message(format!("已切换至 {}", target_text).into());
+            }
+        }
+    });
+
+    let ui_weak_cache = main_window.as_weak();
+    std::thread::spawn(move || {
+        let found = LauncherConfig::scan_sandbox_cache(&[false, false, false, false]);
+        let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+        let mb = total_bytes as f64 / (1024.0 * 1024.0);
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(ui) = ui_weak_cache.upgrade() {
+                ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", mb).into());
+                for item in &found {
+                    let size_str = format!("缓存 {:.0} MB", item.bytes as f64 / (1024.0 * 1024.0));
+                    match item.slot {
+                        1 => ui.set_sub1_cache_size_text(size_str.into()),
+                        2 => ui.set_sub2_cache_size_text(size_str.into()),
+                        3 => ui.set_sub3_cache_size_text(size_str.into()),
+                        4 => ui.set_sub4_cache_size_text(size_str.into()),
+                        _ => {}
+                    }
+                }
+            }
+        });
+    });
+
+    let quota_cache = Arc::new(Mutex::new(crate::quota::load_quota_cache()));
+    let quota_states = Arc::new(Mutex::new([
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+    ]));
+
+    let mon_bg = Arc::clone(&monitor);
+    let qs_bg = Arc::clone(&quota_states);
+    let qc_bg = Arc::clone(&quota_cache);
+    std::thread::spawn(move || {
+        loop {
+            let targets = {
+                let mon = mon_bg.lock().unwrap();
+                let mut list = Vec::with_capacity(5);
+                list.push((mon.host.ls_port, mon.host.ls_csrf.clone(), "host".to_string()));
+                for (idx, sub) in mon.subs.iter().enumerate() {
+                    list.push((sub.ls_port, sub.ls_csrf.clone(), format!("sub{}", idx + 1)));
+                }
+                list
+            };
+
+            let mut fetched_any = false;
+            for (idx, (port_opt, csrf_opt, tag)) in targets.into_iter().enumerate() {
+                if let (Some(port), Some(csrf)) = (port_opt, csrf_opt) {
+                    if !csrf.is_empty() {
+                        let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
+                        if st.is_available {
+                            {
+                                let mut qs = qs_bg.lock().unwrap();
+                                qs[idx] = st.clone();
+                            }
+                            {
+                                let mut qc = qc_bg.lock().unwrap();
+                                qc.set_slot(idx, st);
+                                crate::quota::save_quota_cache(&qc);
+                            }
+                            fetched_any = true;
+                        }
+                    }
+                }
+            }
+
+            let sleep_ms = if fetched_any { 3000 } else { 800 };
+            std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+        }
+    });
+
+    let bg_telemetry = Arc::new(Mutex::new((
+        LauncherConfig::check_ag2_patch_status(),
+        ProxyManager::check_status(),
+    )));
+
+    let bg_telem_worker = Arc::clone(&bg_telemetry);
+    let sessions_store_worker = Arc::clone(&sessions_store);
+    std::thread::spawn(move || {
+        loop {
+            let host_home = LauncherConfig::resolve_host_user_dir();
+            let host_sessions = if let Some(ref h) = host_home {
+                scan_sandbox_sessions(h, 0)
+            } else {
+                InstanceSessions::default()
+            };
+            let sub1_home = LauncherConfig::for_slot(1).ok().map(|c| c.home_dir);
+            let sub1_sessions = if let Some(ref h) = sub1_home {
+                scan_sandbox_sessions(h, 1)
+            } else {
+                InstanceSessions::default()
+            };
+            let sub2_home = LauncherConfig::for_slot(2).ok().map(|c| c.home_dir);
+            let sub2_sessions = if let Some(ref h) = sub2_home {
+                scan_sandbox_sessions(h, 2)
+            } else {
+                InstanceSessions::default()
+            };
+            let sub3_home = LauncherConfig::for_slot(3).ok().map(|c| c.home_dir);
+            let sub3_sessions = if let Some(ref h) = sub3_home {
+                scan_sandbox_sessions(h, 3)
+            } else {
+                InstanceSessions::default()
+            };
+            let sub4_home = LauncherConfig::for_slot(4).ok().map(|c| c.home_dir);
+            let sub4_sessions = if let Some(ref h) = sub4_home {
+                scan_sandbox_sessions(h, 4)
+            } else {
+                InstanceSessions::default()
+            };
+
+            {
+                let mut store = sessions_store_worker.lock().unwrap();
+                store[0] = host_sessions;
+                store[1] = sub1_sessions;
+                store[2] = sub2_sessions;
+                store[3] = sub3_sessions;
+                store[4] = sub4_sessions;
+            }
+
+            let patch = LauncherConfig::check_ag2_patch_status();
+            let proxy = ProxyManager::check_status();
+            {
+                let mut telem = bg_telem_worker.lock().unwrap();
+                *telem = (patch, proxy);
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+        }
+    });
+
+    let bg_telem_timer = Arc::clone(&bg_telemetry);
+    let qs_timer = Arc::clone(&quota_states);
+    let qc_timer = Arc::clone(&quota_cache);
     let timer = Timer::default();
     let ui_weak_mon = main_window.as_weak();
     let monitor_timer = Arc::clone(&monitor);
     let sub_pids_mon = Arc::clone(&sub_pids);
+    let sessions_store_timer = Arc::clone(&sessions_store);
+    let live_session_slot_timer = Arc::clone(&live_session_slot);
 
     #[cfg(windows)]
     let restore_timer = Timer::default();
@@ -833,6 +1330,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let hwnd = cached_hwnd;
         if !configured_dark {
             apply_dark_window_attributes(hwnd);
+            center_and_scale_cockpit_window(hwnd);
             configured_dark = true;
         }
         let is_iconic = unsafe {
@@ -881,6 +1379,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_ram_text(format!("{:.0} MB", mon.host.memory_rss_mb).into());
             ui.set_host_port(mon.host.ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
 
+            let uptime_str = if let Some(secs) = mon.host_uptime_seconds() {
+                if secs < 60 {
+                    format!("{}秒", secs)
+                } else if secs < 3600 {
+                    format!("{}分{}秒", secs / 60, secs % 60)
+                } else {
+                    format!("{}小时{}分", secs / 3600, (secs % 3600) / 60)
+                }
+            } else {
+                "--".to_string()
+            };
+            ui.set_host_uptime_text(uptime_str.into());
+
             ui.set_sub1_running(mon.subs[0].is_running);
             ui.set_sub1_pid(mon.subs[0].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub1_port(mon.subs[0].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
@@ -909,6 +1420,164 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub4_ram_text(if mon.subs[3].is_running { format!("{:.0} MB", mon.subs[3].memory_rss_mb).into() } else { "--".into() });
             ui.set_sub4_token_present(LauncherConfig::for_slot(4).map(|c| c.is_token_present()).unwrap_or(false));
 
+            let running_sub_count = mon.subs.iter().filter(|s| s.is_running).count();
+            ui.set_sub_running_count_text(format!("当前活动分身: {} / 4", running_sub_count).into());
+
+            let is_dark = ui.get_is_dark();
+            let qs_snapshot = qs_timer.lock().unwrap().clone();
+
+            let host_token = LauncherConfig::resolve_host_user_dir()
+                .map(|u| u.join(".gemini").join("jetski-standalone-oauth-token"));
+            let host_state = if mon.host.is_running && qs_snapshot[0].is_available {
+                Some(qs_snapshot[0].clone())
+            } else {
+                let qc = qc_timer.lock().unwrap();
+                crate::quota::compute_offline_state(qc.get_slot(0), host_token.as_deref(), "host")
+            };
+
+            apply_quota_to_ui(
+                host_state.as_ref(),
+                is_dark,
+                |name, email, tier, avatar| {
+                    ui.set_host_user_name(name.into());
+                    ui.set_host_user_email(email.into());
+                    ui.set_host_tier(tier.into());
+                    let (img, has_img) = load_avatar_image(avatar);
+                    ui.set_host_avatar(img);
+                    ui.set_host_has_avatar(has_img);
+                },
+                |pct, reset, ring| {
+                    ui.set_host_weekly_text(pct.into());
+                    ui.set_host_weekly_reset(reset.into());
+                    ui.set_host_weekly_ring(ring);
+                },
+                |pct, reset, ring| {
+                    ui.set_host_five_h_text(pct.into());
+                    ui.set_host_five_h_reset(reset.into());
+                    ui.set_host_five_h_ring(ring);
+                },
+            );
+
+            let sub1_token = LauncherConfig::for_slot(1).ok().map(|c| c.token_path);
+            let sub1_state = if mon.subs[0].is_running && qs_snapshot[1].is_available {
+                Some(qs_snapshot[1].clone())
+            } else {
+                let qc = qc_timer.lock().unwrap();
+                crate::quota::compute_offline_state(qc.get_slot(1), sub1_token.as_deref(), "sub1")
+            };
+            apply_quota_to_ui(
+                sub1_state.as_ref(),
+                is_dark,
+                |name, email, tier, avatar| {
+                    ui.set_sub1_user_name(name.into());
+                    ui.set_sub1_user_email(email.into());
+                    ui.set_sub1_tier(tier.into());
+                    let (img, has_img) = load_avatar_image(avatar);
+                    ui.set_sub1_avatar(img);
+                    ui.set_sub1_has_avatar(has_img);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub1_weekly_text(pct.into());
+                    ui.set_sub1_weekly_reset(reset.into());
+                    ui.set_sub1_weekly_ring(ring);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub1_five_h_text(pct.into());
+                    ui.set_sub1_five_h_reset(reset.into());
+                    ui.set_sub1_five_h_ring(ring);
+                },
+            );
+
+            let sub2_token = LauncherConfig::for_slot(2).ok().map(|c| c.token_path);
+            let sub2_state = if mon.subs[1].is_running && qs_snapshot[2].is_available {
+                Some(qs_snapshot[2].clone())
+            } else {
+                let qc = qc_timer.lock().unwrap();
+                crate::quota::compute_offline_state(qc.get_slot(2), sub2_token.as_deref(), "sub2")
+            };
+            apply_quota_to_ui(
+                sub2_state.as_ref(),
+                is_dark,
+                |name, email, tier, avatar| {
+                    ui.set_sub2_user_name(name.into());
+                    ui.set_sub2_user_email(email.into());
+                    ui.set_sub2_tier(tier.into());
+                    let (img, has_img) = load_avatar_image(avatar);
+                    ui.set_sub2_avatar(img);
+                    ui.set_sub2_has_avatar(has_img);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub2_weekly_text(pct.into());
+                    ui.set_sub2_weekly_reset(reset.into());
+                    ui.set_sub2_weekly_ring(ring);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub2_five_h_text(pct.into());
+                    ui.set_sub2_five_h_reset(reset.into());
+                    ui.set_sub2_five_h_ring(ring);
+                },
+            );
+
+            let sub3_token = LauncherConfig::for_slot(3).ok().map(|c| c.token_path);
+            let sub3_state = if mon.subs[2].is_running && qs_snapshot[3].is_available {
+                Some(qs_snapshot[3].clone())
+            } else {
+                let qc = qc_timer.lock().unwrap();
+                crate::quota::compute_offline_state(qc.get_slot(3), sub3_token.as_deref(), "sub3")
+            };
+            apply_quota_to_ui(
+                sub3_state.as_ref(),
+                is_dark,
+                |name, email, tier, avatar| {
+                    ui.set_sub3_user_name(name.into());
+                    ui.set_sub3_user_email(email.into());
+                    ui.set_sub3_tier(tier.into());
+                    let (img, has_img) = load_avatar_image(avatar);
+                    ui.set_sub3_avatar(img);
+                    ui.set_sub3_has_avatar(has_img);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub3_weekly_text(pct.into());
+                    ui.set_sub3_weekly_reset(reset.into());
+                    ui.set_sub3_weekly_ring(ring);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub3_five_h_text(pct.into());
+                    ui.set_sub3_five_h_reset(reset.into());
+                    ui.set_sub3_five_h_ring(ring);
+                },
+            );
+
+            let sub4_token = LauncherConfig::for_slot(4).ok().map(|c| c.token_path);
+            let sub4_state = if mon.subs[3].is_running && qs_snapshot[4].is_available {
+                Some(qs_snapshot[4].clone())
+            } else {
+                let qc = qc_timer.lock().unwrap();
+                crate::quota::compute_offline_state(qc.get_slot(4), sub4_token.as_deref(), "sub4")
+            };
+            apply_quota_to_ui(
+                sub4_state.as_ref(),
+                is_dark,
+                |name, email, tier, avatar| {
+                    ui.set_sub4_user_name(name.into());
+                    ui.set_sub4_user_email(email.into());
+                    ui.set_sub4_tier(tier.into());
+                    let (img, has_img) = load_avatar_image(avatar);
+                    ui.set_sub4_avatar(img);
+                    ui.set_sub4_has_avatar(has_img);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub4_weekly_text(pct.into());
+                    ui.set_sub4_weekly_reset(reset.into());
+                    ui.set_sub4_weekly_ring(ring);
+                },
+                |pct, reset, ring| {
+                    ui.set_sub4_five_h_text(pct.into());
+                    ui.set_sub4_five_h_reset(reset.into());
+                    ui.set_sub4_five_h_ring(ring);
+                },
+            );
+
             let host_mb = mon.host.memory_rss_mb;
             let sub_mb: f64 = mon.subs.iter().map(|s| s.memory_rss_mb).sum();
             let total_mb = mon.total_memory_mb;
@@ -921,13 +1590,170 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             };
             ui.set_total_mem_pct(pct.clamp(0.0, 1.0));
 
-            let (ag2, ver) = LauncherConfig::check_ag2_patch_status();
-            ui.set_patch_ag2_installed(ag2);
-            ui.set_patch_ag2_version(ver.into());
+            let sys_ram = if mon.system_total_ram_mb > 0.0 { mon.system_total_ram_mb } else { 32768.0 };
+            let host_mem_pct = (host_mb / sys_ram) as f32;
+            let subs_mem_pct = (sub_mb / sys_ram) as f32;
+            ui.set_mem_host_pct(host_mem_pct.clamp(0.0, 1.0));
+            ui.set_mem_subs_pct(subs_mem_pct.clamp(0.0, 1.0));
+            let avail_ram = (sys_ram - total_mb).max(0.0);
+            ui.set_mem_detail_text(format!("主号 {:.0}M · 分身 {:.0}M · 待命可用 {:.0}M", host_mb, sub_mb, avail_ram).into());
 
-            let p_status = ProxyManager::check_status();
+            let (ag2_installed, ag2_ver, p_status) = {
+                let telem = bg_telem_timer.lock().unwrap();
+                (telem.0.0, telem.0.1.clone(), telem.1.clone())
+            };
+            ui.set_patch_ag2_installed(ag2_installed);
+            ui.set_patch_ag2_version(ag2_ver.into());
+
             ui.set_proxy_injected(p_status.is_fully_deployed());
             ui.set_proxy_status_text(p_status.status_text().into());
+
+            let mut running_count = if mon.host.is_running { 1 } else { 0 };
+            for s in &mon.subs {
+                if s.is_running {
+                    running_count += 1;
+                }
+            }
+            ui.set_global_summary_text(format!("{} 个实例运行中 · 内存占用 {:.0} MB · 端口正常", running_count, total_mb).into());
+            let proxy_badge = if p_status.is_fully_deployed() {
+                if p_status.port_online {
+                    "系统代理 127.0.0.1:7890".to_string()
+                } else {
+                    "系统代理 127.0.0.1:7890 (未监听)".to_string()
+                }
+            } else {
+                "系统代理未注入".to_string()
+            };
+            ui.set_proxy_badge_text(proxy_badge.into());
+
+            let (host_sessions, sub1_sessions, sub2_sessions, sub3_sessions, sub4_sessions) = {
+                let store = sessions_store_timer.lock().unwrap();
+                (store[0].clone(), store[1].clone(), store[2].clone(), store[3].clone(), store[4].clone())
+            };
+
+            ui.set_host_summary_text(host_sessions.summary_text.as_str().into());
+            ui.set_host_has_running(host_sessions.has_running);
+            ui.set_host_has_sessions(host_sessions.total_sessions > 0);
+
+            ui.set_sub1_summary_text(sub1_sessions.summary_text.as_str().into());
+            ui.set_sub1_has_running(sub1_sessions.has_running);
+            ui.set_sub1_has_sessions(sub1_sessions.total_sessions > 0);
+            ui.set_sub1_session_count_text(if sub1_sessions.total_sessions > 0 { format!("{} 个", sub1_sessions.total_sessions).into() } else { "--".into() });
+            let (s1_p, s1_t, s1_time) = extract_recent_session_info(&sub1_sessions);
+            ui.set_sub1_recent_project(s1_p.into());
+            ui.set_sub1_recent_tokens(s1_t.into());
+            ui.set_sub1_recent_time(s1_time.into());
+
+            ui.set_sub2_summary_text(sub2_sessions.summary_text.as_str().into());
+            ui.set_sub2_has_running(sub2_sessions.has_running);
+            ui.set_sub2_has_sessions(sub2_sessions.total_sessions > 0);
+            ui.set_sub2_session_count_text(if sub2_sessions.total_sessions > 0 { format!("{} 个", sub2_sessions.total_sessions).into() } else { "--".into() });
+            let (s2_p, s2_t, s2_time) = extract_recent_session_info(&sub2_sessions);
+            ui.set_sub2_recent_project(s2_p.into());
+            ui.set_sub2_recent_tokens(s2_t.into());
+            ui.set_sub2_recent_time(s2_time.into());
+
+            ui.set_sub3_summary_text(sub3_sessions.summary_text.as_str().into());
+            ui.set_sub3_has_running(sub3_sessions.has_running);
+            ui.set_sub3_has_sessions(sub3_sessions.total_sessions > 0);
+            ui.set_sub3_session_count_text(if sub3_sessions.total_sessions > 0 { format!("{} 个", sub3_sessions.total_sessions).into() } else { "--".into() });
+            let (s3_p, s3_t, s3_time) = extract_recent_session_info(&sub3_sessions);
+            ui.set_sub3_recent_project(s3_p.into());
+            ui.set_sub3_recent_tokens(s3_t.into());
+            ui.set_sub3_recent_time(s3_time.into());
+
+            ui.set_sub4_summary_text(sub4_sessions.summary_text.as_str().into());
+            ui.set_sub4_has_running(sub4_sessions.has_running);
+            ui.set_sub4_has_sessions(sub4_sessions.total_sessions > 0);
+            ui.set_sub4_session_count_text(if sub4_sessions.total_sessions > 0 { format!("{} 个", sub4_sessions.total_sessions).into() } else { "0".into() });
+            let (s4_p, s4_t, s4_time) = extract_recent_session_info(&sub4_sessions);
+            ui.set_sub4_recent_project(s4_p.into());
+            ui.set_sub4_recent_tokens(s4_t.into());
+            ui.set_sub4_recent_time(s4_time.into());
+
+            let is_modal_visible = ui.get_session_modal_visible();
+            let current_modal_slot = ui.get_session_modal_slot() as usize;
+
+            {
+                let store = sessions_store_timer.lock().unwrap();
+
+                if is_modal_visible && current_modal_slot <= 4 {
+                    let model = to_session_ui_model(&store[current_modal_slot].groups);
+                    ui.set_session_modal_items(model);
+                }
+
+                let target_slot = *live_session_slot_timer.lock().unwrap();
+                let target_slot = target_slot.clamp(0, 4);
+                let target_sessions = &store[target_slot];
+                let active = target_sessions
+                    .groups
+                    .iter()
+                    .flat_map(|g| g.sessions.iter())
+                    .find(|s| s.is_running)
+                    .or_else(|| {
+                        target_sessions
+                            .groups
+                            .first()
+                            .and_then(|g| g.sessions.first())
+                    });
+
+                if let Some(s) = active {
+                    ui.set_live_session_is_running(s.is_running);
+                    ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "就绪 · 待命".into() });
+                    ui.set_live_session_project(s.project_name.as_str().into());
+                    ui.set_live_session_title(s.title.as_str().into());
+                    if s.is_running {
+                        ui.set_live_session_speed_text("--".into());
+                        ui.set_live_session_speed_sub("生成中".into());
+                    } else {
+                        ui.set_live_session_speed_text("0.0".into());
+                        ui.set_live_session_speed_sub("待命中".into());
+                    }
+                    let max_tokens = 1_000_000u64;
+                    let prompt_tokens = s.context_tokens.saturating_sub(s.cache_read_tokens).saturating_sub(s.output_tokens);
+                    let prompt_pct = (prompt_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let cache_pct = (s.cache_read_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let output_pct = (s.output_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    ui.set_live_prompt_pct(prompt_pct);
+                    ui.set_live_cache_pct(cache_pct);
+                    ui.set_live_output_pct(output_pct);
+                    ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
+                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(s.cache_read_tokens), s.cache_rate_str).into());
+                    ui.set_live_output_text(format!("输出 {}", format_tokens(s.output_tokens)).into());
+
+                    let pct = (s.context_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    ui.set_live_session_context_text(format!("{} / 1,000K ({:.1}%)", format_tokens(s.context_tokens), pct * 100.0).into());
+                    ui.set_live_session_context_pct(pct);
+                    ui.set_live_session_cache_text(format!("缓存 {} ({})", format_tokens(s.cache_read_tokens), s.cache_rate_str).into());
+                    let avail = max_tokens.saturating_sub(s.context_tokens);
+                    ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
+                    if s.cache_rate > 0.0 {
+                        let opt_val = (s.cache_rate * 100.0).clamp(10.0, 95.0);
+                        ui.set_live_session_optimization_text(format!("首字延迟优化: ~{:.0}%", opt_val).into());
+                    } else {
+                        ui.set_live_session_optimization_text("首字延迟优化: --".into());
+                    }
+                } else {
+                    ui.set_live_prompt_pct(0.0);
+                    ui.set_live_cache_pct(0.0);
+                    ui.set_live_output_pct(0.0);
+                    ui.set_live_prompt_text("输入 0".into());
+                    ui.set_live_cache_legend("缓存 0 (0.0%)".into());
+                    ui.set_live_output_text("输出 0".into());
+
+                    ui.set_live_session_is_running(false);
+                    ui.set_live_session_status_text("待命中".into());
+                    ui.set_live_session_project("--".into());
+                    ui.set_live_session_title("无活动会话".into());
+                    ui.set_live_session_speed_text("0.0".into());
+                    ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
+                    ui.set_live_session_context_text("0 / 1,000K (0.0%)".into());
+                    ui.set_live_session_context_pct(0.0);
+                    ui.set_live_session_cache_text("缓存 0 (0.0%)".into());
+                    ui.set_live_session_available_text("可用 1,000K".into());
+                    ui.set_live_session_optimization_text("首字延迟优化: --".into());
+                }
+            }
         }
     });
 
@@ -936,6 +1762,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     {
         let hwnd = get_cockpit_hwnd();
         apply_dark_window_attributes(hwnd);
+        center_and_scale_cockpit_window(hwnd);
     }
     let _ = slint::run_event_loop_until_quit();
     Ok(())

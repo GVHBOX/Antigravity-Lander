@@ -312,7 +312,7 @@ impl LauncherConfig {
         None
     }
 
-fn resolve_host_user_dir() -> Option<PathBuf> {
+pub fn resolve_host_user_dir() -> Option<PathBuf> {
     if let (Ok(drive), Ok(path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
         let p = PathBuf::from(format!("{}{}", drive, path));
         if p.exists() {
@@ -458,6 +458,9 @@ fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn kill_sub_instance_by_pid(&self, pid: u32) -> Result<()> {
+        if pid == 0 {
+            return Ok(());
+        }
         let output = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .creation_flags(WIN32_DETACHED_FLAGS)

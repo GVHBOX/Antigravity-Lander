@@ -3335,9 +3335,13 @@ name = "multi-antigravity-rust"
 version = "1.0.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "crossterm",
+ "image",
  "ratatui",
+ "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "sysinfo",

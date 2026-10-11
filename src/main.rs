@@ -6,7 +6,9 @@ mod i18n;
 mod launcher;
 mod monitor;
 mod proxy;
+mod quota;
 mod ui;
+mod session;
 
 use anyhow::{anyhow, Result};
 use app::App;

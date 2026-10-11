@@ -44,6 +44,7 @@ python tools/scan_comment.py --selfcheck
    - 界面只写「它是什么（字段/状态）」和「出了什么问题（错误具体原因）」，坚决不写「怎么用（引导/解释/教导）」。
    - 全界面严格仅允许五类文案：字段名 · 必填标记 `*` · 出错的具体原因 · 禁用态的原因 · 空状态占位提示。
    - 严禁在界面放置技术自嗨标签（如“Slint 1.18 软件光栅”）。
+   - **高信息密度 ≠ 界面噪音（Dense Telemetry is NOT Noise）**：零说明字禁止的是教学引导与废话，严格鼓励多维工程事实与数据切片（如 3 列指标盒、多色分段 Prompt/Cache/Output 度量条、分身独立磁盘缓存统计等纯客观数据），充分利用 1080P 视口空间。
 
 **机器强制**：`python tools/check_front_hygiene.py`。
 注意它是**关键词黑名单**，只挡已知说法；中英文都要过一遍（英文文案扫不到），
@@ -87,10 +88,20 @@ TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知�
   - 未运行时动词为【启动】；运行中动词为【打开】（激活置顶已有窗口）与【停止】（终止进程）。小白用户看到【打开】才符合直觉，严禁写成【置顶】或【唤醒】。
   - 缩放控制统一写【界面调节】，支持 80%~200%（±10%）及点击数值快速重置，持久化到 `data/scale_settings.json`，启动时通过 `--force-device-scale-factor` 注入。
 - **UI 布局与窗口设计**：
-  - 默认尺寸：宽 1340px、高 740px（最小 1200×680），自适应缩放。
-  - 上半区 3 列卡片布局（主账号 · 汉化与代理 · 运行概览）。
-  - 下半区为【分身管理】：4 个分身平铺卡片，右上角设置深浅主题切换（☀/🌙）。
-  - 移除多余的 Header 大标题，窗口原生标题栏即为应用标题。
+  - 基准尺寸：宽 1840px、高 1000px（适配 1080P，最小 1280×720），自适应弹性拉伸。
+  - 上半区 3 列卡片布局：
+    - 卡片 1【主机实例】：主账号控制、进程启停、界面缩放、目录直达。
+    - 卡片 2【系统代理与汉化】：代理端口检测与环境变量注入、汉化补丁状态与一键应用。
+    - 卡片 3【会话遥测中枢】：TPS、上下文 Token 用量三色分段条、延迟分布、沙箱存储占用。
+  - 下半区【分身管理】：4 个分身平铺卡片，右上角设置深浅主题切换（☀/🌙）与窗口置顶图钉（📌）。
+  - 工具带与标题栏边界：移除纯装饰性大字 Banner；允许并推荐保留高度 ≤ 36px 的紧凑功能工具带（全局一键启动/停止、刷新、系统状态摘要）。
+  - 窗口标题栏与版本标识：原生标题栏显示名称与版本号（如 `Antigravity 多开分身工具 v1.0.1`）。
+- **窗口置顶联动**：
+  - 置顶图钉（📌）与 Win32 `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST)` 真实物理状态联动，支持点击切换并在高亮态表明置顶激活。
+- **原型驱动与防降级减配（Prototype Fidelity）**：
+  - 当存在设计原型（如 `.scratch/ui_prototype.html`）且指令为执行时，实现必须以原型为唯一视觉和功能基准，1:1 对齐信息密度与组件排布。
+  - 严禁以“白描”、“零噪音”为由防御性删减原型中的数据切片、多列指标盒或状态条。
+  - Slint 缺少对应高级控件时，使用 `Rectangle`、`HorizontalLayout`、`Path` 等基础图元组合实现，不得通过减配或退化结构规避布局难度。
 - **窗口可见性必须走 Slint**：隐藏用 `window.hide()`、恢复用 `window.show()`，
   **不许直接用 Win32 的 `ShowWindow(SW_HIDE/SW_SHOW)`**。
   窗口是 `with_transparent(true)` 建的，软件渲染器按 dirty region 增量呈现；
@@ -146,6 +157,8 @@ python tools/ui_probe.py kill <pid>
 - **`target/` 5.2 GB 不动**：D 盘空间充足，清掉会延长全量重编时间。
 - **Slint 1.18 颜色调节语法**：变亮为 `color.brighter(factor)`，变暗为 `color.darker(factor)`，**不存在 `color.lighter`**。
 - **单实例互斥锁与激活事件**：基于 `Local\AntigravityCockpit.SingleInstance` 与 `Local\AntigravityCockpit.Activate`。启动新实例若检测到已有实例运行，会自动激活旧窗口并静默退出（退出码 0）。测试前需确保旧实例已清理。
+- **沙箱终端执行环境**：若在分身沙箱启动的终端内执行，`USERPROFILE` 会指向 `data/instance_*/home`。若离线编译时 `cargo` 找不到 crates 缓存，请显式指定 `$env:CARGO_HOME = "C:\Users\GVH\.cargo"`。
+- **沙箱目录 Junction 隔离保护**：分身 `home/` 下不仅个人文件夹是 Junction，`AppData` 内部亦包含指向宿主 `C:\Users\GVH\AppData\Roaming\Microsoft` 与 `LocalLow` 的 NTFS Junction，严禁直接递归删除沙箱 `AppData`。
 - Bash 里不能出现 "PowerShell" 字样（会被安全策略拦），要跑就用 PowerShell 工具。
 
 ## 边界
