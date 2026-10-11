@@ -176,7 +176,7 @@ pub fn compute_offline_state(
 ) -> Option<InstanceQuotaState> {
     let mut state = cached.cloned().unwrap_or_default();
     let base_dir = crate::launcher::LauncherConfig::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let default_avatar = base_dir.join(".scratch").join("avatars").join(format!("{}.png", tag));
+    let default_avatar = base_dir.join("data").join("avatars").join(format!("{}.png", tag));
 
     if !state.is_available {
         if let Some(tp) = token_path {
@@ -340,7 +340,7 @@ fn save_avatar_file(avatar_data_uri: &str, tag: &str) -> Option<PathBuf> {
 
     let bytes = base64::engine::general_purpose::STANDARD.decode(b64_str.trim()).ok()?;
     let base_dir = crate::launcher::LauncherConfig::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let avatars_dir = base_dir.join(".scratch").join("avatars");
+    let avatars_dir = base_dir.join("data").join("avatars");
     let _ = std::fs::create_dir_all(&avatars_dir);
     let target = avatars_dir.join(format!("{}.png", tag));
 
