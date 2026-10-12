@@ -1136,9 +1136,9 @@ export component MainWindow inherits Window {
 
         Rectangle {
             vertical-stretch: 0;
-            min-height: 285px;
-            max-height: 285px;
-            preferred-height: 285px;
+            min-height: 310px;
+            max-height: 310px;
+            preferred-height: 310px;
 
             HorizontalLayout {
                 spacing: 8px;
@@ -1147,7 +1147,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 2;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
+                max-height: 310px;
                 background: root.is_dark ? #090e1c : #f8fafc;
                 border-color: root.host_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                 border-width: 1px;
@@ -1157,9 +1157,9 @@ export component MainWindow inherits Window {
                 VerticalLayout {
                     padding-left: 10px;
                     padding-right: 10px;
-                    padding-top: 5px;
-                    padding-bottom: 5px;
-                    spacing: 2px;
+                    padding-top: 6px;
+                    padding-bottom: 8px;
+                    spacing: 3px;
 
                     HorizontalLayout {
                         alignment: space-between;
@@ -1282,9 +1282,11 @@ export component MainWindow inherits Window {
                         reset_clicked => { root.reset_host_scale(); }
                     }
 
+                    Rectangle { vertical-stretch: 1; }
+
                     HorizontalLayout {
                         spacing: 6px;
-                        height: 26px;
+                        height: 28px;
                         if !root.host_running : CompactButton {
                             horizontal-stretch: 1;
                             text: "启动";
@@ -1311,7 +1313,7 @@ export component MainWindow inherits Window {
 
                     HorizontalLayout {
                         spacing: 6px;
-                        height: 24px;
+                        height: 26px;
                         OutlineButton {
                             horizontal-stretch: 1;
                             text: "清理凭据";
@@ -1336,7 +1338,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 3;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
+                max-height: 310px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
@@ -1454,8 +1456,8 @@ export component MainWindow inherits Window {
                         border-radius: 6px;
                         height: 48px;
                         HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
+                            padding-left: 12px;
+                            padding-right: 12px;
                             alignment: space-between;
                             VerticalLayout {
                                 alignment: center;
@@ -1473,10 +1475,13 @@ export component MainWindow inherits Window {
                                     font-family: "Cascadia Mono";
                                 }
                             }
-                            OutlineButton {
-                                text: "清理缓存";
-                                is_dark: root.is_dark;
-                                clicked => { root.action_scan_cache(); }
+                            VerticalLayout {
+                                alignment: center;
+                                OutlineButton {
+                                    text: "清理缓存";
+                                    is_dark: root.is_dark;
+                                    clicked => { root.action_scan_cache(); }
+                                }
                             }
                         }
                     }
@@ -1489,7 +1494,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 3;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
+                max-height: 310px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
