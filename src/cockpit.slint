@@ -232,17 +232,21 @@ component SessionModalRow inherits Rectangle {
 component CompactButton inherits Rectangle {
     in property <string> text;
     in property <color> btn_color: #38bdf8;
-    in property <color> text_color: #070a13;
+    in property <color> text_color: (ta.has_hover ? #ffffff : root.btn_color);
+    in property <color> ghost_bg: root.btn_color == #10b981 ? rgba(16, 185, 129, 0.14) : (root.btn_color == #f43f5e ? rgba(244, 63, 94, 0.15) : rgba(56, 189, 248, 0.14));
     in property <bool> is_dark: true;
     in property <bool> is_disabled: false;
     in property <length> btn_height: 28px;
     callback clicked();
 
-    background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(15%) : (ta.has_hover ? btn_color.brighter(10%) : btn_color));
-    border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : (ta.has_hover ? btn_color.brighter(20%) : btn_color);
+    background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(10%) : (ta.has_hover ? btn_color : root.ghost_bg));
+    border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : btn_color;
     border-width: 1px;
     border-radius: 6px;
     height: root.btn_height;
+
+    animate background { duration: 150ms; easing: ease-out; }
+    animate border-color { duration: 150ms; easing: ease-out; }
 
     ta := TouchArea {
         enabled: !root.is_disabled;
@@ -261,6 +265,7 @@ component CompactButton inherits Rectangle {
             font-weight: 700;
             vertical-alignment: center;
             horizontal-alignment: center;
+            animate color { duration: 150ms; easing: ease-out; }
         }
     }
 }
@@ -394,6 +399,8 @@ component PatchItemRow inherits Rectangle {
             border-width: 1px;
             border-radius: 5px;
 
+            animate background { duration: 150ms; easing: ease-out; }
+
             ta := TouchArea {
                 clicked => { root.btn_clicked(); }
                 mouse-cursor: pointer;
@@ -406,6 +413,7 @@ component PatchItemRow inherits Rectangle {
                 font-weight: 600;
                 vertical-alignment: center;
                 horizontal-alignment: center;
+                animate color { duration: 150ms; easing: ease-out; }
             }
         }
     }
@@ -1307,7 +1315,6 @@ export component MainWindow inherits Window {
                             horizontal-stretch: 1;
                             text: "停止";
                             btn_color: #f43f5e;
-                            text_color: #ffffff;
                             is_dark: root.is_dark;
                             clicked => { root.action_stop_host(); }
                         }
@@ -2022,7 +2029,6 @@ export component MainWindow inherits Window {
                                     horizontal-stretch: 1;
                                     text: "停止";
                                     btn_color: #f43f5e;
-                                    text_color: #ffffff;
                                     is_dark: root.is_dark;
                                     clicked => { root.action_stop_sub(1); }
                                 }
@@ -2210,7 +2216,6 @@ export component MainWindow inherits Window {
                                     horizontal-stretch: 1;
                                     text: "停止";
                                     btn_color: #f43f5e;
-                                    text_color: #ffffff;
                                     is_dark: root.is_dark;
                                     clicked => { root.action_stop_sub(2); }
                                 }
@@ -2398,7 +2403,6 @@ export component MainWindow inherits Window {
                                     horizontal-stretch: 1;
                                     text: "停止";
                                     btn_color: #f43f5e;
-                                    text_color: #ffffff;
                                     is_dark: root.is_dark;
                                     clicked => { root.action_stop_sub(3); }
                                 }
@@ -2586,7 +2590,6 @@ export component MainWindow inherits Window {
                                     horizontal-stretch: 1;
                                     text: "停止";
                                     btn_color: #f43f5e;
-                                    text_color: #ffffff;
                                     is_dark: root.is_dark;
                                     clicked => { root.action_stop_sub(4); }
                                 }
@@ -2678,7 +2681,6 @@ export component MainWindow inherits Window {
                         width: 84px;
                         text: "清理";
                         btn_color: #f43f5e;
-                        text_color: #ffffff;
                         is_dark: root.is_dark;
                         clicked => {
                             root.confirm_modal_visible = false;
@@ -2756,7 +2758,6 @@ export component MainWindow inherits Window {
                         width: 84px;
                         text: "清理";
                         btn_color: #f43f5e;
-                        text_color: #ffffff;
                         is_dark: root.is_dark;
                         clicked => {
                             root.action_clean_cache();
@@ -2826,7 +2827,6 @@ export component MainWindow inherits Window {
                         width: 100px;
                         text: root.patch_modal_btn_text;
                         btn_color: #f43f5e;
-                        text_color: #ffffff;
                         is_dark: root.is_dark;
                         clicked => {
                             root.patch_modal_visible = false;
