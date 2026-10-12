@@ -754,8 +754,10 @@ component QuotaNativeBox inherits Rectangle {
 component SubQuotaCompactBox inherits Rectangle {
     in property <string> weekly_reset: "";
     in property <string> weekly_pct: "--";
+    in property <image> weekly_ring;
     in property <string> five_h_reset: "";
     in property <string> five_h_pct: "--";
+    in property <image> five_h_ring;
     in property <bool> is_dark: true;
 
     background: root.is_dark ? #0d1527 : #ffffff;
@@ -799,7 +801,7 @@ component SubQuotaCompactBox inherits Rectangle {
             }
 
             HorizontalLayout {
-                spacing: 5px;
+                spacing: 6px;
                 alignment: end;
                 Text {
                     text: root.weekly_pct;
@@ -809,12 +811,11 @@ component SubQuotaCompactBox inherits Rectangle {
                     font-weight: 700;
                     vertical-alignment: center;
                 }
-                if root.weekly_pct != "--" : Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
-                    background: #10b981;
-                    y: (parent.height - 6px) / 2;
+                Image {
+                    source: root.weekly_ring;
+                    width: 16px;
+                    height: 16px;
+                    vertical-alignment: center;
                 }
             }
         }
@@ -852,7 +853,7 @@ component SubQuotaCompactBox inherits Rectangle {
             }
 
             HorizontalLayout {
-                spacing: 5px;
+                spacing: 6px;
                 alignment: end;
                 Text {
                     text: root.five_h_pct;
@@ -862,12 +863,11 @@ component SubQuotaCompactBox inherits Rectangle {
                     font-weight: 700;
                     vertical-alignment: center;
                 }
-                if root.five_h_pct != "--" : Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
-                    background: #38bdf8;
-                    y: (parent.height - 6px) / 2;
+                Image {
+                    source: root.five_h_ring;
+                    width: 16px;
+                    height: 16px;
+                    vertical-alignment: center;
                 }
             }
         }
@@ -2097,8 +2097,10 @@ export component MainWindow inherits Window {
                             SubQuotaCompactBox {
                                 weekly_reset: root.sub1_weekly_reset;
                                 weekly_pct: root.sub1_weekly_text;
+                                weekly_ring: root.sub1_weekly_ring;
                                 five_h_reset: root.sub1_five_h_reset;
                                 five_h_pct: root.sub1_five_h_text;
+                                five_h_ring: root.sub1_five_h_ring;
                                 is_dark: root.is_dark;
                             }
 
@@ -2280,8 +2282,10 @@ export component MainWindow inherits Window {
                             SubQuotaCompactBox {
                                 weekly_reset: root.sub2_weekly_reset;
                                 weekly_pct: root.sub2_weekly_text;
+                                weekly_ring: root.sub2_weekly_ring;
                                 five_h_reset: root.sub2_five_h_reset;
                                 five_h_pct: root.sub2_five_h_text;
+                                five_h_ring: root.sub2_five_h_ring;
                                 is_dark: root.is_dark;
                             }
 
@@ -2463,8 +2467,10 @@ export component MainWindow inherits Window {
                             SubQuotaCompactBox {
                                 weekly_reset: root.sub3_weekly_reset;
                                 weekly_pct: root.sub3_weekly_text;
+                                weekly_ring: root.sub3_weekly_ring;
                                 five_h_reset: root.sub3_five_h_reset;
                                 five_h_pct: root.sub3_five_h_text;
+                                five_h_ring: root.sub3_five_h_ring;
                                 is_dark: root.is_dark;
                             }
 
@@ -2646,8 +2652,10 @@ export component MainWindow inherits Window {
                             SubQuotaCompactBox {
                                 weekly_reset: root.sub4_weekly_reset;
                                 weekly_pct: root.sub4_weekly_text;
+                                weekly_ring: root.sub4_weekly_ring;
                                 five_h_reset: root.sub4_five_h_reset;
                                 five_h_pct: root.sub4_five_h_text;
+                                five_h_ring: root.sub4_five_h_ring;
                                 is_dark: root.is_dark;
                             }
 
