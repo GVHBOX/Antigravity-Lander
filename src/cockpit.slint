@@ -1423,7 +1423,7 @@ export component MainWindow inherits Window {
                         alignment: space-between;
                         height: 22px;
                         Text {
-                            text: "环境与代理";
+                            text: "内置组件";
                             color: root.is_dark ? #f8fafc : #0f172a;
                             font-size: 14px;
                             font-weight: 700;
@@ -1445,7 +1445,7 @@ export component MainWindow inherits Window {
                     }
 
                     PatchItemRow {
-                        title: "Antigravity 桌面版";
+                        title: "Antigravity 桌面版汉化补丁";
                         status_text: root.patch_ag2_installed ? ("已汉化 (" + root.patch_ag2_version + ")") : (root.patch_ag2_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ag2_version + ")"));
                         is_installed: root.patch_ag2_installed;
                         btn_text: root.patch_ag2_installed ? "卸载" : "安装";
@@ -1454,7 +1454,7 @@ export component MainWindow inherits Window {
                     }
 
                     PatchItemRow {
-                        title: "系统代理 (" + root.proxy_port_text + ")";
+                        title: "系统代理补丁";
                         status_text: root.proxy_status_text;
                         is_installed: root.proxy_injected;
                         btn_text: root.proxy_injected ? "移除" : "注入";
