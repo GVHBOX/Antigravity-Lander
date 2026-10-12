@@ -1637,6 +1637,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_summary_text(host_sessions.summary_text.as_str().into());
             ui.set_host_has_running(host_sessions.has_running);
             ui.set_host_has_sessions(host_sessions.total_sessions > 0);
+            ui.set_host_session_count_text(if host_sessions.total_sessions > 0 { format!("{} 个", host_sessions.total_sessions).into() } else { "--".into() });
+            let (h_p, h_title, h_t, h_time) = extract_recent_session_info(&host_sessions);
+            ui.set_host_recent_project(h_p.into());
+            ui.set_host_recent_title(h_title.into());
+            ui.set_host_recent_tokens(h_t.into());
+            ui.set_host_recent_time(h_time.into());
 
             ui.set_sub1_summary_text(sub1_sessions.summary_text.as_str().into());
             ui.set_sub1_has_running(sub1_sessions.has_running);

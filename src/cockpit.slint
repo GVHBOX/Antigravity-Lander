@@ -50,66 +50,6 @@ component MoonIcon inherits Path {
     fill: transparent;
 }
 
-component SessionSummaryRow inherits Rectangle {
-    in property <string> summary_text: "无活动会话";
-    in property <bool> is_running: false;
-    in property <bool> has_sessions: false;
-    in property <bool> is_dark: true;
-    callback clicked();
-
-    background: ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc);
-    border-color: ta.has_hover ? #38bdf8 : (root.is_dark ? #162032 : #e2e8f0);
-    border-width: 1px;
-    border-radius: 6px;
-    height: 32px;
-
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 8px;
-        alignment: space-between;
-
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: start;
-
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: root.is_running ? #10b981 : (root.has_sessions ? #38bdf8 : (root.is_dark ? #475569 : #94a3b8));
-                y: (parent.height - 8px) / 2;
-            }
-
-            Text {
-                text: root.summary_text;
-                color: root.has_sessions ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 12.5px;
-                font-family: "Cascadia Mono";
-                font-weight: 600;
-                overflow: elide;
-                vertical-alignment: center;
-            }
-        }
-
-        Text {
-            text: "明细 >";
-            color: ta.has_hover ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
-            font-size: 12px;
-            font-weight: 600;
-            vertical-alignment: center;
-        }
-    }
-
-    ta := TouchArea {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
-        clicked => { root.clicked(); }
-        mouse-cursor: pointer;
-    }
-}
 
 component SessionGroupHeader inherits Rectangle {
     in property <string> group_name;
@@ -360,103 +300,7 @@ component OutlineButton inherits Rectangle {
     }
 }
 
-component StepButton inherits Rectangle {
-    in property <string> text;
-    in property <bool> is_dark: true;
-    callback clicked();
 
-    background: ta.pressed ? (root.is_dark ? #1e293b : #cbd5e1) : (ta.has_hover ? (root.is_dark ? #162238 : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9));
-    border-color: ta.has_hover ? #38bdf8 : (root.is_dark ? #1e293b : #cbd5e1);
-    border-width: 1px;
-    border-radius: 5px;
-    width: 26px;
-    height: 26px;
-
-    ta := TouchArea {
-        clicked => { root.clicked(); }
-        mouse-cursor: pointer;
-    }
-
-    Text {
-        text: root.text;
-        color: ta.has_hover ? #38bdf8 : (root.is_dark ? #f8fafc : #0f172a);
-        font-size: 13px;
-        font-weight: 700;
-        vertical-alignment: center;
-        horizontal-alignment: center;
-    }
-}
-
-component ScaleControl inherits HorizontalLayout {
-    in property <string> scale_text: "100%";
-    in property <string> cache_text: "";
-    in property <bool> is_dark: true;
-    callback dec_clicked();
-    callback inc_clicked();
-    callback reset_clicked();
-
-    alignment: space-between;
-    height: 28px;
-
-    HorizontalLayout {
-        spacing: 8px;
-        alignment: start;
-        if root.cache_text != "" : Text {
-            text: root.cache_text;
-            color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 11px;
-            font-family: "Cascadia Mono";
-            vertical-alignment: center;
-        }
-        Text {
-            text: "界面调节";
-            color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 11.5px;
-            vertical-alignment: center;
-        }
-    }
-
-    HorizontalLayout {
-        spacing: 4px;
-        alignment: end;
-
-        StepButton {
-            text: "-";
-            is_dark: root.is_dark;
-            clicked => { root.dec_clicked(); }
-        }
-
-        Rectangle {
-            width: 52px;
-            height: 26px;
-            background: root.is_dark ? #0d1527 : #ffffff;
-            border-color: root.is_dark ? #1e293b : #cbd5e1;
-            border-width: 1px;
-            border-radius: 5px;
-
-            TouchArea {
-                clicked => { root.reset_clicked(); }
-                mouse-cursor: pointer;
-            }
-
-            Text {
-                text: root.scale_text;
-                color: root.is_dark ? #38bdf8 : #0284c7;
-                font-size: 12px;
-                font-family: "Cascadia Mono";
-                font-weight: 700;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-            }
-        }
-
-        StepButton {
-            text: "+";
-            is_dark: root.is_dark;
-            clicked => { root.inc_clicked(); }
-        }
-    }
-}
 
 component MiniMetricBox inherits Rectangle {
     in property <string> label;
@@ -678,117 +522,6 @@ component UserProfileRow inherits Rectangle {
     }
 }
 
-component QuotaNativeBox inherits Rectangle {
-    in property <string> weekly_title: "每周限额剩余";
-    in property <string> weekly_reset: "";
-    in property <string> weekly_pct: "--";
-    in property <image> weekly_ring;
-    in property <string> five_h_title: "5 小时限额剩余";
-    in property <string> five_h_reset: "";
-    in property <string> daily_reset: "";
-    in property <string> five_h_pct: "--";
-    in property <image> five_h_ring;
-    in property <bool> is_dark: true;
-
-    background: root.is_dark ? #090e1c : #f8fafc;
-    border-color: root.is_dark ? #162032 : #e2e8f0;
-    border-width: 1px;
-    border-radius: 6px;
-    height: 58px;
-
-    VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        spacing: 2px;
-        alignment: space-around;
-
-        HorizontalLayout {
-            alignment: space-between;
-            height: 24px;
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 0px;
-                Text {
-                    text: root.weekly_title;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 11.5px;
-                    font-weight: 500;
-                    vertical-alignment: center;
-                }
-                if root.weekly_reset != "" : Text {
-                    text: root.weekly_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: 7px;
-                alignment: end;
-                Text {
-                    text: root.weekly_pct;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 13px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Image {
-                    source: root.weekly_ring;
-                    width: 20px;
-                    height: 20px;
-                    vertical-alignment: center;
-                }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: space-between;
-            height: 24px;
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 0px;
-                Text {
-                    text: root.five_h_title;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 11.5px;
-                    font-weight: 500;
-                    vertical-alignment: center;
-                }
-                if root.five_h_reset != "" : Text {
-                    text: root.five_h_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: 7px;
-                alignment: end;
-                Text {
-                    text: root.five_h_pct;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 13px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Image {
-                    source: root.five_h_ring;
-                    width: 20px;
-                    height: 20px;
-                    vertical-alignment: center;
-                }
-            }
-        }
-    }
-}
 
 component SubQuotaCompactBox inherits Rectangle {
     in property <string> weekly_reset: "";
@@ -1365,6 +1098,12 @@ export component MainWindow inherits Window {
     in property <string> live_prompt_text: "输入 0";
     in property <string> live_cache_legend: "缓存 0 (0.0%)";
     in property <string> live_output_text: "输出 0";
+    in property <string> host_session_count_text: "--";
+    in property <string> host_cache_size_text: "主机实例";
+    in property <string> host_recent_project: "无活动会话";
+    in property <string> host_recent_title: "";
+    in property <string> host_recent_tokens: "";
+    in property <string> host_recent_time: "等待初始化";
 
     in property <string> sub_running_count_text: "活动分身: 0 / 4";
     in property <string> sub1_session_count_text: "--";
@@ -1398,9 +1137,9 @@ export component MainWindow inherits Window {
 
         Rectangle {
             vertical-stretch: 0;
-            min-height: 285px;
-            max-height: 285px;
-            preferred-height: 285px;
+            min-height: 320px;
+            max-height: 320px;
+            preferred-height: 320px;
 
             HorizontalLayout {
                 spacing: 8px;
@@ -1409,59 +1148,87 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
-                background: root.is_dark ? #0d1527 : #ffffff;
-                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+                max-height: 320px;
+                background: root.is_dark ? #090e1c : #f8fafc;
+                border-color: root.host_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                 border-width: 1px;
-                border-radius: 10px;
+                border-radius: 8px;
                 clip: true;
 
                 VerticalLayout {
-                    padding: 10px;
-                    spacing: 5px;
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 6px;
+                    padding-bottom: 6px;
+                    spacing: 3px;
 
                     HorizontalLayout {
                         alignment: space-between;
-                        height: 22px;
-
+                        height: 20px;
                         HorizontalLayout {
                             spacing: 6px;
+                            Rectangle {
+                                width: 7px;
+                                height: 7px;
+                                border-radius: 3.5px;
+                                background: root.host_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                                y: (parent.height - 7px) / 2;
+                            }
                             Text {
                                 text: "主账号";
                                 color: root.is_dark ? #f8fafc : #0f172a;
-                                font-size: 14px;
+                                font-size: 13px;
                                 font-weight: 700;
                                 vertical-alignment: center;
                             }
+                            Rectangle {
+                                background: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
+                                border-color: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
+                                border-width: 1px;
+                                border-radius: 3px;
+                                height: 16px;
+                                y: (parent.height - 16px) / 2;
+                                HorizontalLayout {
+                                    padding-left: 5px;
+                                    padding-right: 5px;
+                                    alignment: center;
+                                    Text {
+                                        text: "host";
+                                        color: root.host_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                        font-size: 10px;
+                                        font-family: "Cascadia Mono";
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
                         }
-
-                        Rectangle {
-                            height: 22px;
-                            background: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15)) : (root.is_dark ? #090e1c : #f1f5f9);
-                            border-color: root.host_running ? rgba(16, 185, 129, 0.3) : (root.is_dark ? #162032 : #cbd5e1);
+                        if root.host_running : Rectangle {
+                            background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
+                            border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
                             border-width: 1px;
                             border-radius: 4px;
+                            height: 18px;
+                            y: (parent.height - 18px) / 2;
                             HorizontalLayout {
-                                padding-left: 7px;
-                                padding-right: 7px;
-                                spacing: 4px;
+                                padding-left: 6px;
+                                padding-right: 6px;
                                 alignment: center;
-                                Rectangle {
-                                    width: 6px;
-                                    height: 6px;
-                                    border-radius: 3px;
-                                    background: root.host_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                    y: (parent.height - 6px) / 2;
-                                }
                                 Text {
-                                    text: root.host_running ? ("运行中 (PID: " + root.host_pid + ")") : "未运行";
-                                    color: root.host_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                                    text: "PID " + root.host_pid;
+                                    color: root.is_dark ? #34d399 : #059669;
                                     font-size: 10.5px;
                                     font-family: "Cascadia Mono";
-                                    font-weight: 600;
+                                    font-weight: 700;
                                     vertical-alignment: center;
                                 }
                             }
+                        }
+                        if !root.host_running : Text {
+                            text: "未运行";
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 10.5px;
+                            font-family: "Cascadia Mono";
+                            vertical-alignment: center;
                         }
                     }
 
@@ -1475,7 +1242,7 @@ export component MainWindow inherits Window {
                         is_dark: root.is_dark;
                     }
 
-                    QuotaNativeBox {
+                    SubQuotaCompactBox {
                         weekly_reset: root.host_weekly_reset;
                         weekly_pct: root.host_weekly_text;
                         weekly_ring: root.host_weekly_ring;
@@ -1487,14 +1254,17 @@ export component MainWindow inherits Window {
 
                     HorizontalLayout {
                         spacing: 6px;
-                        MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.host_cpu_text; is_dark: root.is_dark; }
-                        MiniMetricBox { horizontal-stretch: 1; label: "物理内存"; val_text: root.host_ram_text; is_dark: root.is_dark; }
-                        MiniMetricBox { horizontal-stretch: 1; label: "已运行时长"; val_text: root.host_uptime_text; is_dark: root.is_dark; }
+                        MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.host_cpu_text; val_color: root.host_running ? #34d399 : transparent; is_dark: root.is_dark; }
+                        MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.host_ram_text; val_color: root.host_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
+                        MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.host_session_count_text; is_dark: root.is_dark; }
                     }
 
-                    SessionSummaryRow {
-                        summary_text: root.host_summary_text;
-                        is_running: root.host_has_running;
+                    SubSessionCardBox {
+                        project_name: root.host_recent_project;
+                        session_title: root.host_recent_title;
+                        tokens_text: root.host_recent_tokens;
+                        time_text: root.host_recent_time;
+                        is_running: root.host_running || root.host_has_running;
                         has_sessions: root.host_has_sessions;
                         is_dark: root.is_dark;
                         clicked => {
@@ -1504,40 +1274,50 @@ export component MainWindow inherits Window {
                         }
                     }
 
+                    SubScaleCacheRow {
+                        cache_text: root.host_cache_size_text;
+                        scale_text: root.host_scale_text;
+                        is_dark: root.is_dark;
+                        dec_clicked => { root.adjust_host_scale(-10); }
+                        inc_clicked => { root.adjust_host_scale(10); }
+                        reset_clicked => { root.reset_host_scale(); }
+                    }
+
+                    Rectangle { vertical-stretch: 1; }
+
                     HorizontalLayout {
-                        alignment: space-between;
-                        spacing: 8px;
-                        height: 38px;
-
-                        ScaleControl {
+                        spacing: 6px;
+                        if !root.host_running : CompactButton {
                             horizontal-stretch: 1;
-                            scale_text: root.host_scale_text;
+                            text: "启动";
+                            btn_color: #10b981;
                             is_dark: root.is_dark;
-                            dec_clicked => { root.adjust_host_scale(-10); }
-                            inc_clicked => { root.adjust_host_scale(10); }
-                            reset_clicked => { root.reset_host_scale(); }
+                            clicked => { root.action_launch_host(); }
                         }
+                        if root.host_running : CompactButton {
+                            horizontal-stretch: 1;
+                            text: "打开";
+                            btn_color: #38bdf8;
+                            is_dark: root.is_dark;
+                            clicked => { root.action_launch_host(); }
+                        }
+                        if root.host_running : CompactButton {
+                            horizontal-stretch: 1;
+                            text: "停止";
+                            btn_color: #f43f5e;
+                            text_color: #ffffff;
+                            is_dark: root.is_dark;
+                            clicked => { root.action_stop_host(); }
+                        }
+                    }
 
-                        HorizontalLayout {
-                            spacing: 6px;
-                            alignment: end;
-                            CompactButton {
-                                width: 85px;
-                                btn_height: 36px;
-                                text: root.host_running ? "打开" : "启动";
-                                btn_color: root.host_running ? #38bdf8 : #10b981;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_launch_host(); }
-                            }
-                            if root.host_running : CompactButton {
-                                width: 75px;
-                                btn_height: 36px;
-                                text: "停止";
-                                btn_color: #f43f5e;
-                                text_color: #ffffff;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_stop_host(); }
-                            }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OutlineButton {
+                            horizontal-stretch: 1;
+                            text: "打开目录";
+                            is_dark: root.is_dark;
+                            clicked => { root.action_open_app_dir(); }
                         }
                     }
                 }
@@ -1547,7 +1327,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
+                max-height: 320px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
@@ -1691,6 +1471,8 @@ export component MainWindow inherits Window {
                             }
                         }
                     }
+
+                    Rectangle { vertical-stretch: 1; }
                 }
             }
 
@@ -1698,7 +1480,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 285px;
+                max-height: 320px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
@@ -1969,6 +1751,8 @@ export component MainWindow inherits Window {
                             }
                         }
                     }
+
+                    Rectangle { vertical-stretch: 1; }
                 }
             }
         }
