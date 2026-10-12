@@ -391,7 +391,7 @@ component PatchItemRow inherits Rectangle {
         }
 
         Rectangle {
-            width: 60px;
+            width: 68px;
             height: 28px;
             y: (parent.height - 28px) / 2;
             background: root.is_installed ? (ta.has_hover ? #f43f5e : rgba(244, 63, 94, 0.15)) : (ta.has_hover ? #34d399 : #10b981);
@@ -1422,6 +1422,7 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         alignment: space-between;
                         height: 22px;
+                        padding-right: 12px;
                         Text {
                             text: "内置组件";
                             color: root.is_dark ? #f8fafc : #0f172a;
@@ -1469,8 +1470,8 @@ export component MainWindow inherits Window {
                         border-radius: 6px;
                         height: 54px;
                         VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
+                            padding-left: 12px;
+                            padding-right: 12px;
                             padding-top: 5px;
                             padding-bottom: 5px;
                             spacing: 4px;
@@ -1545,13 +1546,13 @@ export component MainWindow inherits Window {
                                     font-family: "Cascadia Mono";
                                 }
                             }
-                            VerticalLayout {
-                                alignment: center;
-                                OutlineButton {
-                                    text: "清理缓存";
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_scan_cache(); }
-                                }
+                            OutlineButton {
+                                text: "清理缓存";
+                                width: 68px;
+                                btn_height: 28px;
+                                y: (parent.height - 28px) / 2;
+                                is_dark: root.is_dark;
+                                clicked => { root.action_scan_cache(); }
                             }
                         }
                     }
