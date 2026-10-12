@@ -3132,6 +3132,8 @@ export component MainWindow inherits Window {
                     vertical-stretch: 1;
 
                     VerticalLayout {
+                        padding-right: 20px;
+                        padding-bottom: 8px;
                         spacing: 5px;
                         for item in root.session_modal_items : VerticalLayout {
                             if item.is_group_header : SessionGroupHeader {
