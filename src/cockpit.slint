@@ -531,6 +531,46 @@ component UserProfileRow inherits Rectangle {
 }
 
 
+component QuotaRefreshButton inherits Rectangle {
+    in property <bool> is_refreshing: false;
+    in property <bool> is_disabled: false;
+    in property <bool> is_dark: true;
+    callback clicked();
+
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background: ta.has_hover && !root.is_disabled && !root.is_refreshing ? (root.is_dark ? rgba(255, 255, 255, 0.08) : rgba(0, 0, 0, 0.05)) : transparent;
+
+    animate background { duration: 150ms; }
+
+    ta := TouchArea {
+        enabled: !root.is_disabled && !root.is_refreshing;
+        mouse-cursor: (root.is_disabled || root.is_refreshing) ? default : pointer;
+        clicked => { root.clicked(); }
+    }
+
+    Image {
+        width: 12px;
+        height: 12px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: @image-url("../assets/refresh.svg");
+        colorize: root.is_disabled ? (root.is_dark ? #334155 : #cbd5e1) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #94a3b8 : #64748b));
+        transform-rotation: self.spin_angle;
+
+        property <angle> spin_angle: 0deg;
+        states [
+            spinning when root.is_refreshing: {
+                spin_angle: 360deg;
+                in {
+                    animate spin_angle { duration: 800ms; iteration-count: -1; easing: linear; }
+                }
+            }
+        ]
+    }
+}
+
 component SubQuotaCompactBox inherits Rectangle {
     in property <string> weekly_reset: "";
     in property <string> weekly_pct: "--";
@@ -539,6 +579,9 @@ component SubQuotaCompactBox inherits Rectangle {
     in property <string> five_h_pct: "--";
     in property <image> five_h_ring;
     in property <bool> is_dark: true;
+    in property <bool> is_refreshing: false;
+    in property <bool> is_refresh_disabled: false;
+    callback refresh_clicked();
 
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
@@ -555,14 +598,25 @@ component SubQuotaCompactBox inherits Rectangle {
 
         HorizontalLayout {
             height: 14px;
-            alignment: start;
-            spacing: 4px;
-            Text {
-                text: "Gemini 模型";
-                color: root.is_dark ? #94a3b8 : #64748b;
-                font-size: 10.5px;
-                font-weight: 600;
-                vertical-alignment: center;
+            alignment: space-between;
+
+            HorizontalLayout {
+                spacing: 4px;
+                alignment: start;
+                Text {
+                    text: "Gemini 模型";
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+
+            QuotaRefreshButton {
+                is_refreshing: root.is_refreshing;
+                is_disabled: root.is_refresh_disabled;
+                is_dark: root.is_dark;
+                clicked => { root.refresh_clicked(); }
             }
         }
 
@@ -921,6 +975,7 @@ export component MainWindow inherits Window {
     in property <string> host_five_h_text: "--";
     in property <string> host_five_h_reset: "";
     in property <image> host_five_h_ring;
+    in property <bool> host_quota_refreshing: false;
     in property <string> host_summary_text: "无活动会话";
     in property <bool> host_has_running: false;
     in property <bool> host_has_sessions: false;
@@ -953,6 +1008,7 @@ export component MainWindow inherits Window {
     in property <string> sub1_five_h_text: "--";
     in property <string> sub1_five_h_reset: "";
     in property <image> sub1_five_h_ring;
+    in property <bool> sub1_quota_refreshing: false;
     in property <string> sub1_summary_text: "无活动会话";
     in property <bool> sub1_has_running: false;
     in property <bool> sub1_has_sessions: false;
@@ -975,6 +1031,7 @@ export component MainWindow inherits Window {
     in property <string> sub2_five_h_text: "--";
     in property <string> sub2_five_h_reset: "";
     in property <image> sub2_five_h_ring;
+    in property <bool> sub2_quota_refreshing: false;
     in property <string> sub2_summary_text: "无活动会话";
     in property <bool> sub2_has_running: false;
     in property <bool> sub2_has_sessions: false;
@@ -997,6 +1054,7 @@ export component MainWindow inherits Window {
     in property <string> sub3_five_h_text: "--";
     in property <string> sub3_five_h_reset: "";
     in property <image> sub3_five_h_ring;
+    in property <bool> sub3_quota_refreshing: false;
     in property <string> sub3_summary_text: "无活动会话";
     in property <bool> sub3_has_running: false;
     in property <bool> sub3_has_sessions: false;
@@ -1019,6 +1077,7 @@ export component MainWindow inherits Window {
     in property <string> sub4_five_h_text: "--";
     in property <string> sub4_five_h_reset: "";
     in property <image> sub4_five_h_ring;
+    in property <bool> sub4_quota_refreshing: false;
     in property <string> sub4_summary_text: "无活动会话";
     in property <bool> sub4_has_running: false;
     in property <bool> sub4_has_sessions: false;
@@ -1083,6 +1142,7 @@ export component MainWindow inherits Window {
     callback adjust_sub_scale(int, int);
     callback reset_host_scale();
     callback reset_sub_scale(int);
+    callback action_refresh_quota(int);
 
     in-out property <bool> is_pinned: false;
     callback toggle_pin_window();
@@ -1259,6 +1319,9 @@ export component MainWindow inherits Window {
                         five_h_pct: root.host_five_h_text;
                         five_h_ring: root.host_five_h_ring;
                         is_dark: root.is_dark;
+                        is_refreshing: root.host_quota_refreshing;
+                        is_refresh_disabled: !root.host_token_present;
+                        refresh_clicked => { root.action_refresh_quota(0); }
                     }
 
                     HorizontalLayout {
@@ -1974,6 +2037,9 @@ export component MainWindow inherits Window {
                                 five_h_pct: root.sub1_five_h_text;
                                 five_h_ring: root.sub1_five_h_ring;
                                 is_dark: root.is_dark;
+                                is_refreshing: root.sub1_quota_refreshing;
+                                is_refresh_disabled: !root.sub1_token_present;
+                                refresh_clicked => { root.action_refresh_quota(1); }
                             }
 
                             HorizontalLayout {
@@ -2161,6 +2227,9 @@ export component MainWindow inherits Window {
                                 five_h_pct: root.sub2_five_h_text;
                                 five_h_ring: root.sub2_five_h_ring;
                                 is_dark: root.is_dark;
+                                is_refreshing: root.sub2_quota_refreshing;
+                                is_refresh_disabled: !root.sub2_token_present;
+                                refresh_clicked => { root.action_refresh_quota(2); }
                             }
 
                             HorizontalLayout {
@@ -2348,6 +2417,9 @@ export component MainWindow inherits Window {
                                 five_h_pct: root.sub3_five_h_text;
                                 five_h_ring: root.sub3_five_h_ring;
                                 is_dark: root.is_dark;
+                                is_refreshing: root.sub3_quota_refreshing;
+                                is_refresh_disabled: !root.sub3_token_present;
+                                refresh_clicked => { root.action_refresh_quota(3); }
                             }
 
                             HorizontalLayout {
@@ -2535,6 +2607,9 @@ export component MainWindow inherits Window {
                                 five_h_pct: root.sub4_five_h_text;
                                 five_h_ring: root.sub4_five_h_ring;
                                 is_dark: root.is_dark;
+                                is_refreshing: root.sub4_quota_refreshing;
+                                is_refresh_disabled: !root.sub4_token_present;
+                                refresh_clicked => { root.action_refresh_quota(4); }
                             }
 
                             HorizontalLayout {

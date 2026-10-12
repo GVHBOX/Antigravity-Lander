@@ -1205,6 +1205,89 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         InstanceQuotaState::default(),
     ]));
 
+    main_window.on_action_refresh_quota({
+        let ui_weak = main_window.as_weak();
+        let mon_refresh = Arc::clone(&monitor);
+        let qs_refresh = Arc::clone(&quota_states);
+        let qc_refresh = Arc::clone(&quota_cache);
+        move |slot_i32| {
+            let slot = slot_i32 as usize;
+            if slot > 4 {
+                return;
+            }
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+
+            match slot {
+                0 => ui.set_host_quota_refreshing(true),
+                1 => ui.set_sub1_quota_refreshing(true),
+                2 => ui.set_sub2_quota_refreshing(true),
+                3 => ui.set_sub3_quota_refreshing(true),
+                4 => ui.set_sub4_quota_refreshing(true),
+                _ => {}
+            }
+
+            let ui_weak_async = ui_weak.clone();
+            let mon_arc = Arc::clone(&mon_refresh);
+            let qs_arc = Arc::clone(&qs_refresh);
+            let qc_arc = Arc::clone(&qc_refresh);
+
+            std::thread::spawn(move || {
+                let (ls_port, ls_csrf, is_running) = {
+                    let mon = mon_arc.lock().unwrap();
+                    if slot == 0 {
+                        (mon.host.ls_port, mon.host.ls_csrf.clone(), mon.host.is_running)
+                    } else {
+                        let idx = slot - 1;
+                        (mon.subs[idx].ls_port, mon.subs[idx].ls_csrf.clone(), mon.subs[idx].is_running)
+                    }
+                };
+
+                let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
+                let state_opt = if is_running && ls_port.is_some() && ls_csrf.as_ref().map(|c| !c.is_empty()).unwrap_or(false) {
+                    let port = ls_port.unwrap();
+                    let csrf = ls_csrf.unwrap();
+                    let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
+                    if st.is_available { Some(st) } else { None }
+                } else {
+                    crate::quota::fetch_offline_quota_headless(slot)
+                };
+
+                let is_ok = state_opt.is_some();
+                if let Some(ref st) = state_opt {
+                    {
+                        let mut qs = qs_arc.lock().unwrap();
+                        qs[slot] = st.clone();
+                    }
+                    {
+                        let mut qc = qc_arc.lock().unwrap();
+                        qc.set_slot(slot, st.clone());
+                        crate::quota::save_quota_cache(&qc);
+                    }
+                }
+
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak_async.upgrade() {
+                        match slot {
+                            0 => ui.set_host_quota_refreshing(false),
+                            1 => ui.set_sub1_quota_refreshing(false),
+                            2 => ui.set_sub2_quota_refreshing(false),
+                            3 => ui.set_sub3_quota_refreshing(false),
+                            4 => ui.set_sub4_quota_refreshing(false),
+                            _ => {}
+                        }
+                        if is_ok {
+                            ui.set_toast_message("配额已更新".into());
+                        } else {
+                            ui.set_toast_message("未获取到配额".into());
+                        }
+                    }
+                });
+            });
+        }
+    });
+
     let mon_bg = Arc::clone(&monitor);
     let qs_bg = Arc::clone(&quota_states);
     let qc_bg = Arc::clone(&quota_cache);

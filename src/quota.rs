@@ -506,3 +506,141 @@ pub fn render_quota_ring(pct: f32, is_dark: bool) -> slint::Image {
     );
     slint::Image::load_from_svg_data(svg.as_bytes()).unwrap_or_default()
 }
+
+fn resolve_language_server_bin() -> Option<PathBuf> {
+    if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        let p = PathBuf::from(local_appdata)
+            .join("Programs")
+            .join("antigravity")
+            .join("resources")
+            .join("bin")
+            .join("language_server.exe");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let Some(user_dir) = crate::launcher::LauncherConfig::resolve_host_user_dir() {
+        let p = user_dir
+            .join("AppData")
+            .join("Local")
+            .join("Programs")
+            .join("antigravity")
+            .join("resources")
+            .join("bin")
+            .join("language_server.exe");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+pub fn fetch_offline_quota_headless(slot: usize) -> Option<InstanceQuotaState> {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+
+    let bin = resolve_language_server_bin()?;
+    let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
+
+    let (home_dir, roaming_dir) = if slot == 0 {
+        if !crate::launcher::LauncherConfig::is_host_token_present() {
+            return None;
+        }
+        let user_dir = crate::launcher::LauncherConfig::resolve_host_user_dir()?;
+        let roaming = std::env::var("APPDATA").map(PathBuf::from).unwrap_or_else(|_| user_dir.join("AppData").join("Roaming"));
+        (user_dir, roaming)
+    } else {
+        let launcher = crate::launcher::LauncherConfig::for_slot(slot).ok()?;
+        if !launcher.is_token_present() {
+            return None;
+        }
+        (launcher.home_dir, launcher.roaming_dir)
+    };
+
+    let now_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let csrf = format!("{:016x}{:016x}", now_nanos, std::process::id());
+
+    let mut cmd = Command::new(&bin);
+    cmd.args([
+        "--standalone",
+        "--override_ide_name", "antigravity",
+        "--subclient_type", "hub",
+        "--override_ide_version", "2.22.0",
+        "--override_user_agent_name", "antigravity",
+        "--https_server_port", "0",
+        "--csrf_token", &csrf,
+        "--app_data_dir", "antigravity",
+        "--api_server_url", "https://generativelanguage.googleapis.com",
+        "--cloud_code_endpoint", "https://daily-cloudcode-pa.googleapis.com",
+    ]);
+
+    cmd.env("USERPROFILE", &home_dir);
+    cmd.env("HOME", &home_dir);
+    cmd.env("APPDATA", &roaming_dir);
+    if let Ok(real_local) = std::env::var("LOCALAPPDATA") {
+        cmd.env("LOCALAPPDATA", real_local);
+    }
+
+    let proxy_url = format!("http://127.0.0.1:{}", crate::proxy::DEFAULT_PROXY_PORT);
+    cmd.env("HTTP_PROXY", &proxy_url);
+    cmd.env("HTTPS_PROXY", &proxy_url);
+
+    cmd.creation_flags(0x08000000);
+
+    let mut child = cmd.spawn().ok()?;
+    let child_pid = child.id();
+
+    let mut detected_port = None;
+    for _ in 0..25 {
+        std::thread::sleep(Duration::from_millis(100));
+        let output = Command::new("netstat")
+            .args(["-ano", "-p", "tcp"])
+            .creation_flags(0x08000000)
+            .output();
+        if let Ok(out) = output {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let target_pid = child_pid.to_string();
+            let mut ports = Vec::new();
+            for line in text.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 5 && parts[0].eq_ignore_ascii_case("tcp") && parts.iter().any(|p| p.eq_ignore_ascii_case("listening")) && parts[parts.len() - 1] == target_pid {
+                    if let Some(port) = parts[1].rfind(':').and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok()) {
+                        ports.push(port);
+                    }
+                }
+            }
+            if !ports.is_empty() {
+                ports.sort_unstable();
+                detected_port = ports.last().copied();
+                if detected_port.is_some() {
+                    break;
+                }
+            }
+        }
+    }
+
+    let quota_state = if let Some(port) = detected_port {
+        let st = fetch_instance_quota(port, &csrf, &tag);
+        if st.is_available {
+            Some(st)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let _ = child.kill();
+    let _ = child.wait();
+
+    if let Some(ref st) = quota_state {
+        let mut cache = load_quota_cache();
+        cache.set_slot(slot, st.clone());
+        save_quota_cache(&cache);
+    }
+
+    quota_state
+}
