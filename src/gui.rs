@@ -907,21 +907,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    main_window.on_action_check_patch({
-        let ui_weak = main_window.as_weak();
-        move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let (ag2, ver1) = LauncherConfig::check_ag2_patch_status();
-                ui.set_patch_ag2_installed(ag2);
-                ui.set_patch_ag2_version(ver1.clone().into());
-                let p = ProxyManager::check_status();
-                ui.set_proxy_injected(p.is_fully_deployed());
-                ui.set_proxy_status_text(p.status_text().into());
-                ui.set_toast_message(format!("版本检测已刷新 ({})", ver1).into());
-            }
-        }
-    });
-
     let pending_ag2 = Arc::clone(&pending_patch_action);
     main_window.on_toggle_patch_ag2({
         let ui_weak = main_window.as_weak();

@@ -1126,7 +1126,6 @@ export component MainWindow inherits Window {
     callback action_open_app_dir();
     callback action_clean_cache();
     callback action_scan_cache();
-    callback action_check_patch();
 
     callback toggle_patch_ag2();
     callback toggle_proxy();
@@ -1420,28 +1419,13 @@ export component MainWindow inherits Window {
                     spacing: 6px;
 
                     HorizontalLayout {
-                        alignment: space-between;
                         height: 22px;
-                        padding-right: 12px;
                         Text {
                             text: "内置组件";
                             color: root.is_dark ? #f8fafc : #0f172a;
                             font-size: 14px;
                             font-weight: 700;
                             vertical-alignment: center;
-                        }
-                        HorizontalLayout {
-                            spacing: 6px;
-                            OutlineButton {
-                                text: "检查补丁";
-                                is_dark: root.is_dark;
-                                clicked => { root.action_check_patch(); }
-                            }
-                            OutlineButton {
-                                text: "打开目录";
-                                is_dark: root.is_dark;
-                                clicked => { root.action_open_app_dir(); }
-                            }
                         }
                     }
 
