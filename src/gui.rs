@@ -768,10 +768,24 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     main_window.on_action_clear_token({
         let ui_weak = main_window.as_weak();
         move |slot| {
-            if slot < 1 || slot > 4 {
+            if slot < 0 || slot > 4 {
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
+                if slot == 0 {
+                    match LauncherConfig::clear_host_token() {
+                        Ok(true) => {
+                            ui.set_toast_message("主账号凭据已清理".into());
+                        }
+                        Ok(false) => {
+                            ui.set_toast_message("主账号暂无已保存凭据".into());
+                        }
+                        Err(e) => {
+                            ui.set_toast_message(format!("清理凭据失败: {}", e).into());
+                        }
+                    }
+                    return;
+                }
                 match LauncherConfig::for_slot(slot as usize) {
                     Ok(conf) => match conf.clear_token() {
                         Ok(true) => {
@@ -1394,6 +1408,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 "--".to_string()
             };
             ui.set_host_uptime_text(uptime_str.into());
+            ui.set_host_token_present(LauncherConfig::is_host_token_present());
 
             ui.set_sub1_running(mon.subs[0].is_running);
             ui.set_sub1_pid(mon.subs[0].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());

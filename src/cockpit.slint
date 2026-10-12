@@ -312,11 +312,11 @@ component MiniMetricBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 5px;
-    height: 36px;
+    height: 32px;
 
     VerticalLayout {
         alignment: center;
-        spacing: 2px;
+        spacing: 1px;
 
         Text {
             text: root.label;
@@ -424,13 +424,13 @@ component UserProfileRow inherits Rectangle {
     border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 38px;
+    height: 34px;
 
     HorizontalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 4px;
-        padding-bottom: 4px;
+        padding-top: 2px;
+        padding-bottom: 2px;
         spacing: 9px;
         alignment: space-between;
 
@@ -439,12 +439,12 @@ component UserProfileRow inherits Rectangle {
             alignment: start;
 
             Rectangle {
-                width: 32px;
-                height: 32px;
-                border-radius: 16px;
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
                 clip: true;
                 background: root.is_dark ? #141c2b : #e2e8f0;
-                y: (parent.height - 32px) / 2;
+                y: (parent.height - 28px) / 2;
 
                 if root.has_avatar : Image {
                     source: root.avatar;
@@ -536,18 +536,18 @@ component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 46px;
+    height: 42px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 5px;
-        padding-bottom: 5px;
-        spacing: 2px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 1px;
 
         HorizontalLayout {
             alignment: space-between;
-            height: 18px;
+            height: 17px;
 
             HorizontalLayout {
                 spacing: 5px;
@@ -599,7 +599,7 @@ component SubQuotaCompactBox inherits Rectangle {
 
         HorizontalLayout {
             alignment: space-between;
-            height: 18px;
+            height: 17px;
 
             HorizontalLayout {
                 spacing: 5px;
@@ -660,18 +660,18 @@ component SubSessionCardBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 60px;
+    height: 50px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 5px;
-        padding-bottom: 5px;
-        spacing: 2px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 1px;
 
         HorizontalLayout {
             alignment: space-between;
-            height: 16px;
+            height: 14px;
 
             HorizontalLayout {
                 spacing: 4px;
@@ -701,7 +701,7 @@ component SubSessionCardBox inherits Rectangle {
         }
 
         HorizontalLayout {
-            height: 16px;
+            height: 14px;
             alignment: start;
             Text {
                 text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
@@ -714,7 +714,7 @@ component SubSessionCardBox inherits Rectangle {
 
         HorizontalLayout {
             alignment: space-between;
-            height: 16px;
+            height: 14px;
 
             HorizontalLayout {
                 spacing: 4px;
@@ -764,7 +764,7 @@ component SubScaleCacheRow inherits Rectangle {
     callback inc_clicked();
     callback reset_clicked();
 
-    height: 22px;
+    height: 20px;
 
     HorizontalLayout {
         alignment: space-between;
@@ -892,6 +892,7 @@ export component MainWindow inherits Window {
     in property <string> toast_message: "就绪";
 
     in property <bool> host_running: false;
+    in property <bool> host_token_present: false;
     in property <string> host_pid: "--";
     in property <string> host_port: "--";
     in property <float> host_cpu: 0.0;
@@ -1156,9 +1157,9 @@ export component MainWindow inherits Window {
                 VerticalLayout {
                     padding-left: 10px;
                     padding-right: 10px;
-                    padding-top: 6px;
-                    padding-bottom: 6px;
-                    spacing: 3px;
+                    padding-top: 5px;
+                    padding-bottom: 5px;
+                    spacing: 2px;
 
                     HorizontalLayout {
                         alignment: space-between;
@@ -1272,97 +1273,18 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 22px;
-
-                        OutlineButton {
-                            width: 76px;
-                            text: "打开目录";
-                            is_dark: root.is_dark;
-                            clicked => { root.action_open_app_dir(); }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 3px;
-                            alignment: end;
-
-                            Text {
-                                text: "界面";
-                                color: root.is_dark ? #64748b : #94a3b8;
-                                font-size: 11px;
-                                vertical-alignment: center;
-                            }
-
-                            Rectangle {
-                                width: 18px;
-                                height: 18px;
-                                border-radius: 3px;
-                                background: dec_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9);
-                                border-color: root.is_dark ? #1e293b : #cbd5e1;
-                                border-width: 1px;
-                                dec_ta := TouchArea {
-                                    clicked => { root.adjust_host_scale(-10); }
-                                    mouse-cursor: pointer;
-                                }
-                                Text {
-                                    text: "-";
-                                    color: root.is_dark ? #cbd5e1 : #475569;
-                                    font-size: 11px;
-                                    font-weight: 700;
-                                    vertical-alignment: center;
-                                    horizontal-alignment: center;
-                                }
-                            }
-
-                            Rectangle {
-                                width: 44px;
-                                height: 18px;
-                                border-radius: 3px;
-                                background: reset_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f8fafc);
-                                border-color: root.is_dark ? #1e293b : #cbd5e1;
-                                border-width: 1px;
-                                reset_ta := TouchArea {
-                                    clicked => { root.reset_host_scale(); }
-                                    mouse-cursor: pointer;
-                                }
-                                Text {
-                                    text: root.host_scale_text;
-                                    color: root.is_dark ? #38bdf8 : #0284c7;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    font-weight: 700;
-                                    vertical-alignment: center;
-                                    horizontal-alignment: center;
-                                }
-                            }
-
-                            Rectangle {
-                                width: 18px;
-                                height: 18px;
-                                border-radius: 3px;
-                                background: inc_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9);
-                                border-color: root.is_dark ? #1e293b : #cbd5e1;
-                                border-width: 1px;
-                                inc_ta := TouchArea {
-                                    clicked => { root.adjust_host_scale(10); }
-                                    mouse-cursor: pointer;
-                                }
-                                Text {
-                                    text: "+";
-                                    color: root.is_dark ? #cbd5e1 : #475569;
-                                    font-size: 11px;
-                                    font-weight: 700;
-                                    vertical-alignment: center;
-                                    horizontal-alignment: center;
-                                }
-                            }
-                        }
+                    SubScaleCacheRow {
+                        cache_text: root.host_cache_size_text;
+                        scale_text: root.host_scale_text;
+                        is_dark: root.is_dark;
+                        dec_clicked => { root.adjust_host_scale(-10); }
+                        inc_clicked => { root.adjust_host_scale(10); }
+                        reset_clicked => { root.reset_host_scale(); }
                     }
 
                     HorizontalLayout {
                         spacing: 6px;
-                        height: 30px;
+                        height: 26px;
                         if !root.host_running : CompactButton {
                             horizontal-stretch: 1;
                             text: "启动";
@@ -1384,6 +1306,27 @@ export component MainWindow inherits Window {
                             text_color: #ffffff;
                             is_dark: root.is_dark;
                             clicked => { root.action_stop_host(); }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 6px;
+                        height: 24px;
+                        OutlineButton {
+                            horizontal-stretch: 1;
+                            text: "清理凭据";
+                            is_dark: root.is_dark;
+                            is_disabled: root.host_running || !root.host_token_present;
+                            clicked => {
+                                root.confirm_modal_slot = 0;
+                                root.confirm_modal_visible = true;
+                            }
+                        }
+                        OutlineButton {
+                            horizontal-stretch: 1;
+                            text: "打开目录";
+                            is_dark: root.is_dark;
+                            clicked => { root.action_open_app_dir(); }
                         }
                     }
                 }
@@ -2706,7 +2649,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "分身 " + root.confirm_modal_slot + " 登录凭据";
+                    text: root.confirm_modal_slot == 0 ? "主账号 登录凭据" : ("分身 " + root.confirm_modal_slot + " 登录凭据");
                     color: root.is_dark ? #94a3b8 : #64748b;
                     font-size: 12px;
                 }

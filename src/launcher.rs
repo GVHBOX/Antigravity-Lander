@@ -398,6 +398,25 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         self.token_path.exists()
     }
 
+    pub fn host_token_path() -> Option<PathBuf> {
+        Self::resolve_host_user_dir().map(|h| h.join(".gemini").join("jetski-standalone-oauth-token"))
+    }
+
+    pub fn is_host_token_present() -> bool {
+        Self::host_token_path().map(|p| p.exists()).unwrap_or(false)
+    }
+
+    pub fn clear_host_token() -> Result<bool> {
+        if let Some(token_path) = Self::host_token_path() {
+            if token_path.exists() {
+                fs::remove_file(&token_path)
+                    .with_context(|| format!("Failed to delete host token at {:?}", token_path))?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn clear_token(&self) -> Result<bool> {
         if self.token_path.exists() {
             fs::remove_file(&self.token_path)
