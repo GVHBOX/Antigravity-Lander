@@ -1253,19 +1253,27 @@ export component MainWindow inherits Window {
 
     in property <string> cache_summary_text: "Cache / Code / GPU (587 MB)";
 
-    in-out property <int> live_session_target_slot: 2;
-    in-out property <string> live_session_target_text: "分身 2";
+    in-out property <int> live_session_target_slot: -1;
+    in-out property <string> live_session_target_text: "自动跟随";
     in property <bool> live_session_is_running: false;
     in property <string> live_session_status_text: "待命中";
     in property <string> live_session_project: "--";
     in property <string> live_session_title: "无活动会话";
     in property <string> live_session_speed_text: "0.0";
     in property <string> live_session_speed_sub: "待命中 · 无吞吐";
+    in property <float> live_bar0_h: 3.0;
+    in property <float> live_bar1_h: 3.0;
+    in property <float> live_bar2_h: 3.0;
+    in property <float> live_bar3_h: 3.0;
+    in property <float> live_bar4_h: 3.0;
+    in property <float> live_bar5_h: 3.0;
+    in property <float> live_bar6_h: 3.0;
+    in property <float> live_bar7_h: 3.0;
     in property <string> live_session_context_text: "0 / 1,000K (0.0%)";
     in property <float> live_session_context_pct: 0.0;
     in property <string> live_session_cache_text: "缓存 0 (0.0%)";
     in property <string> live_session_available_text: "可用 1,000K";
-    in property <string> live_session_optimization_text: "首字延迟优化: ~85%";
+    in property <string> live_session_optimization_text: "缓存命中率: 0.0% · 步数 #0";
     callback switch_live_session_target(int);
 
     callback toggle_theme();
@@ -1736,7 +1744,7 @@ export component MainWindow inherits Window {
                                 alignment: center;
                                 spacing: 2px;
                                 Text {
-                                    text: "实时 Token 速度";
+                                    text: "单轮 Token 吞吐";
                                     color: root.is_dark ? #64748b : #94a3b8;
                                     font-size: 11px;
                                 }
@@ -1768,14 +1776,14 @@ export component MainWindow inherits Window {
                             HorizontalLayout {
                                 spacing: 3px;
                                 alignment: end;
-                                Rectangle { width: 4px; height: 14px; border-radius: 2px; background: rgba(16, 185, 129, 0.35); y: parent.height - 14px - 14px; }
-                                Rectangle { width: 4px; height: 22px; border-radius: 2px; background: rgba(16, 185, 129, 0.45); y: parent.height - 22px - 14px; }
-                                Rectangle { width: 4px; height: 18px; border-radius: 2px; background: rgba(16, 185, 129, 0.55); y: parent.height - 18px - 14px; }
-                                Rectangle { width: 4px; height: 26px; border-radius: 2px; background: rgba(16, 185, 129, 0.65); y: parent.height - 26px - 14px; }
-                                Rectangle { width: 4px; height: 32px; border-radius: 2px; background: rgba(16, 185, 129, 0.75); y: parent.height - 32px - 14px; }
-                                Rectangle { width: 4px; height: 24px; border-radius: 2px; background: rgba(16, 185, 129, 0.85); y: parent.height - 24px - 14px; }
-                                Rectangle { width: 4px; height: 30px; border-radius: 2px; background: rgba(16, 185, 129, 0.90); y: parent.height - 30px - 14px; }
-                                Rectangle { width: 4px; height: 38px; border-radius: 2px; background: #10b981; y: parent.height - 38px - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar0_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.35); y: parent.height - (root.live_bar0_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar1_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.45); y: parent.height - (root.live_bar1_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar2_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.55); y: parent.height - (root.live_bar2_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar3_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.65); y: parent.height - (root.live_bar3_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar4_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.75); y: parent.height - (root.live_bar4_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar5_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.85); y: parent.height - (root.live_bar5_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar6_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.90); y: parent.height - (root.live_bar6_h * 1px) - 14px; }
+                                Rectangle { width: 4px; height: root.live_bar7_h * 1px; border-radius: 2px; background: #10b981; y: parent.height - (root.live_bar7_h * 1px) - 14px; }
                             }
                         }
                     }

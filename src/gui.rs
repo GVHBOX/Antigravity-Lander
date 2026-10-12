@@ -348,12 +348,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
     let sessions_store = Arc::new(Mutex::new([InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default()]));
-    let live_session_slot = Arc::new(Mutex::new(2usize));
+    let live_session_slot = Arc::new(Mutex::new(-1i32));
 
     let main_window = MainWindow::new()?;
     main_window.set_is_dark(true);
-    main_window.set_live_session_target_slot(2);
-    main_window.set_live_session_target_text("分身 2".into());
+    main_window.set_live_session_target_slot(-1);
+    main_window.set_live_session_target_text("自动跟随".into());
 
     {
         let scales = scale_settings.lock().unwrap();
@@ -1138,21 +1138,23 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let live_slot_cb = Arc::clone(&live_session_slot);
     main_window.on_switch_live_session_target({
         let ui_weak = main_window.as_weak();
-        move |next_slot| {
-            let slot = (next_slot as usize) % 5;
-            *live_slot_cb.lock().unwrap() = slot;
+        move |_| {
+            let mut slot_val = *live_slot_cb.lock().unwrap();
+            slot_val = if slot_val < -1 || slot_val >= 4 { -1 } else { slot_val + 1 };
+            *live_slot_cb.lock().unwrap() = slot_val;
             if let Some(ui) = ui_weak.upgrade() {
-                let target_text = match slot {
-                    0 => "主账号",
+                let target_text = match slot_val {
+                    -1 => "自动跟随",
+                    0 => "主机",
                     1 => "分身 1",
                     2 => "分身 2",
                     3 => "分身 3",
                     4 => "分身 4",
-                    _ => "分身 2",
+                    _ => "自动跟随",
                 };
-                ui.set_live_session_target_slot(slot as i32);
+                ui.set_live_session_target_slot(slot_val);
                 ui.set_live_session_target_text(target_text.into());
-                ui.set_toast_message(format!("已切换至 {}", target_text).into());
+                ui.set_toast_message(format!("已设为 {}", target_text).into());
             }
         }
     });
@@ -1682,9 +1684,44 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_session_modal_items(model);
                 }
 
-                let target_slot = *live_session_slot_timer.lock().unwrap();
-                let target_slot = target_slot.clamp(0, 4);
-                let target_sessions = &store[target_slot];
+                let target_slot_setting = *live_session_slot_timer.lock().unwrap();
+                let (effective_slot, is_auto) = if target_slot_setting < 0 || target_slot_setting > 4 {
+                    let running_slot = (0..5).find(|&i| store[i].has_running);
+                    let chosen = if let Some(r) = running_slot {
+                        r
+                    } else {
+                        (0..5)
+                            .filter(|&i| store[i].total_sessions > 0)
+                            .min_by_key(|&i| {
+                                store[i]
+                                    .groups
+                                    .first()
+                                    .map(|g| g.latest_secs_ago)
+                                    .unwrap_or(u64::MAX)
+                            })
+                            .unwrap_or(0)
+                    };
+                    (chosen, true)
+                } else {
+                    (target_slot_setting as usize, false)
+                };
+
+                let slot_label = match effective_slot {
+                    0 => "主机",
+                    1 => "分身 1",
+                    2 => "分身 2",
+                    3 => "分身 3",
+                    4 => "分身 4",
+                    _ => "主机",
+                };
+
+                if is_auto {
+                    ui.set_live_session_target_text(format!("自动 ({})", slot_label).into());
+                } else {
+                    ui.set_live_session_target_text(slot_label.into());
+                }
+
+                let target_sessions = &store[effective_slot];
                 let active = target_sessions
                     .groups
                     .iter()
@@ -1702,37 +1739,63 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "就绪 · 待命".into() });
                     ui.set_live_session_project(s.project_name.as_str().into());
                     ui.set_live_session_title(s.title.as_str().into());
+
                     if s.is_running {
-                        ui.set_live_session_speed_text("--".into());
-                        ui.set_live_session_speed_sub("生成中".into());
+                        if s.round_tps > 0.0 {
+                            ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                            ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                        } else {
+                            ui.set_live_session_speed_text("--".into());
+                            ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
+                        }
                     } else {
-                        ui.set_live_session_speed_text("0.0".into());
-                        ui.set_live_session_speed_sub("待命中".into());
+                        ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                        ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
                     }
+
+                    let max_tps = s.recent_tps.iter().copied().fold(0.0f32, f32::max).max(10.0);
+                    let calc_h = |tps: f32| -> f32 {
+                        if tps <= 0.0 {
+                            3.0
+                        } else {
+                            (3.0 + (tps / max_tps) * 35.0).clamp(3.0, 38.0)
+                        }
+                    };
+                    ui.set_live_bar0_h(calc_h(s.recent_tps[0]));
+                    ui.set_live_bar1_h(calc_h(s.recent_tps[1]));
+                    ui.set_live_bar2_h(calc_h(s.recent_tps[2]));
+                    ui.set_live_bar3_h(calc_h(s.recent_tps[3]));
+                    ui.set_live_bar4_h(calc_h(s.recent_tps[4]));
+                    ui.set_live_bar5_h(calc_h(s.recent_tps[5]));
+                    ui.set_live_bar6_h(calc_h(s.recent_tps[6]));
+                    ui.set_live_bar7_h(calc_h(s.recent_tps[7]));
+
                     let max_tokens = 1_000_000u64;
-                    let prompt_tokens = s.context_tokens.saturating_sub(s.cache_read_tokens).saturating_sub(s.output_tokens);
+                    let prompt_tokens = s.input_tokens;
+                    let cache_tokens = s.cache_read_tokens;
+                    let output_tokens = s.output_tokens;
+                    let total_tokens = s.context_tokens;
+
                     let prompt_pct = (prompt_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    let cache_pct = (s.cache_read_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    let output_pct = (s.output_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let cache_pct = (cache_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let output_pct = (output_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+
                     ui.set_live_prompt_pct(prompt_pct);
                     ui.set_live_cache_pct(cache_pct);
                     ui.set_live_output_pct(output_pct);
-                    ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
-                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(s.cache_read_tokens), s.cache_rate_str).into());
-                    ui.set_live_output_text(format!("输出 {}", format_tokens(s.output_tokens)).into());
 
-                    let pct = (s.context_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    ui.set_live_session_context_text(format!("{} / 1,000K ({:.1}%)", format_tokens(s.context_tokens), pct * 100.0).into());
+                    ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
+                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
+                    ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
+
+                    let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    ui.set_live_session_context_text(format!("{} / 1,000K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                     ui.set_live_session_context_pct(pct);
-                    ui.set_live_session_cache_text(format!("缓存 {} ({})", format_tokens(s.cache_read_tokens), s.cache_rate_str).into());
-                    let avail = max_tokens.saturating_sub(s.context_tokens);
+                    ui.set_live_session_cache_text(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
+                    let avail = max_tokens.saturating_sub(total_tokens);
                     ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
-                    if s.cache_rate > 0.0 {
-                        let opt_val = (s.cache_rate * 100.0).clamp(10.0, 95.0);
-                        ui.set_live_session_optimization_text(format!("首字延迟优化: ~{:.0}%", opt_val).into());
-                    } else {
-                        ui.set_live_session_optimization_text("首字延迟优化: --".into());
-                    }
+
+                    ui.set_live_session_optimization_text(format!("缓存命中率: {} · 步数 #{}", s.cache_rate_str, s.step_count).into());
                 } else {
                     ui.set_live_prompt_pct(0.0);
                     ui.set_live_cache_pct(0.0);
@@ -1740,6 +1803,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_prompt_text("输入 0".into());
                     ui.set_live_cache_legend("缓存 0 (0.0%)".into());
                     ui.set_live_output_text("输出 0".into());
+
+                    ui.set_live_bar0_h(3.0);
+                    ui.set_live_bar1_h(3.0);
+                    ui.set_live_bar2_h(3.0);
+                    ui.set_live_bar3_h(3.0);
+                    ui.set_live_bar4_h(3.0);
+                    ui.set_live_bar5_h(3.0);
+                    ui.set_live_bar6_h(3.0);
+                    ui.set_live_bar7_h(3.0);
 
                     ui.set_live_session_is_running(false);
                     ui.set_live_session_status_text("待命中".into());
@@ -1751,7 +1823,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_context_pct(0.0);
                     ui.set_live_session_cache_text("缓存 0 (0.0%)".into());
                     ui.set_live_session_available_text("可用 1,000K".into());
-                    ui.set_live_session_optimization_text("首字延迟优化: --".into());
+                    ui.set_live_session_optimization_text("缓存命中率: 0.0% · 步数 #0".into());
                 }
             }
         }

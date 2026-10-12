@@ -10,6 +10,7 @@ type OpenFn = unsafe extern "C" fn(*const c_char, *mut *mut c_void, i32, *const 
 type PrepareFn = unsafe extern "C" fn(*mut c_void, *const c_char, i32, *mut *mut c_void, *mut *const c_char) -> i32;
 type StepFn = unsafe extern "C" fn(*mut c_void) -> i32;
 type ColumnTextFn = unsafe extern "C" fn(*mut c_void, i32) -> *const u8;
+type ColumnIntFn = unsafe extern "C" fn(*mut c_void, i32) -> i32;
 type FinalizeFn = unsafe extern "C" fn(*mut c_void) -> i32;
 type CloseFn = unsafe extern "C" fn(*mut c_void) -> i32;
 
@@ -25,15 +26,20 @@ pub struct SessionItem {
     pub id: String,
     pub title: String,
     pub project_name: String,
-    pub context_tokens: u64,
+    pub input_tokens: u64,
     pub cache_read_tokens: u64,
     pub output_tokens: u64,
+    pub context_tokens: u64,
     pub cache_rate: f32,
     pub is_running: bool,
     pub last_updated_secs_ago: u64,
     pub context_str: String,
     pub cache_rate_str: String,
     pub time_ago_str: String,
+    pub step_count: u32,
+    pub round_duration_secs: f32,
+    pub round_tps: f32,
+    pub recent_tps: [f32; 8],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -61,16 +67,34 @@ struct HeaderStep {
     content: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct TailStep {
     #[serde(default)]
+    step_index: Option<u64>,
+    #[serde(default)]
     status: Option<String>,
+    #[serde(default)]
+    created_at: Option<String>,
     #[serde(default)]
     input_tokens: Option<u64>,
     #[serde(default)]
     cache_read_tokens: Option<u64>,
     #[serde(default)]
     output_tokens: Option<u64>,
+}
+
+#[derive(Default)]
+struct TailMetrics {
+    input_tokens: u64,
+    cache_read_tokens: u64,
+    output_tokens: u64,
+    context_tokens: u64,
+    cache_rate: f32,
+    is_running: bool,
+    round_duration_secs: f32,
+    round_tps: f32,
+    recent_tps: [f32; 8],
+    file_step_count: u32,
 }
 
 #[derive(Deserialize)]
@@ -157,71 +181,131 @@ fn parse_title_from_log(path: &Path) -> Option<String> {
     None
 }
 
-fn parse_tail_metrics(path: &Path, file_len: u64) -> (u64, u64, u64, f32, bool) {
+fn parse_rfc3339_secs(s: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(s)
+        .ok()
+        .map(|dt| dt.timestamp())
+}
+
+fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
     let mut file = match File::open(path) {
         Ok(f) => f,
-        Err(_) => return (0, 0, 0, 0.0, false),
+        Err(_) => return TailMetrics::default(),
     };
 
-    let tail_bytes_to_read = if file_len > 16384 { 16384 } else { file_len as usize };
+    let tail_bytes_to_read = if file_len > 65536 { 65536 } else { file_len as usize };
     if file.seek(SeekFrom::End(-(tail_bytes_to_read as i64))).is_err() {
-        return (0, 0, 0, 0.0, false);
+        return TailMetrics::default();
     }
 
     let mut buf = vec![0u8; tail_bytes_to_read];
     if file.read_exact(&mut buf).is_err() {
-        return (0, 0, 0, 0.0, false);
+        return TailMetrics::default();
     }
 
     let text = String::from_utf8_lossy(&buf);
-    let mut lines: Vec<&str> = text.lines().collect();
-    lines.reverse();
+    let mut lines = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
+                lines.push(step);
+            }
+        }
+    }
+
+    if lines.is_empty() {
+        return TailMetrics::default();
+    }
 
     let mut is_running = false;
-    let mut checked_status = false;
+    for step in lines.iter().rev() {
+        if let Some(ref st) = step.status {
+            if st == "RUNNING" {
+                is_running = true;
+            }
+            break;
+        }
+    }
 
     let mut found_input: u64 = 0;
     let mut found_cache: u64 = 0;
     let mut found_output: u64 = 0;
-    let mut has_tokens = false;
 
-    for line in lines {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
-            if !checked_status {
-                if let Some(ref st) = step.status {
-                    if st == "RUNNING" {
-                        is_running = true;
-                    }
-                    checked_status = true;
-                }
-            }
-
-            if !has_tokens && (step.input_tokens.is_some() || step.cache_read_tokens.is_some() || step.output_tokens.is_some()) {
-                found_input = step.input_tokens.unwrap_or(0);
-                found_cache = step.cache_read_tokens.unwrap_or(0);
-                found_output = step.output_tokens.unwrap_or(0);
-                has_tokens = true;
-            }
-
-            if checked_status && has_tokens {
-                break;
-            }
+    for step in lines.iter().rev() {
+        if step.input_tokens.is_some() || step.cache_read_tokens.is_some() || step.output_tokens.is_some() {
+            found_input = step.input_tokens.unwrap_or(0);
+            found_cache = step.cache_read_tokens.unwrap_or(0);
+            found_output = step.output_tokens.unwrap_or(0);
+            break;
         }
     }
 
-    let total_context = found_input + found_cache;
-    let cache_rate = if total_context > 0 {
-        found_cache as f32 / total_context as f32
+    let total_context = found_input + found_cache + found_output;
+    let cache_denom = found_input + found_cache;
+    let cache_rate = if cache_denom > 0 {
+        found_cache as f32 / cache_denom as f32
     } else {
         0.0
     };
 
-    (total_context, found_cache, found_output, cache_rate, is_running)
+    let file_step_count = lines
+        .iter()
+        .filter_map(|s| s.step_index)
+        .max()
+        .map(|idx| (idx + 1) as u32)
+        .unwrap_or(0);
+
+    let mut steps_with_out = Vec::new();
+    for step in &lines {
+        if let (Some(out), Some(ca)) = (step.output_tokens, &step.created_at) {
+            if out > 0 {
+                if let Some(sec) = parse_rfc3339_secs(ca) {
+                    steps_with_out.push((sec, out));
+                }
+            }
+        }
+    }
+
+    let mut tps_list = Vec::new();
+    let mut last_dur = 0.0f32;
+    if steps_with_out.len() >= 2 {
+        for w in steps_with_out.windows(2) {
+            let t0 = w[0].0;
+            let t1 = w[1].0;
+            let out = w[1].1;
+            let dur = (t1 - t0).clamp(1, 60) as f32;
+            let tps = out as f32 / dur;
+            tps_list.push(tps);
+            last_dur = dur;
+        }
+    } else if let Some(&(_, out)) = steps_with_out.first() {
+        let dur = 2.0f32;
+        let tps = out as f32 / dur;
+        tps_list.push(tps);
+        last_dur = dur;
+    }
+
+    let round_tps = tps_list.last().copied().unwrap_or(0.0);
+    let mut recent_tps = [0.0f32; 8];
+    let take_n = tps_list.len().min(8);
+    let start_idx = 8 - take_n;
+    for (i, &val) in tps_list.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
+        recent_tps[start_idx + i] = val;
+    }
+
+    TailMetrics {
+        input_tokens: found_input,
+        cache_read_tokens: found_cache,
+        output_tokens: found_output,
+        context_tokens: total_context,
+        cache_rate,
+        is_running,
+        round_duration_secs: last_dur,
+        round_tps,
+        recent_tps,
+        file_step_count,
+    }
 }
 
 fn load_project_map(projects_dir: &Path) -> HashMap<String, String> {
@@ -246,6 +330,9 @@ struct DbMeta {
     title: String,
     project_id: String,
     workspace_uris: String,
+    status: String,
+    not_fully_idle: bool,
+    step_count: u32,
 }
 
 fn load_db_sessions(db_path: &Path) -> HashMap<String, DbMeta> {
@@ -266,16 +353,17 @@ fn load_db_sessions(db_path: &Path) -> HashMap<String, DbMeta> {
         let prep_fn: Option<PrepareFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_prepare_v2".as_ptr()));
         let step_fn: Option<StepFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_step".as_ptr()));
         let col_fn: Option<ColumnTextFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_text".as_ptr()));
+        let col_int_fn: Option<ColumnIntFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_int".as_ptr()));
         let fin_fn: Option<FinalizeFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_finalize".as_ptr()));
         let close_fn: Option<CloseFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_close".as_ptr()));
 
-        if let (Some(open), Some(prep), Some(step), Some(col), Some(fin), Some(close)) =
-            (open_fn, prep_fn, step_fn, col_fn, fin_fn, close_fn)
+        if let (Some(open), Some(prep), Some(step), Some(col), Some(col_int), Some(fin), Some(close)) =
+            (open_fn, prep_fn, step_fn, col_fn, col_int_fn, fin_fn, close_fn)
         {
             let mut db: *mut c_void = std::ptr::null_mut();
             let rc = open(c_path.as_ptr(), &mut db, 1, std::ptr::null());
             if rc == 0 {
-                let query = c"SELECT conversation_id, title, project_id, workspace_uris FROM conversation_summaries";
+                let query = c"SELECT conversation_id, title, project_id, workspace_uris, status, not_fully_idle, step_count FROM conversation_summaries";
                 let mut stmt: *mut c_void = std::ptr::null_mut();
                 if prep(db, query.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) == 0 {
                     while step(stmt) == 100 {
@@ -283,14 +371,18 @@ fn load_db_sessions(db_path: &Path) -> HashMap<String, DbMeta> {
                         let title_p = col(stmt, 1);
                         let proj_p = col(stmt, 2);
                         let ws_p = col(stmt, 3);
+                        let status_p = col(stmt, 4);
 
                         let id = if !id_p.is_null() { CStr::from_ptr(id_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
                         let title = if !title_p.is_null() { CStr::from_ptr(title_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
                         let project_id = if !proj_p.is_null() { CStr::from_ptr(proj_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
                         let workspace_uris = if !ws_p.is_null() { CStr::from_ptr(ws_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                        let status = if !status_p.is_null() { CStr::from_ptr(status_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                        let not_fully_idle = col_int(stmt, 5) != 0;
+                        let step_count = col_int(stmt, 6).max(0) as u32;
 
                         if !id.is_empty() {
-                            map.insert(id, DbMeta { title, project_id, workspace_uris });
+                            map.insert(id, DbMeta { title, project_id, workspace_uris, status, not_fully_idle, step_count });
                         }
                     }
                     fin(stmt);
@@ -422,31 +514,45 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             "其他会话".to_string()
         };
 
-        let (context_tokens, cache_read_tokens, output_tokens, cache_rate, running_step) =
-            parse_tail_metrics(&log_path, len);
+        let tail = parse_tail_metrics(&log_path, len);
 
-        let is_running = running_step && secs_ago <= 30;
+        let is_running_db = if let Some(m) = db_meta {
+            (m.status == "CASCADE_RUN_STATUS_RUNNING" || m.not_fully_idle) && secs_ago <= 60
+        } else {
+            false
+        };
+        let is_running = (tail.is_running && secs_ago <= 30) || is_running_db;
         if is_running {
             has_running = true;
         }
 
-        let context_str = format_tokens(context_tokens);
-        let cache_rate_str = format!("{:.1}%", cache_rate * 100.0);
+        let context_str = format_tokens(tail.context_tokens);
+        let cache_rate_str = format!("{:.1}%", tail.cache_rate * 100.0);
         let time_ago_str = format_time_ago(secs_ago);
+        let step_count = if let Some(m) = db_meta && m.step_count > 0 {
+            m.step_count
+        } else {
+            tail.file_step_count
+        };
 
         all_sessions.push(SessionItem {
             id: uuid,
             title,
             project_name,
-            context_tokens,
-            cache_read_tokens,
-            output_tokens,
-            cache_rate,
+            input_tokens: tail.input_tokens,
+            cache_read_tokens: tail.cache_read_tokens,
+            output_tokens: tail.output_tokens,
+            context_tokens: tail.context_tokens,
+            cache_rate: tail.cache_rate,
             is_running,
             last_updated_secs_ago: secs_ago,
             context_str,
             cache_rate_str,
             time_ago_str,
+            step_count,
+            round_duration_secs: tail.round_duration_secs,
+            round_tps: tail.round_tps,
+            recent_tps: tail.recent_tps,
         });
     }
 
