@@ -9,8 +9,8 @@ fn main() {
     {
         let mut res = winres::WindowsResource::new();
         res.set_icon("assets/icon.ico");
-        res.set("FileDescription", "Antigravity 多实例管理器");
-        res.set("ProductName", "Antigravity Multi-Instance Manager");
+        res.set("FileDescription", "Antigravity Lander");
+        res.set("ProductName", "Antigravity Lander");
         let file_version = format!("{}.0", env!("CARGO_PKG_VERSION"));
         res.set("FileVersion", &file_version);
 

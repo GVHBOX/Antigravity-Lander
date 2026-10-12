@@ -159,6 +159,7 @@ impl TelemetryMonitor {
             let name = proc.name().to_string_lossy().to_lowercase();
             let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
                 && !name.contains("multi")
+                && !name.contains("lander")
                 && !name.contains("cockpit");
             if !is_antigravity {
                 continue;
@@ -215,6 +216,7 @@ impl TelemetryMonitor {
             let name = proc.name().to_string_lossy().to_lowercase();
             let is_antigravity = (name == "antigravity.exe" || name == "antigravity")
                 && !name.contains("multi")
+                && !name.contains("lander")
                 && !name.contains("cockpit");
             let is_ls = name == "language_server.exe" || name == "language_server" || name.contains("jetski");
 

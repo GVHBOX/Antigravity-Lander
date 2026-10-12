@@ -52,8 +52,8 @@ pub struct Strings {
 }
 
 pub const ZH_STRINGS: Strings = Strings {
-    app_title: "Antigravity 分身管理器",
-    app_subtitle: "双账号与进程监控",
+    app_title: "Antigravity Lander",
+    app_subtitle: "沙箱与遥测中枢",
     kernel_status: "已就绪",
     mem_label: "内存",
     lang_btn: "English",
@@ -99,10 +99,10 @@ pub const ZH_STRINGS: Strings = Strings {
 };
 
 pub const EN_STRINGS: Strings = Strings {
-    app_title: "Antigravity Multi-Instance Manager",
-    app_subtitle: "Isolation & Process Monitor",
+    app_title: "Antigravity Lander",
+    app_subtitle: "Isolation & Telemetry Control",
     kernel_status: "Kernel Ready",
-    mem_label: "Cockpit RSS",
+    mem_label: "Lander RSS",
     lang_btn: "中文界面",
     tile_host_title: "Host Process",
     tile_sub_title: "Sub-Process",

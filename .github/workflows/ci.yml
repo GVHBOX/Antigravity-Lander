@@ -47,6 +47,6 @@ jobs:
       - name: Upload Release Binary Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: multi-antigravity-windows-x64
-          path: target/release/multi-antigravity-rust.exe
+          name: antigravity-lander-windows-x64
+          path: target/release/antigravity-lander.exe
           if-no-files-found: error

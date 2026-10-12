@@ -29,7 +29,9 @@ from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / "target" / "release" / "multi-antigravity-rust.exe"
+EXE = ROOT / "target" / "release" / "antigravity-lander.exe"
+if not EXE.exists():
+    EXE = ROOT / "target" / "release" / "multi-antigravity-rust.exe"
 SHOT_DIR = ROOT / ".scratch"
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)

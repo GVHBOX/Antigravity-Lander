@@ -185,7 +185,12 @@ impl LauncherConfig {
     pub fn resolve_base_dir() -> Result<PathBuf> {
         if let Ok(exe_path) = env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
-                if exe_dir.join("data").exists() || exe_dir.join("Multi-Antigravity.exe").exists() || exe_dir.join("multi-antigravity.exe").exists() {
+                if exe_dir.join("data").exists()
+                    || exe_dir.join("Antigravity-Lander.exe").exists()
+                    || exe_dir.join("antigravity-lander.exe").exists()
+                    || exe_dir.join("Multi-Antigravity.exe").exists()
+                    || exe_dir.join("multi-antigravity.exe").exists()
+                {
                     return Ok(exe_dir.to_path_buf());
                 }
                 if let Some(parent) = exe_dir.parent() {
@@ -217,6 +222,7 @@ impl LauncherConfig {
             let name = proc.name().to_string_lossy().to_lowercase();
             if (name == "antigravity.exe" || name == "antigravity")
                 && !name.contains("multi")
+                && !name.contains("lander")
                 && !name.contains("cockpit")
             {
                 if let Some(exe_path) = proc.exe() {
@@ -702,6 +708,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             let name = proc.name().to_string_lossy().to_lowercase();
             if (name == "antigravity.exe" || name == "antigravity")
                 && !name.contains("multi")
+                && !name.contains("lander")
                 && !name.contains("cockpit")
             {
                 return true;

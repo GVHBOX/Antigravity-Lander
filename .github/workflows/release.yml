@@ -44,30 +44,30 @@ jobs:
         shell: powershell
         run: |
           $tag = $env:GITHUB_REF_NAME
-          $distName = "multi-antigravity-$tag-windows-x64"
+          $distName = "antigravity-lander-$tag-windows-x64"
           $distDir = "target/dist/$distName"
           New-Item -ItemType Directory -Path $distDir -Force | Out-Null
           
-          Copy-Item "target/release/multi-antigravity-rust.exe" -Destination "$distDir/Multi-Antigravity.exe"
+          Copy-Item "target/release/antigravity-lander.exe" -Destination "$distDir/Antigravity-Lander.exe"
           Copy-Item "README.md" -Destination "$distDir/"
           Copy-Item "LICENSE" -Destination "$distDir/"
           
           Compress-Archive -Path "$distDir/*" -DestinationPath "target/$distName.zip" -Force
           
-          $exeHash = (Get-FileHash "$distDir/Multi-Antigravity.exe" -Algorithm SHA256).Hash.ToLower()
+          $exeHash = (Get-FileHash "$distDir/Antigravity-Lander.exe" -Algorithm SHA256).Hash.ToLower()
           $zipHash = (Get-FileHash "target/$distName.zip" -Algorithm SHA256).Hash.ToLower()
           
-          $checksumContent = "$zipHash  $distName.zip`n$exeHash  Multi-Antigravity.exe"
+          $checksumContent = "$zipHash  $distName.zip`n$exeHash  Antigravity-Lander.exe"
           Set-Content -Path "target/checksums-sha256.txt" -Value $checksumContent -Encoding ascii
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Multi-Antigravity ${{ github.ref_name }}
+          name: Antigravity Lander ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            target/multi-antigravity-*-windows-x64.zip
-            target/dist/*/Multi-Antigravity.exe
+            target/antigravity-lander-*-windows-x64.zip
+            target/dist/*/Antigravity-Lander.exe
             target/checksums-sha256.txt

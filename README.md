@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Multi-Antigravity Logo" width="96" height="96" />
+<img src="assets/icon.png" alt="Antigravity Lander Logo" width="96" height="96" />
 
-# Multi-Antigravity
+# Antigravity Lander
 
-**Google Antigravity 多开分身工具**
+**Antigravity 实例调度与遥测中枢**
 
 [![CI](https://github.com/GVHBOX/multi-antigravity/actions/workflows/ci.yml/badge.svg)](https://github.com/GVHBOX/multi-antigravity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -14,7 +14,7 @@
 
 <br/>
 
-<img src="assets/preview.png" alt="Multi-Antigravity 界面预览" width="100%" />
+<img src="assets/preview.png" alt="Antigravity Lander 界面预览" width="100%" />
 
 </div>
 
@@ -22,9 +22,9 @@
 
 ## 作用
 
-双击运行 `Multi-Antigravity.exe`启动
-- **系统代理**：工具有让Google Antigravity支持系统代理，点击“注入”即可
-- **分身**：最多支持4个分身，开分身登录，账号数据保存在 `data/` 目录中，主账号和分身不冲突。
+双击运行 `Antigravity-Lander.exe` 启动
+- **系统代理**：让 Google Antigravity 支持系统代理，点击“注入”即可
+- **分身**：最多支持 4 个独立分身，账号数据保存在 `data/` 目录中，主账号和分身互不冲突。
 
 ---
 
@@ -63,7 +63,7 @@
 ```powershell
 cargo build --release
 ```
-编译产物位于 `target\release\multi-antigravity-rust.exe`，复制至根目录重命名为 `Multi-Antigravity.exe` 即可。
+编译产物位于 `target\release\antigravity-lander.exe`，复制至根目录重命名为 `Antigravity-Lander.exe` 即可。
 
 ---
 

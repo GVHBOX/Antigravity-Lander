@@ -395,7 +395,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let _tray = tray_icon::TrayIconBuilder::new()
         .with_menu(Box::new(tray_menu))
         .with_menu_on_left_click(false)
-        .with_tooltip("Antigravity 多开分身工具")
+        .with_tooltip("Antigravity Lander")
         .with_icon(tray_icon_img)
         .build()?;
 

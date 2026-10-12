@@ -1,9 +1,13 @@
 [package]
-name = "multi-antigravity-rust"
+name = "antigravity-lander"
 version = "1.0.1"
 edition = "2024"
-description = "Antigravity 多实例管理器"
+description = "Antigravity Lander"
 exclude = ["data/**", "*.WebView2/**"]
+
+[[bin]]
+name = "antigravity-lander"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.104"

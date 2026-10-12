@@ -234,7 +234,7 @@ fn main() -> Result<()> {
     terminal.show_cursor()?;
 
     println!();
-    println!(" [Antigravity Multi-Instance Manager v{}] 管理器已退出。", env!("CARGO_PKG_VERSION"));
+    println!(" [Antigravity Lander v{}] 退出。", env!("CARGO_PKG_VERSION"));
     println!(" 分身已在后台独立运行。");
     println!();
 
