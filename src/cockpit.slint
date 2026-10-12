@@ -582,13 +582,13 @@ component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 58px;
+    height: 68px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 4px;
-        padding-bottom: 4px;
+        padding-top: 5px;
+        padding-bottom: 5px;
         spacing: 2px;
 
         HorizontalLayout {
@@ -667,7 +667,7 @@ component SubQuotaCompactBox inherits Rectangle {
 
         HorizontalLayout {
             alignment: space-between;
-            height: 17px;
+            height: 16px;
 
             HorizontalLayout {
                 spacing: 5px;
@@ -1110,10 +1110,10 @@ export component MainWindow inherits Window {
     in property <float> live_bar5_h: 3.0;
     in property <float> live_bar6_h: 3.0;
     in property <float> live_bar7_h: 3.0;
-    in property <string> live_session_context_text: "0 / 1,000K (0.0%)";
+    in property <string> live_session_context_text: "0 / 256K (0.0%)";
     in property <float> live_session_context_pct: 0.0;
     in property <string> live_session_cache_text: "缓存 0 (0.0%)";
-    in property <string> live_session_available_text: "可用 1,000K";
+    in property <string> live_session_available_text: "可用 256K";
     in property <string> live_session_optimization_text: "缓存命中率: 0.0% · 步数 #0";
     callback switch_live_session_target(int);
 

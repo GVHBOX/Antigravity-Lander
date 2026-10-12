@@ -1901,7 +1901,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_bar6_h(calc_h(s.recent_tps[6]));
                     ui.set_live_bar7_h(calc_h(s.recent_tps[7]));
 
-                    let max_tokens = 1_000_000u64;
+                    let max_tokens = 256_000u64;
                     let prompt_tokens = s.input_tokens;
                     let cache_tokens = s.cache_read_tokens;
                     let output_tokens = s.output_tokens;
@@ -1920,7 +1920,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
 
                     let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    ui.set_live_session_context_text(format!("{} / 1,000K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
+                    ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                     ui.set_live_session_context_pct(pct);
                     ui.set_live_session_cache_text(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
                     let avail = max_tokens.saturating_sub(total_tokens);
@@ -1950,10 +1950,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_title("无活动会话".into());
                     ui.set_live_session_speed_text("0.0".into());
                     ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
-                    ui.set_live_session_context_text("0 / 1,000K (0.0%)".into());
+                    ui.set_live_session_context_text("0 / 256K (0.0%)".into());
                     ui.set_live_session_context_pct(0.0);
                     ui.set_live_session_cache_text("缓存 0 (0.0%)".into());
-                    ui.set_live_session_available_text("可用 1,000K".into());
+                    ui.set_live_session_available_text("可用 256K".into());
                     ui.set_live_session_optimization_text("缓存命中率: 0.0% · 步数 #0".into());
                 }
             }
