@@ -492,12 +492,12 @@ pub fn render_quota_ring(pct: f32, is_dark: bool) -> slint::Image {
 
     let clamped = pct.clamp(0.0, 1.0);
     let offset = circumference * (1.0 - clamped);
-    let stroke_color = if clamped >= 0.70 {
-        "#10b981"
-    } else if clamped >= 0.30 {
-        "#f59e0b"
+    let stroke_color = if clamped < 0.10 {
+        if is_dark { "#dc2626" } else { "#ef4444" }
+    } else if clamped < 0.25 {
+        if is_dark { "#ca8a04" } else { "#eab308" }
     } else {
-        "#f43f5e"
+        if is_dark { "#16a34a" } else { "#22c55e" }
     };
 
     let svg = format!(
