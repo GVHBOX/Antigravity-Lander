@@ -258,8 +258,8 @@ fn center_and_scale_cockpit_window(hwnd: windows_sys::Win32::Foundation::HWND) {
         if ok != 0 {
             let work_w = work_area.right - work_area.left;
             let work_h = work_area.bottom - work_area.top;
-            let target_w = 1516.min(work_w - 20).max(1200);
-            let target_h = 889.min(work_h - 20).max(680);
+            let target_w = 1500.min(work_w - 20).max(1200);
+            let target_h = 915.min(work_h - 20).max(680);
             let x = work_area.left + (work_w - target_w) / 2;
             let y = work_area.top + (work_h - target_h) / 2;
             SetWindowPos(
