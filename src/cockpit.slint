@@ -535,14 +535,18 @@ component QuotaRefreshButton inherits Rectangle {
     in property <bool> is_refreshing: false;
     in property <bool> is_disabled: false;
     in property <bool> is_dark: true;
+    in property <angle> spin_angle: 0deg;
     callback clicked();
 
     width: 18px;
     height: 18px;
     border-radius: 4px;
-    background: ta.has_hover && !root.is_disabled && !root.is_refreshing ? (root.is_dark ? rgba(255, 255, 255, 0.08) : rgba(0, 0, 0, 0.05)) : transparent;
+    border-width: 1px;
+    background: is_disabled ? (root.is_dark ? rgba(30, 41, 59, 0.4) : rgba(226, 232, 240, 0.5)) : (ta.has_hover && !root.is_refreshing ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
+    border-color: is_disabled ? (root.is_dark ? rgba(51, 65, 85, 0.4) : rgba(203, 213, 225, 0.5)) : (root.is_dark ? #334155 : #cbd5e1);
 
     animate background { duration: 150ms; }
+    animate border-color { duration: 150ms; }
 
     ta := TouchArea {
         enabled: !root.is_disabled && !root.is_refreshing;
@@ -551,23 +555,13 @@ component QuotaRefreshButton inherits Rectangle {
     }
 
     Image {
-        width: 12px;
-        height: 12px;
+        width: 11px;
+        height: 11px;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         source: @image-url("../assets/refresh.svg");
-        colorize: root.is_disabled ? (root.is_dark ? #334155 : #cbd5e1) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #94a3b8 : #64748b));
-        transform-rotation: self.spin_angle;
-
-        property <angle> spin_angle: 0deg;
-        states [
-            spinning when root.is_refreshing: {
-                spin_angle: 360deg;
-                in {
-                    animate spin_angle { duration: 800ms; iteration-count: -1; easing: linear; }
-                }
-            }
-        ]
+        colorize: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #cbd5e1 : #475569));
+        transform-rotation: root.spin_angle;
     }
 }
 
@@ -581,6 +575,7 @@ component SubQuotaCompactBox inherits Rectangle {
     in property <bool> is_dark: true;
     in property <bool> is_refreshing: false;
     in property <bool> is_refresh_disabled: false;
+    in property <angle> spin_angle: 0deg;
     callback refresh_clicked();
 
     background: root.is_dark ? #0d1527 : #ffffff;
@@ -597,25 +592,23 @@ component SubQuotaCompactBox inherits Rectangle {
         spacing: 2px;
 
         HorizontalLayout {
-            height: 14px;
-            alignment: space-between;
+            height: 18px;
+            alignment: start;
+            spacing: 6px;
 
-            HorizontalLayout {
-                spacing: 4px;
-                alignment: start;
-                Text {
-                    text: "Gemini 模型";
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 10.5px;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: "Gemini 模型";
+                color: root.is_dark ? #94a3b8 : #64748b;
+                font-size: 10.5px;
+                font-weight: 600;
+                vertical-alignment: center;
             }
 
             QuotaRefreshButton {
                 is_refreshing: root.is_refreshing;
                 is_disabled: root.is_refresh_disabled;
                 is_dark: root.is_dark;
+                spin_angle: root.spin_angle;
                 clicked => { root.refresh_clicked(); }
             }
         }
@@ -976,6 +969,7 @@ export component MainWindow inherits Window {
     in property <string> host_five_h_reset: "";
     in property <image> host_five_h_ring;
     in property <bool> host_quota_refreshing: false;
+    in property <angle> quota_spin_angle: 0deg;
     in property <string> host_summary_text: "无活动会话";
     in property <bool> host_has_running: false;
     in property <bool> host_has_sessions: false;
@@ -1321,6 +1315,7 @@ export component MainWindow inherits Window {
                         is_dark: root.is_dark;
                         is_refreshing: root.host_quota_refreshing;
                         is_refresh_disabled: !root.host_token_present;
+                        spin_angle: root.quota_spin_angle;
                         refresh_clicked => { root.action_refresh_quota(0); }
                     }
 
@@ -2039,6 +2034,7 @@ export component MainWindow inherits Window {
                                 is_dark: root.is_dark;
                                 is_refreshing: root.sub1_quota_refreshing;
                                 is_refresh_disabled: !root.sub1_token_present;
+                                spin_angle: root.quota_spin_angle;
                                 refresh_clicked => { root.action_refresh_quota(1); }
                             }
 
@@ -2229,6 +2225,7 @@ export component MainWindow inherits Window {
                                 is_dark: root.is_dark;
                                 is_refreshing: root.sub2_quota_refreshing;
                                 is_refresh_disabled: !root.sub2_token_present;
+                                spin_angle: root.quota_spin_angle;
                                 refresh_clicked => { root.action_refresh_quota(2); }
                             }
 
@@ -2419,6 +2416,7 @@ export component MainWindow inherits Window {
                                 is_dark: root.is_dark;
                                 is_refreshing: root.sub3_quota_refreshing;
                                 is_refresh_disabled: !root.sub3_token_present;
+                                spin_angle: root.quota_spin_angle;
                                 refresh_clicked => { root.action_refresh_quota(3); }
                             }
 
@@ -2609,6 +2607,7 @@ export component MainWindow inherits Window {
                                 is_dark: root.is_dark;
                                 is_refreshing: root.sub4_quota_refreshing;
                                 is_refresh_disabled: !root.sub4_token_present;
+                                spin_angle: root.quota_spin_angle;
                                 refresh_clicked => { root.action_refresh_quota(4); }
                             }
 

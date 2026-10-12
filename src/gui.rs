@@ -1456,6 +1456,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         was_iconic = is_iconic;
     });
 
+    let spin_timer = Timer::default();
+    let ui_weak_spin = main_window.as_weak();
+    let mut current_spin_deg = 0.0f32;
+    spin_timer.start(TimerMode::Repeated, std::time::Duration::from_millis(40), move || {
+        let Some(ui) = ui_weak_spin.upgrade() else {
+            return;
+        };
+        let is_any_refreshing = ui.get_host_quota_refreshing()
+            || ui.get_sub1_quota_refreshing()
+            || ui.get_sub2_quota_refreshing()
+            || ui.get_sub3_quota_refreshing()
+            || ui.get_sub4_quota_refreshing();
+
+        if is_any_refreshing {
+            current_spin_deg = (current_spin_deg + 18.0) % 360.0;
+            ui.set_quota_spin_angle(current_spin_deg);
+        } else if current_spin_deg != 0.0 {
+            current_spin_deg = 0.0;
+            ui.set_quota_spin_angle(0.0);
+        }
+    });
+
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
             let mut mon = monitor_timer.lock().unwrap();
