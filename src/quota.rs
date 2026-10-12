@@ -169,6 +169,37 @@ pub fn compute_window_offline(window: &QuotaWindow, period_secs: i64) -> QuotaWi
     }
 }
 
+fn extract_host_offline_profile(base_dir: &Path) -> Option<AccountProfile> {
+    let roaming = if let Ok(appdata) = std::env::var("APPDATA") {
+        PathBuf::from(appdata)
+    } else {
+        crate::launcher::LauncherConfig::resolve_host_user_dir()?
+            .join("AppData")
+            .join("Roaming")
+    };
+    let app_storage_p = roaming.join("Antigravity").join("app_storage.json");
+    if !app_storage_p.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(&app_storage_p).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let email = json.get("jetski.onboarding.lastLoginUsername")?.as_str()?;
+    if email.is_empty() || !email.contains('@') {
+        return None;
+    }
+    let default_avatar = base_dir.join("data").join("avatars").join("host.png");
+    Some(AccountProfile {
+        name: if email.contains("hzm") || email.contains("175760") {
+            "Jimmii He".to_string()
+        } else {
+            email.split('@').next().unwrap_or("Host").to_string()
+        },
+        email: email.to_string(),
+        tier: "Pro".to_string(),
+        avatar_path: if default_avatar.exists() { Some(default_avatar) } else { None },
+    })
+}
+
 pub fn compute_offline_state(
     cached: Option<&InstanceQuotaState>,
     token_path: Option<&Path>,
@@ -185,6 +216,20 @@ pub fn compute_offline_state(
                 state.profile = prof;
                 if default_avatar.exists() {
                     state.profile.avatar_path = Some(default_avatar.clone());
+                }
+            }
+        }
+        if !state.is_available && tag == "host" {
+            if let Some(prof) = extract_host_offline_profile(&base_dir) {
+                state.is_available = true;
+                state.profile = prof;
+                if state.weekly.pct_text.is_empty() || state.weekly.pct_text == "--" {
+                    state.weekly.remaining_pct = 1.0;
+                    state.weekly.pct_text = "100%".to_string();
+                }
+                if state.five_h.pct_text.is_empty() || state.five_h.pct_text == "--" {
+                    state.five_h.remaining_pct = 1.0;
+                    state.five_h.pct_text = "100%".to_string();
                 }
             }
         }

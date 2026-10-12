@@ -790,6 +790,12 @@ component SubQuotaCompactBox inherits Rectangle {
                     font-size: 10px;
                     vertical-alignment: center;
                 }
+                if root.weekly_reset == "" && root.weekly_pct == "--" : Text {
+                    text: "等待同步";
+                    color: root.is_dark ? #334155 : #cbd5e1;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
             }
 
             HorizontalLayout {
@@ -837,6 +843,12 @@ component SubQuotaCompactBox inherits Rectangle {
                     font-size: 10px;
                     vertical-alignment: center;
                 }
+                if root.five_h_reset == "" && root.five_h_pct == "--" : Text {
+                    text: "等待同步";
+                    color: root.is_dark ? #334155 : #cbd5e1;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
             }
 
             HorizontalLayout {
@@ -863,7 +875,7 @@ component SubQuotaCompactBox inherits Rectangle {
 }
 
 component SubSessionCardBox inherits Rectangle {
-    in property <string> project_name: "无活动会话";
+    in property <string> project_name: "暂无活动会话";
     in property <string> session_title: "";
     in property <string> tokens_text: "";
     in property <string> time_text: "等待初始化";
@@ -883,105 +895,90 @@ component SubSessionCardBox inherits Rectangle {
         padding-right: 10px;
         padding-top: 6px;
         padding-bottom: 6px;
-        alignment: space-between;
+        spacing: 3px;
 
-        if !root.has_sessions : HorizontalLayout {
+        HorizontalLayout {
             alignment: space-between;
-            height: 20px;
-            Text {
-                text: "无活动会话";
-                color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 11.5px;
-                vertical-alignment: center;
-            }
-            Text {
-                text: "等待初始化";
-                color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 10.5px;
-                font-family: "Cascadia Mono";
-                vertical-alignment: center;
-            }
-        }
-
-        if root.has_sessions : VerticalLayout {
-            spacing: 3px;
+            height: 16px;
 
             HorizontalLayout {
-                alignment: space-between;
-                height: 16px;
-
-                HorizontalLayout {
-                    spacing: 4px;
-                    alignment: start;
-                    Text {
-                        text: "📁";
-                        font-size: 10px;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: root.project_name;
-                        color: root.is_dark ? #e2e8f0 : #1e293b;
-                        font-size: 11.5px;
-                        font-weight: 600;
-                        overflow: elide;
-                        vertical-alignment: center;
-                    }
+                spacing: 4px;
+                alignment: start;
+                Text {
+                    text: "📁";
+                    font-size: 10px;
+                    vertical-alignment: center;
                 }
-
-                if root.tokens_text != "" : Text {
-                    text: root.tokens_text;
-                    color: #38bdf8;
-                    font-size: 10.5px;
-                    font-family: "Cascadia Mono";
+                Text {
+                    text: root.has_sessions ? root.project_name : "暂无活动会话";
+                    color: root.has_sessions ? (root.is_dark ? #e2e8f0 : #1e293b) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 11.5px;
                     font-weight: 600;
+                    overflow: elide;
                     vertical-alignment: center;
                 }
             }
 
-            if root.session_title != "" : Text {
-                text: root.session_title;
-                color: root.is_dark ? #94a3b8 : #64748b;
+            Text {
+                text: root.has_sessions ? (root.tokens_text != "" ? root.tokens_text : "--") : "0 会话";
+                color: root.has_sessions ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
+                font-size: 10.5px;
+                font-family: "Cascadia Mono";
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 16px;
+            alignment: start;
+            Text {
+                text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
+                color: root.has_sessions ? (root.is_dark ? #94a3b8 : #64748b) : (root.is_dark ? #475569 : #94a3b8);
                 font-size: 11px;
                 overflow: elide;
                 vertical-alignment: center;
-                height: 16px;
             }
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            height: 16px;
 
             HorizontalLayout {
-                alignment: space-between;
-                height: 16px;
-
-                HorizontalLayout {
-                    spacing: 4px;
-                    alignment: start;
-                    if root.is_running : Rectangle {
-                        width: 6px;
-                        height: 6px;
-                        border-radius: 3px;
-                        background: #10b981;
-                        y: (parent.height - 6px) / 2;
-                    }
-                    Text {
-                        text: root.is_running ? "运行中 (刚刚刷新)" : root.time_text;
-                        color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                        font-size: 10.5px;
-                        font-family: "Cascadia Mono";
-                        vertical-alignment: center;
-                    }
+                spacing: 4px;
+                alignment: start;
+                if root.is_running : Rectangle {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: #10b981;
+                    y: (parent.height - 6px) / 2;
                 }
+                Text {
+                    text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
+                    color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
 
-                Rectangle {
-                    detail_ta := TouchArea {
-                        clicked => { root.clicked(); }
-                        mouse-cursor: pointer;
+            Rectangle {
+                detail_ta := TouchArea {
+                    clicked => {
+                        if root.has_sessions {
+                            root.clicked();
+                        }
                     }
-                    Text {
-                        text: "查看明细 >";
-                        color: detail_ta.has_hover ? (root.is_dark ? #7dd3fc : #0284c7) : #38bdf8;
-                        font-size: 10.5px;
-                        font-weight: 500;
-                        vertical-alignment: center;
-                    }
+                    mouse-cursor: root.has_sessions ? pointer : default;
+                }
+                Text {
+                    text: root.has_sessions ? "查看明细 >" : "无明细";
+                    color: root.has_sessions ? (detail_ta.has_hover ? (root.is_dark ? #7dd3fc : #0284c7) : #38bdf8) : (root.is_dark ? #334155 : #cbd5e1);
+                    font-size: 10.5px;
+                    font-weight: 500;
+                    vertical-alignment: center;
                 }
             }
         }
@@ -1098,8 +1095,10 @@ export component MainWindow inherits Window {
     icon: @image-url("../assets/icon.png");
     preferred-width: 1440px;
     preferred-height: 780px;
-    min-width: 1100px;
-    min-height: 600px;
+    min-width: 1200px;
+    min-height: 640px;
+    max-width: 1680px;
+    max-height: 960px;
     background: root.is_dark ? (root.redraw_tick == 0 ? #070a13 : #070a14) : (root.redraw_tick == 0 ? #f1f5f9 : #f1f5fa);
     forward-focus: fkey;
 

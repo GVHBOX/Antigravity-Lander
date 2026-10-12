@@ -263,6 +263,10 @@ impl TelemetryMonitor {
                     }
                     host_cpu += proc.cpu_usage();
                     host_mem_bytes += proc.memory();
+                } else if is_ls && host_ls_pid.is_none() && host_electron_pid.is_some() {
+                    host_ls_pid = Some(pid_u32);
+                    host_ls_csrf = extract_csrf_token(proc.cmd());
+                    host_mem_bytes += proc.memory();
                 }
             }
         }
