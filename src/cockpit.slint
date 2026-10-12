@@ -429,11 +429,11 @@ component MiniMetricBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 5px;
-    height: 38px;
+    height: 44px;
 
     VerticalLayout {
         alignment: center;
-        spacing: 1px;
+        spacing: 2px;
 
         Text {
             text: root.label;
@@ -762,13 +762,13 @@ component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 48px;
+    height: 54px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 5px;
-        padding-bottom: 5px;
+        padding-top: 7px;
+        padding-bottom: 7px;
         spacing: 3px;
 
         HorizontalLayout {
@@ -864,6 +864,7 @@ component SubQuotaCompactBox inherits Rectangle {
 
 component SubSessionCardBox inherits Rectangle {
     in property <string> project_name: "无活动会话";
+    in property <string> session_title: "";
     in property <string> tokens_text: "";
     in property <string> time_text: "等待初始化";
     in property <bool> is_running: false;
@@ -875,14 +876,14 @@ component SubSessionCardBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 44px;
+    height: 70px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 4px;
-        padding-bottom: 4px;
-        alignment: center;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        alignment: space-between;
 
         if !root.has_sessions : HorizontalLayout {
             alignment: space-between;
@@ -903,8 +904,7 @@ component SubSessionCardBox inherits Rectangle {
         }
 
         if root.has_sessions : VerticalLayout {
-            spacing: 2px;
-            alignment: space-around;
+            spacing: 3px;
 
             HorizontalLayout {
                 alignment: space-between;
@@ -936,6 +936,15 @@ component SubSessionCardBox inherits Rectangle {
                     font-weight: 600;
                     vertical-alignment: center;
                 }
+            }
+
+            if root.session_title != "" : Text {
+                text: root.session_title;
+                color: root.is_dark ? #94a3b8 : #64748b;
+                font-size: 11px;
+                overflow: elide;
+                vertical-alignment: center;
+                height: 16px;
             }
 
             HorizontalLayout {
@@ -1087,10 +1096,10 @@ component SubScaleCacheRow inherits Rectangle {
 export component MainWindow inherits Window {
     title: "Antigravity 多开分身工具 v1.0.1";
     icon: @image-url("../assets/icon.png");
-    preferred-width: 1840px;
-    preferred-height: 1000px;
-    min-width: 1200px;
-    min-height: 680px;
+    preferred-width: 1440px;
+    preferred-height: 780px;
+    min-width: 1100px;
+    min-height: 600px;
     background: root.is_dark ? (root.redraw_tick == 0 ? #070a13 : #070a14) : (root.redraw_tick == 0 ? #f1f5f9 : #f1f5fa);
     forward-focus: fkey;
 
@@ -1330,15 +1339,19 @@ export component MainWindow inherits Window {
     in property <string> sub3_cache_size_text: "缓存 0 MB";
     in property <string> sub4_cache_size_text: "缓存 0 MB";
     in property <string> sub1_recent_project: "无活动会话";
+    in property <string> sub1_recent_title: "";
     in property <string> sub1_recent_tokens: "";
     in property <string> sub1_recent_time: "等待初始化";
     in property <string> sub2_recent_project: "无活动会话";
+    in property <string> sub2_recent_title: "";
     in property <string> sub2_recent_tokens: "";
     in property <string> sub2_recent_time: "等待初始化";
     in property <string> sub3_recent_project: "无活动会话";
+    in property <string> sub3_recent_title: "";
     in property <string> sub3_recent_tokens: "";
     in property <string> sub3_recent_time: "等待初始化";
     in property <string> sub4_recent_project: "无活动会话";
+    in property <string> sub4_recent_title: "";
     in property <string> sub4_recent_tokens: "";
     in property <string> sub4_recent_time: "等待初始化";
 
@@ -1348,6 +1361,7 @@ export component MainWindow inherits Window {
 
         HorizontalLayout {
             spacing: 8px;
+            vertical-stretch: 1;
             preferred-height: 330px;
             min-height: 250px;
 
@@ -1907,8 +1921,8 @@ export component MainWindow inherits Window {
 
         Rectangle {
             vertical-stretch: 1;
-            preferred-height: 580px;
-            min-height: 340px;
+            preferred-height: 420px;
+            min-height: 320px;
             background: root.is_dark ? #0d1527 : #ffffff;
             border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
             border-width: 1px;
@@ -2098,6 +2112,7 @@ export component MainWindow inherits Window {
 
                             SubSessionCardBox {
                                 project_name: root.sub1_recent_project;
+                                session_title: root.sub1_recent_title;
                                 tokens_text: root.sub1_recent_tokens;
                                 time_text: root.sub1_recent_time;
                                 is_running: root.sub1_running || root.sub1_has_running;
@@ -2280,6 +2295,7 @@ export component MainWindow inherits Window {
 
                             SubSessionCardBox {
                                 project_name: root.sub2_recent_project;
+                                session_title: root.sub2_recent_title;
                                 tokens_text: root.sub2_recent_tokens;
                                 time_text: root.sub2_recent_time;
                                 is_running: root.sub2_running || root.sub2_has_running;
@@ -2462,6 +2478,7 @@ export component MainWindow inherits Window {
 
                             SubSessionCardBox {
                                 project_name: root.sub3_recent_project;
+                                session_title: root.sub3_recent_title;
                                 tokens_text: root.sub3_recent_tokens;
                                 time_text: root.sub3_recent_time;
                                 is_running: root.sub3_running || root.sub3_has_running;
@@ -2644,6 +2661,7 @@ export component MainWindow inherits Window {
 
                             SubSessionCardBox {
                                 project_name: root.sub4_recent_project;
+                                session_title: root.sub4_recent_title;
                                 tokens_text: root.sub4_recent_tokens;
                                 time_text: root.sub4_recent_time;
                                 is_running: root.sub4_running || root.sub4_has_running;

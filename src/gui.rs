@@ -95,15 +95,16 @@ fn load_avatar_image(path: Option<&std::path::Path>) -> (slint::Image, bool) {
     (slint::Image::default(), false)
 }
 
-fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, String) {
+fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, String, String) {
     if let Some(s) = sessions.groups.first().and_then(|g| g.sessions.first()) {
         (
             s.project_name.clone(),
+            s.title.clone(),
             format!("{} ({})", s.context_str, s.cache_rate_str),
             format!("最近更新: {}", s.time_ago_str),
         )
     } else {
-        ("无活动会话".to_string(), "".to_string(), "等待初始化".to_string())
+        ("无活动会话".to_string(), "".to_string(), "".to_string(), "等待初始化".to_string())
     }
 }
 
@@ -1641,8 +1642,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub1_has_running(sub1_sessions.has_running);
             ui.set_sub1_has_sessions(sub1_sessions.total_sessions > 0);
             ui.set_sub1_session_count_text(if sub1_sessions.total_sessions > 0 { format!("{} 个", sub1_sessions.total_sessions).into() } else { "--".into() });
-            let (s1_p, s1_t, s1_time) = extract_recent_session_info(&sub1_sessions);
+            let (s1_p, s1_title, s1_t, s1_time) = extract_recent_session_info(&sub1_sessions);
             ui.set_sub1_recent_project(s1_p.into());
+            ui.set_sub1_recent_title(s1_title.into());
             ui.set_sub1_recent_tokens(s1_t.into());
             ui.set_sub1_recent_time(s1_time.into());
 
@@ -1650,8 +1652,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub2_has_running(sub2_sessions.has_running);
             ui.set_sub2_has_sessions(sub2_sessions.total_sessions > 0);
             ui.set_sub2_session_count_text(if sub2_sessions.total_sessions > 0 { format!("{} 个", sub2_sessions.total_sessions).into() } else { "--".into() });
-            let (s2_p, s2_t, s2_time) = extract_recent_session_info(&sub2_sessions);
+            let (s2_p, s2_title, s2_t, s2_time) = extract_recent_session_info(&sub2_sessions);
             ui.set_sub2_recent_project(s2_p.into());
+            ui.set_sub2_recent_title(s2_title.into());
             ui.set_sub2_recent_tokens(s2_t.into());
             ui.set_sub2_recent_time(s2_time.into());
 
@@ -1659,8 +1662,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub3_has_running(sub3_sessions.has_running);
             ui.set_sub3_has_sessions(sub3_sessions.total_sessions > 0);
             ui.set_sub3_session_count_text(if sub3_sessions.total_sessions > 0 { format!("{} 个", sub3_sessions.total_sessions).into() } else { "--".into() });
-            let (s3_p, s3_t, s3_time) = extract_recent_session_info(&sub3_sessions);
+            let (s3_p, s3_title, s3_t, s3_time) = extract_recent_session_info(&sub3_sessions);
             ui.set_sub3_recent_project(s3_p.into());
+            ui.set_sub3_recent_title(s3_title.into());
             ui.set_sub3_recent_tokens(s3_t.into());
             ui.set_sub3_recent_time(s3_time.into());
 
@@ -1668,8 +1672,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub4_has_running(sub4_sessions.has_running);
             ui.set_sub4_has_sessions(sub4_sessions.total_sessions > 0);
             ui.set_sub4_session_count_text(if sub4_sessions.total_sessions > 0 { format!("{} 个", sub4_sessions.total_sessions).into() } else { "0".into() });
-            let (s4_p, s4_t, s4_time) = extract_recent_session_info(&sub4_sessions);
+            let (s4_p, s4_title, s4_t, s4_time) = extract_recent_session_info(&sub4_sessions);
             ui.set_sub4_recent_project(s4_p.into());
+            ui.set_sub4_recent_title(s4_title.into());
             ui.set_sub4_recent_tokens(s4_t.into());
             ui.set_sub4_recent_time(s4_time.into());
 
