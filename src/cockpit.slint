@@ -536,18 +536,31 @@ component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 42px;
+    height: 58px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        spacing: 1px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 2px;
+
+        HorizontalLayout {
+            height: 14px;
+            alignment: start;
+            spacing: 4px;
+            Text {
+                text: "Gemini 模型";
+                color: root.is_dark ? #94a3b8 : #64748b;
+                font-size: 10.5px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
 
         HorizontalLayout {
             alignment: space-between;
-            height: 17px;
+            height: 16px;
 
             HorizontalLayout {
                 spacing: 5px;
@@ -2933,20 +2946,6 @@ export component MainWindow inherits Window {
                                 item: item;
                                 is_dark: root.is_dark;
                             }
-                        }
-                    }
-                }
-
-                HorizontalLayout {
-                    alignment: end;
-                    height: 32px;
-
-                    OutlineButton {
-                        width: 80px;
-                        text: "关闭";
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.session_modal_visible = false;
                         }
                     }
                 }
