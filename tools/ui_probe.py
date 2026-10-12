@@ -36,6 +36,10 @@ SHOT_DIR = ROOT / ".scratch"
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+try:
+    user32.SetProcessDPIAware()
+except Exception:
+    pass
 
 SRCCOPY = 0x00CC0020
 DIB_RGB_COLORS = 0
@@ -199,7 +203,7 @@ def cmd_rect(pid):
     return 0
 
 
-def cmd_shot(pid, scale=2, name="ui-shot.png", crop=None):
+def cmd_shot(pid, scale=1, name="ui-shot.png", crop=None):
     got = find_window(pid)
     if not got:
         print("window not found")
@@ -267,7 +271,7 @@ def main(argv):
         crop = None
         if len(argv) > 4:
             crop = tuple(int(v) for v in argv[4].split(","))
-        return cmd_shot(int(argv[1]), int(argv[2]) if len(argv) > 2 else 2,
+        return cmd_shot(int(argv[1]), int(argv[2]) if len(argv) > 2 else 1,
                         argv[3] if len(argv) > 3 else "ui-shot.png", crop)
     if cmd == "size" and len(argv) >= 4:
         return cmd_size(int(argv[1]), int(argv[2]), int(argv[3]))

@@ -1,6 +1,6 @@
 # Antigravity Lander 作业规程
 
-`D:\AI\multi-antigravity-rust`：Rust + Slint 1.18 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
+`D:\Development_Environment\AI_Vibe_Coding_Workspace\Multi-Antigravity-rust`：Rust + Slint 1.18 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
 两种运行形态：默认 Slint GUI（带系统托盘），`--tui` / `-t` 走 Ratatui 终端仪表盘。
 本文件只讲规矩，功能介绍在 `README.md`。
 
@@ -44,7 +44,7 @@ python tools/scan_comment.py --selfcheck
    - 界面只写「它是什么（字段/状态）」和「出了什么问题（错误具体原因）」，坚决不写「怎么用（引导/解释/教导）」。
    - 全界面严格仅允许五类文案：字段名 · 必填标记 `*` · 出错的具体原因 · 禁用态的原因 · 空状态占位提示。
    - 严禁在界面放置技术自嗨标签（如“Slint 1.18 软件光栅”）。
-   - **高信息密度 ≠ 界面噪音（Dense Telemetry is NOT Noise）**：零说明字禁止的是教学引导与废话，严格鼓励多维工程事实与数据切片（如 3 列指标盒、多色分段 Prompt/Cache/Output 度量条、分身独立磁盘缓存统计等纯客观数据），充分利用 1080P 视口空间。
+   - **高信息密度 ≠ 界面噪音（Dense Telemetry is NOT Noise）**：零说明字禁止的是教学引导与废话，严格鼓励多维工程事实与数据切片（如 3 列指标盒、多色分段 Prompt/Cache/Output 度量条、分身独立磁盘缓存统计等纯客观数据），充分利用 2K（2560×1440）与 1080P 视口空间。
 
 **机器强制**：`python tools/check_front_hygiene.py`。
 注意它是**关键词黑名单**，只挡已知说法；中英文都要过一遍（英文文案扫不到），
@@ -88,7 +88,7 @@ TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知�
   - 未运行时动词为【启动】；运行中动词为【打开】（激活置顶已有窗口）与【停止】（终止进程）。小白用户看到【打开】才符合直觉，严禁写成【置顶】或【唤醒】。
   - 缩放控制统一写【界面调节】，支持 80%~200%（±10%）及点击数值快速重置，持久化到 `data/scale_settings.json`，启动时通过 `--force-device-scale-factor` 注入。
 - **UI 布局与窗口设计**：
-  - 基准尺寸：宽 1516px、高 889px（适配 1080P，最小 1200×680），自适应弹性拉伸。
+  - 基准尺寸：宽 1516px、高 889px（最小 1200×680），兼顾 1080P 并深度适配 2K（2560×1440）高分屏。自适应弹性拉伸，大分辨率下卡片保持紧凑实体，留白由外层视口自然吸收。
   - 上半区 3 列卡片布局：
     - 卡片 1【主机实例】：主账号控制、进程启停、界面缩放、目录直达。
     - 卡片 2【系统代理与汉化】：代理端口检测与环境变量注入、汉化补丁状态与一键应用。
@@ -121,7 +121,7 @@ TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知�
      - **正式接管授权**：在覆盖根目录/目标路径二进制（如 `Antigravity-Lander.exe` / `Multi-Antigravity.exe`）或启动测试实例时，若遭遇旧实例正在运行引发的文件锁（Windows `WinError 32` / `Device or resource busy`）或单实例互斥锁占用，**AI 获得正式授权主动接管并精准终止旧版管理器进程**（`taskkill /PID <pid> /F`）。
      - **原位物理覆盖**：解除占用后，必须立即完成根目录 `Antigravity-Lander.exe` 的覆盖写入，确保用户调起即为最新版。
      - **严格限定接管边界**：仅限终止由本项目自身构建运行的旧版进程，绝不触碰用户宿主环境或其他系统关键进程。
-  3. **验收凭证原则（拒绝幽灵验证）**：自测必须有新产物运行的确定性证据（如新 PID、真实截屏存证）。
+  3. **验收凭证原则（拒绝幽灵验证）**：自测必须有新产物生效的确定性证据（UI 改动使用 `slint-viewer` 截存或由用户视觉验收；后台/进程改动以真实 PID 与回执存证，严禁为了强行截屏在后台自编脚本折腾）。
 
 ## 测试与检查
 
@@ -133,17 +133,20 @@ python tools/scan_comment.py --selfcheck
 python tools/check_front_hygiene.py         # 铁律 2
 ```
 
-- 项目没有单元测试。验收靠两步：`cargo check` 零警告 + 探针实测截图留存。
-- 改动涉及窗口 / 托盘 / 渲染时，**必须起真 exe 验一遍**，别只靠编译。用 `tools/ui_probe.py`：
+- 项目没有单元测试。验收靠两步：`cargo check` 零警告 + 真实产物覆盖验证。
+- **UI 布局与排版验证优先使用 `slint-viewer`**（官方原生引擎、免全量编译、0.1 秒热重载、无损原画直出）：
 
 ```bash
-python tools/ui_probe.py launch            # 起临时实例，输出 PID
-python tools/ui_probe.py rect <pid>        # 读真实像素尺寸 + DPI + 逻辑尺寸
-python tools/ui_probe.py max <pid>         # 最大化，用来验证超宽屏下的布局
-python tools/ui_probe.py shot <pid>        # 截窗口内容到 .scratch/
-python tools/ui_probe.py kill <pid>
+# 实时热重载（拖拽窗口边缘可自由拉伸测试 2K/1080P，修改存盘即刷）
+slint-viewer --auto-reload src/cockpit.slint -I assets
+
+# 2K / 1080P 无损原画截图（直接由渲染引擎生成，替代易失真的 GDI 探针）
+slint-viewer --screenshot .scratch/preview_2k.png --size 2560x1440 src/cockpit.slint -I assets
+slint-viewer --screenshot .scratch/preview_default.png src/cockpit.slint -I assets
 ```
 
+- **严禁使用脚本强行捏造窗口假尺寸（如私自调用 SetWindowPos 篡改宽高）进行掩耳盗铃式测试**。
+- 改动涉及进程拉起、系统托盘、互斥锁时，使用真实 exe 验证。
 - **发布产物原位覆盖**：`cargo build --release --offline` 编译完成后，将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`（并同步更新 `Multi-Antigravity.exe` 保持过渡兼容）。
 
 ## 环境与语法事实

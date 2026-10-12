@@ -128,35 +128,6 @@ fn main() -> Result<()> {
                 env::set_var("SLINT_BACKEND", "winit-software");
             }
         }
-        if env::var("SLINT_SCALE_FACTOR").is_err() {
-            #[cfg(windows)]
-            let scale_str = {
-                use windows_sys::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, ReleaseDC, LOGPIXELSX};
-                let dpi = unsafe {
-                    let hdc = GetDC(std::ptr::null_mut());
-                    if !hdc.is_null() {
-                        let d = GetDeviceCaps(hdc, LOGPIXELSX as i32);
-                        ReleaseDC(std::ptr::null_mut(), hdc);
-                        d
-                    } else {
-                        96
-                    }
-                };
-                if dpi <= 108 {
-                    "1.25"
-                } else {
-                    ""
-                }
-            };
-            #[cfg(not(windows))]
-            let scale_str = "1.25";
-
-            if !scale_str.is_empty() {
-                unsafe {
-                    env::set_var("SLINT_SCALE_FACTOR", scale_str);
-                }
-            }
-        }
         return gui::run_gui(activation_event);
     }
 

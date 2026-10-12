@@ -1341,61 +1341,64 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    SubScaleCacheRow {
-                        cache_text: root.host_cache_size_text;
-                        scale_text: root.host_scale_text;
-                        is_dark: root.is_dark;
-                        dec_clicked => { root.adjust_host_scale(-10); }
-                        inc_clicked => { root.adjust_host_scale(10); }
-                        reset_clicked => { root.reset_host_scale(); }
-                    }
+                    VerticalLayout {
+                        spacing: 3px;
+                        vertical-stretch: 0;
 
-                    Rectangle { vertical-stretch: 1; }
+                        SubScaleCacheRow {
+                            cache_text: root.host_cache_size_text;
+                            scale_text: root.host_scale_text;
+                            is_dark: root.is_dark;
+                            dec_clicked => { root.adjust_host_scale(-10); }
+                            inc_clicked => { root.adjust_host_scale(10); }
+                            reset_clicked => { root.reset_host_scale(); }
+                        }
 
-                    HorizontalLayout {
-                        spacing: 6px;
-                        height: 28px;
-                        if !root.host_running : CompactButton {
-                            horizontal-stretch: 1;
-                            text: "启动";
-                            btn_color: #10b981;
-                            is_dark: root.is_dark;
-                            clicked => { root.action_launch_host(); }
-                        }
-                        if root.host_running : CompactButton {
-                            horizontal-stretch: 1;
-                            text: "打开";
-                            btn_color: #38bdf8;
-                            is_dark: root.is_dark;
-                            clicked => { root.action_launch_host(); }
-                        }
-                        if root.host_running : CompactButton {
-                            horizontal-stretch: 1;
-                            text: "停止";
-                            btn_color: #f43f5e;
-                            is_dark: root.is_dark;
-                            clicked => { root.action_stop_host(); }
-                        }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 6px;
-                        height: 26px;
-                        OutlineButton {
-                            horizontal-stretch: 1;
-                            text: "清理凭据";
-                            is_dark: root.is_dark;
-                            is_disabled: root.host_running || !root.host_token_present;
-                            clicked => {
-                                root.confirm_modal_slot = 0;
-                                root.confirm_modal_visible = true;
+                        HorizontalLayout {
+                            spacing: 6px;
+                            height: 28px;
+                            if !root.host_running : CompactButton {
+                                horizontal-stretch: 1;
+                                text: "启动";
+                                btn_color: #10b981;
+                                is_dark: root.is_dark;
+                                clicked => { root.action_launch_host(); }
+                            }
+                            if root.host_running : CompactButton {
+                                horizontal-stretch: 1;
+                                text: "打开";
+                                btn_color: #38bdf8;
+                                is_dark: root.is_dark;
+                                clicked => { root.action_launch_host(); }
+                            }
+                            if root.host_running : CompactButton {
+                                horizontal-stretch: 1;
+                                text: "停止";
+                                btn_color: #f43f5e;
+                                is_dark: root.is_dark;
+                                clicked => { root.action_stop_host(); }
                             }
                         }
-                        OutlineButton {
-                            horizontal-stretch: 1;
-                            text: "打开目录";
-                            is_dark: root.is_dark;
-                            clicked => { root.action_open_app_dir(); }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            height: 26px;
+                            OutlineButton {
+                                horizontal-stretch: 1;
+                                text: "清理凭据";
+                                is_dark: root.is_dark;
+                                is_disabled: root.host_running || !root.host_token_present;
+                                clicked => {
+                                    root.confirm_modal_slot = 0;
+                                    root.confirm_modal_visible = true;
+                                }
+                            }
+                            OutlineButton {
+                                horizontal-stretch: 1;
+                                text: "打开目录";
+                                is_dark: root.is_dark;
+                                clicked => { root.action_open_app_dir(); }
+                            }
                         }
                     }
                 }
@@ -1840,9 +1843,10 @@ export component MainWindow inherits Window {
     }
 
     Rectangle {
-            vertical-stretch: 1;
-            preferred-height: 430px;
+            vertical-stretch: 0;
+            preferred-height: 380px;
             min-height: 360px;
+            max-height: 385px;
             background: root.is_dark ? #0d1527 : #ffffff;
             border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
             border-width: 1px;
@@ -2060,59 +2064,64 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            SubScaleCacheRow {
-                                cache_text: root.sub1_cache_size_text;
-                                scale_text: root.sub1_scale_text;
-                                is_dark: root.is_dark;
-                                dec_clicked => { root.adjust_sub_scale(1, -10); }
-                                inc_clicked => { root.adjust_sub_scale(1, 10); }
-                                reset_clicked => { root.reset_sub_scale(1); }
-                            }
+                            VerticalLayout {
+                                spacing: 3px;
+                                vertical-stretch: 0;
 
-                            Rectangle { vertical-stretch: 1; }
+                                SubScaleCacheRow {
+                                    cache_text: root.sub1_cache_size_text;
+                                    scale_text: root.sub1_scale_text;
+                                    is_dark: root.is_dark;
+                                    dec_clicked => { root.adjust_sub_scale(1, -10); }
+                                    inc_clicked => { root.adjust_sub_scale(1, 10); }
+                                    reset_clicked => { root.reset_sub_scale(1); }
+                                }
 
-                            HorizontalLayout {
-                                spacing: 6px;
-                                if !root.sub1_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "启动";
-                                    btn_color: #10b981;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(1); }
-                                }
-                                if root.sub1_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开";
-                                    btn_color: #38bdf8;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(1); }
-                                }
-                                if root.sub1_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "停止";
-                                    btn_color: #f43f5e;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_stop_sub(1); }
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "清理凭据";
-                                    is_dark: root.is_dark;
-                                    is_disabled: root.sub1_running || !root.sub1_token_present;
-                                    clicked => {
-                                        root.confirm_modal_slot = 1;
-                                        root.confirm_modal_visible = true;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 28px;
+                                    if !root.sub1_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "启动";
+                                        btn_color: #10b981;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(1); }
+                                    }
+                                    if root.sub1_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开";
+                                        btn_color: #38bdf8;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(1); }
+                                    }
+                                    if root.sub1_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "停止";
+                                        btn_color: #f43f5e;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_stop_sub(1); }
                                     }
                                 }
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开目录";
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_open_sandbox(1); }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 26px;
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "清理凭据";
+                                        is_dark: root.is_dark;
+                                        is_disabled: root.sub1_running || !root.sub1_token_present;
+                                        clicked => {
+                                            root.confirm_modal_slot = 1;
+                                            root.confirm_modal_visible = true;
+                                        }
+                                    }
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开目录";
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_open_sandbox(1); }
+                                    }
                                 }
                             }
                         }
@@ -2251,59 +2260,64 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            SubScaleCacheRow {
-                                cache_text: root.sub2_cache_size_text;
-                                scale_text: root.sub2_scale_text;
-                                is_dark: root.is_dark;
-                                dec_clicked => { root.adjust_sub_scale(2, -10); }
-                                inc_clicked => { root.adjust_sub_scale(2, 10); }
-                                reset_clicked => { root.reset_sub_scale(2); }
-                            }
+                            VerticalLayout {
+                                spacing: 3px;
+                                vertical-stretch: 0;
 
-                            Rectangle { vertical-stretch: 1; }
+                                SubScaleCacheRow {
+                                    cache_text: root.sub2_cache_size_text;
+                                    scale_text: root.sub2_scale_text;
+                                    is_dark: root.is_dark;
+                                    dec_clicked => { root.adjust_sub_scale(2, -10); }
+                                    inc_clicked => { root.adjust_sub_scale(2, 10); }
+                                    reset_clicked => { root.reset_sub_scale(2); }
+                                }
 
-                            HorizontalLayout {
-                                spacing: 6px;
-                                if !root.sub2_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "启动";
-                                    btn_color: #10b981;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(2); }
-                                }
-                                if root.sub2_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开";
-                                    btn_color: #38bdf8;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(2); }
-                                }
-                                if root.sub2_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "停止";
-                                    btn_color: #f43f5e;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_stop_sub(2); }
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "清理凭据";
-                                    is_dark: root.is_dark;
-                                    is_disabled: root.sub2_running || !root.sub2_token_present;
-                                    clicked => {
-                                        root.confirm_modal_slot = 2;
-                                        root.confirm_modal_visible = true;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 28px;
+                                    if !root.sub2_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "启动";
+                                        btn_color: #10b981;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(2); }
+                                    }
+                                    if root.sub2_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开";
+                                        btn_color: #38bdf8;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(2); }
+                                    }
+                                    if root.sub2_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "停止";
+                                        btn_color: #f43f5e;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_stop_sub(2); }
                                     }
                                 }
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开目录";
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_open_sandbox(2); }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 26px;
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "清理凭据";
+                                        is_dark: root.is_dark;
+                                        is_disabled: root.sub2_running || !root.sub2_token_present;
+                                        clicked => {
+                                            root.confirm_modal_slot = 2;
+                                            root.confirm_modal_visible = true;
+                                        }
+                                    }
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开目录";
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_open_sandbox(2); }
+                                    }
                                 }
                             }
                         }
@@ -2442,59 +2456,64 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            SubScaleCacheRow {
-                                cache_text: root.sub3_cache_size_text;
-                                scale_text: root.sub3_scale_text;
-                                is_dark: root.is_dark;
-                                dec_clicked => { root.adjust_sub_scale(3, -10); }
-                                inc_clicked => { root.adjust_sub_scale(3, 10); }
-                                reset_clicked => { root.reset_sub_scale(3); }
-                            }
+                            VerticalLayout {
+                                spacing: 3px;
+                                vertical-stretch: 0;
 
-                            Rectangle { vertical-stretch: 1; }
+                                SubScaleCacheRow {
+                                    cache_text: root.sub3_cache_size_text;
+                                    scale_text: root.sub3_scale_text;
+                                    is_dark: root.is_dark;
+                                    dec_clicked => { root.adjust_sub_scale(3, -10); }
+                                    inc_clicked => { root.adjust_sub_scale(3, 10); }
+                                    reset_clicked => { root.reset_sub_scale(3); }
+                                }
 
-                            HorizontalLayout {
-                                spacing: 6px;
-                                if !root.sub3_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "启动";
-                                    btn_color: #10b981;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(3); }
-                                }
-                                if root.sub3_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开";
-                                    btn_color: #38bdf8;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(3); }
-                                }
-                                if root.sub3_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "停止";
-                                    btn_color: #f43f5e;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_stop_sub(3); }
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "清理凭据";
-                                    is_dark: root.is_dark;
-                                    is_disabled: root.sub3_running || !root.sub3_token_present;
-                                    clicked => {
-                                        root.confirm_modal_slot = 3;
-                                        root.confirm_modal_visible = true;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 28px;
+                                    if !root.sub3_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "启动";
+                                        btn_color: #10b981;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(3); }
+                                    }
+                                    if root.sub3_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开";
+                                        btn_color: #38bdf8;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(3); }
+                                    }
+                                    if root.sub3_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "停止";
+                                        btn_color: #f43f5e;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_stop_sub(3); }
                                     }
                                 }
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开目录";
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_open_sandbox(3); }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 26px;
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "清理凭据";
+                                        is_dark: root.is_dark;
+                                        is_disabled: root.sub3_running || !root.sub3_token_present;
+                                        clicked => {
+                                            root.confirm_modal_slot = 3;
+                                            root.confirm_modal_visible = true;
+                                        }
+                                    }
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开目录";
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_open_sandbox(3); }
+                                    }
                                 }
                             }
                         }
@@ -2633,59 +2652,64 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            SubScaleCacheRow {
-                                cache_text: root.sub4_cache_size_text;
-                                scale_text: root.sub4_scale_text;
-                                is_dark: root.is_dark;
-                                dec_clicked => { root.adjust_sub_scale(4, -10); }
-                                inc_clicked => { root.adjust_sub_scale(4, 10); }
-                                reset_clicked => { root.reset_sub_scale(4); }
-                            }
+                            VerticalLayout {
+                                spacing: 3px;
+                                vertical-stretch: 0;
 
-                            Rectangle { vertical-stretch: 1; }
+                                SubScaleCacheRow {
+                                    cache_text: root.sub4_cache_size_text;
+                                    scale_text: root.sub4_scale_text;
+                                    is_dark: root.is_dark;
+                                    dec_clicked => { root.adjust_sub_scale(4, -10); }
+                                    inc_clicked => { root.adjust_sub_scale(4, 10); }
+                                    reset_clicked => { root.reset_sub_scale(4); }
+                                }
 
-                            HorizontalLayout {
-                                spacing: 6px;
-                                if !root.sub4_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "启动";
-                                    btn_color: #10b981;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(4); }
-                                }
-                                if root.sub4_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开";
-                                    btn_color: #38bdf8;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_launch_sub(4); }
-                                }
-                                if root.sub4_running : CompactButton {
-                                    horizontal-stretch: 1;
-                                    text: "停止";
-                                    btn_color: #f43f5e;
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_stop_sub(4); }
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "清理凭据";
-                                    is_dark: root.is_dark;
-                                    is_disabled: root.sub4_running || !root.sub4_token_present;
-                                    clicked => {
-                                        root.confirm_modal_slot = 4;
-                                        root.confirm_modal_visible = true;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 28px;
+                                    if !root.sub4_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "启动";
+                                        btn_color: #10b981;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(4); }
+                                    }
+                                    if root.sub4_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开";
+                                        btn_color: #38bdf8;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_launch_sub(4); }
+                                    }
+                                    if root.sub4_running : CompactButton {
+                                        horizontal-stretch: 1;
+                                        text: "停止";
+                                        btn_color: #f43f5e;
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_stop_sub(4); }
                                     }
                                 }
-                                OutlineButton {
-                                    horizontal-stretch: 1;
-                                    text: "打开目录";
-                                    is_dark: root.is_dark;
-                                    clicked => { root.action_open_sandbox(4); }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    height: 26px;
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "清理凭据";
+                                        is_dark: root.is_dark;
+                                        is_disabled: root.sub4_running || !root.sub4_token_present;
+                                        clicked => {
+                                            root.confirm_modal_slot = 4;
+                                            root.confirm_modal_visible = true;
+                                        }
+                                    }
+                                    OutlineButton {
+                                        horizontal-stretch: 1;
+                                        text: "打开目录";
+                                        is_dark: root.is_dark;
+                                        clicked => { root.action_open_sandbox(4); }
+                                    }
                                 }
                             }
                         }
@@ -2694,6 +2718,7 @@ export component MainWindow inherits Window {
             }
         }
 
+        Rectangle { vertical-stretch: 1; }
     }
 
     if root.confirm_modal_visible : Rectangle {
