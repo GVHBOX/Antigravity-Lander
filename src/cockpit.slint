@@ -656,11 +656,21 @@ component SubSessionCardBox inherits Rectangle {
     in property <bool> is_dark: true;
     callback clicked();
 
-    background: root.is_dark ? #0d1527 : #ffffff;
-    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+    background: root.has_sessions && card_ta.has_hover ? (root.is_dark ? #131d33 : #f1f5f9) : (root.is_dark ? #0d1527 : #ffffff);
+    border-color: root.has_sessions && card_ta.has_hover ? rgba(56, 189, 248, 0.45) : (root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0);
     border-width: 1px;
     border-radius: 6px;
     height: 50px;
+
+    card_ta := TouchArea {
+        enabled: root.has_sessions;
+        clicked => {
+            if root.has_sessions {
+                root.clicked();
+            }
+        }
+        mouse-cursor: root.has_sessions ? pointer : default;
+    }
 
     VerticalLayout {
         padding-left: 10px;
@@ -677,12 +687,12 @@ component SubSessionCardBox inherits Rectangle {
                 spacing: 4px;
                 alignment: start;
                 FolderIcon {
-                    icon_color: root.has_sessions ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
+                    icon_color: root.has_sessions ? (card_ta.has_hover ? #38bdf8 : (root.is_dark ? #38bdf8 : #0284c7)) : (root.is_dark ? #64748b : #94a3b8);
                     y: (parent.height - 11px) / 2;
                 }
                 Text {
                     text: root.has_sessions ? root.project_name : "暂无活动会话";
-                    color: root.has_sessions ? (root.is_dark ? #e2e8f0 : #1e293b) : (root.is_dark ? #64748b : #94a3b8);
+                    color: root.has_sessions ? (card_ta.has_hover ? (root.is_dark ? #ffffff : #0f172a) : (root.is_dark ? #e2e8f0 : #1e293b)) : (root.is_dark ? #64748b : #94a3b8);
                     font-size: 11.5px;
                     font-weight: 600;
                     overflow: elide;
@@ -692,7 +702,7 @@ component SubSessionCardBox inherits Rectangle {
 
             Text {
                 text: root.has_sessions ? (root.tokens_text != "" ? root.tokens_text : "--") : "0 会话";
-                color: root.has_sessions ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
+                color: root.has_sessions ? (card_ta.has_hover ? #7dd3fc : #38bdf8) : (root.is_dark ? #64748b : #94a3b8);
                 font-size: 10.5px;
                 font-family: "Cascadia Mono";
                 font-weight: 600;
@@ -713,44 +723,23 @@ component SubSessionCardBox inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: space-between;
+            spacing: 4px;
+            alignment: start;
             height: 14px;
 
-            HorizontalLayout {
-                spacing: 4px;
-                alignment: start;
-                if root.is_running : Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
-                    background: #10b981;
-                    y: (parent.height - 6px) / 2;
-                }
-                Text {
-                    text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
-                    color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 10.5px;
-                    font-family: "Cascadia Mono";
-                    vertical-alignment: center;
-                }
+            if root.is_running : Rectangle {
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: #10b981;
+                y: (parent.height - 6px) / 2;
             }
-
-            Rectangle {
-                detail_ta := TouchArea {
-                    clicked => {
-                        if root.has_sessions {
-                            root.clicked();
-                        }
-                    }
-                    mouse-cursor: root.has_sessions ? pointer : default;
-                }
-                Text {
-                    text: root.has_sessions ? "查看明细 >" : "无明细";
-                    color: root.has_sessions ? (detail_ta.has_hover ? (root.is_dark ? #7dd3fc : #0284c7) : #38bdf8) : (root.is_dark ? #334155 : #cbd5e1);
-                    font-size: 10.5px;
-                    font-weight: 500;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
+                color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                font-size: 10.5px;
+                font-family: "Cascadia Mono";
+                vertical-alignment: center;
             }
         }
     }
