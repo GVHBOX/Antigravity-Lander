@@ -12,6 +12,43 @@ export struct SessionUiItem {
     time_ago_str: string,
     is_running: bool,
 }
+component FolderIcon inherits Path {
+    in property <color> icon_color: #38bdf8;
+    width: 13px;
+    height: 11px;
+    commands: "M 1 2 L 4.5 2 L 6 3.5 L 12 3.5 C 12.5 3.5 13 4 13 4.5 L 13 9.5 C 13 10 12.5 10.5 12 10.5 L 1 10.5 C 0.5 10.5 0 10 0 9.5 L 0 3 C 0 2.5 0.5 2 1 2 Z";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+    fill: transparent;
+}
+
+component PinIcon inherits Path {
+    in property <color> icon_color: #64748b;
+    width: 12px;
+    height: 12px;
+    commands: "M 2.5 2 L 9.5 2 M 3.5 2 L 3.5 5 L 2 7 L 10 7 L 8.5 5 L 8.5 2 M 6 7 L 6 11.5";
+    stroke: root.icon_color;
+    stroke-width: 1.2px;
+}
+
+component SunIcon inherits Path {
+    in property <color> icon_color: #f8fafc;
+    width: 13px;
+    height: 13px;
+    commands: "M 6.5 4 A 2.5 2.5 0 1 0 6.5 9 A 2.5 2.5 0 1 0 6.5 4 M 6.5 1 L 6.5 2.5 M 6.5 10.5 L 6.5 12 M 1 6.5 L 2.5 6.5 M 10.5 6.5 L 12 6.5 M 2.6 2.6 L 3.7 3.7 M 9.3 9.3 L 10.4 10.4 M 2.6 10.4 L 3.7 9.3 M 9.3 3.7 L 10.4 2.6";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+}
+
+component MoonIcon inherits Path {
+    in property <color> icon_color: #0f172a;
+    width: 13px;
+    height: 13px;
+    commands: "M 10 8 A 4.2 4.2 0 1 1 4.5 2 A 3.5 3.5 0 0 0 10 8 Z";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+    fill: transparent;
+}
 
 component SessionSummaryRow inherits Rectangle {
     in property <string> summary_text: "无活动会话";
@@ -258,47 +295,14 @@ component CompactButton inherits Rectangle {
     in property <color> text_color: #070a13;
     in property <bool> is_dark: true;
     in property <bool> is_disabled: false;
+    in property <length> btn_height: 28px;
     callback clicked();
 
     background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(15%) : (ta.has_hover ? btn_color.brighter(10%) : btn_color));
     border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : (ta.has_hover ? btn_color.brighter(20%) : btn_color);
     border-width: 1px;
-    border-radius: 7px;
-    height: 38px;
-
-    ta := TouchArea {
-        enabled: !root.is_disabled;
-        clicked => { root.clicked(); }
-        mouse-cursor: root.is_disabled ? default : pointer;
-    }
-
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        alignment: center;
-        Text {
-            text: root.text;
-            color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
-            font-size: 13.5px;
-            font-weight: 700;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-        }
-    }
-}
-
-component OutlineButton inherits Rectangle {
-    in property <string> text;
-    in property <color> hover_color: #38bdf8;
-    in property <bool> is_dark: true;
-    in property <bool> is_disabled: false;
-    callback clicked();
-
-    background: is_disabled ? (root.is_dark ? #090e1c : #f8fafc) : (ta.pressed ? (root.is_dark ? #1e293b : #e2e8f0) : (ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc)));
-    border-color: is_disabled ? (root.is_dark ? #162032 : #e2e8f0) : (ta.has_hover ? hover_color : (root.is_dark ? #1e293b : #cbd5e1));
-    border-width: 1px;
     border-radius: 6px;
-    height: 32px;
+    height: root.btn_height;
 
     ta := TouchArea {
         enabled: !root.is_disabled;
@@ -312,8 +316,43 @@ component OutlineButton inherits Rectangle {
         alignment: center;
         Text {
             text: root.text;
+            color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
+            font-size: 13px;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <color> hover_color: #38bdf8;
+    in property <bool> is_dark: true;
+    in property <bool> is_disabled: false;
+    in property <length> btn_height: 26px;
+    callback clicked();
+
+    background: is_disabled ? (root.is_dark ? #090e1c : #f8fafc) : (ta.pressed ? (root.is_dark ? #1e293b : #e2e8f0) : (ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc)));
+    border-color: is_disabled ? (root.is_dark ? #162032 : #e2e8f0) : (ta.has_hover ? hover_color : (root.is_dark ? #1e293b : #cbd5e1));
+    border-width: 1px;
+    border-radius: 5px;
+    height: root.btn_height;
+
+    ta := TouchArea {
+        enabled: !root.is_disabled;
+        clicked => { root.clicked(); }
+        mouse-cursor: root.is_disabled ? default : pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        alignment: center;
+        Text {
+            text: root.text;
             color: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? hover_color : (root.is_dark ? #94a3b8 : #475569));
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -429,7 +468,7 @@ component MiniMetricBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 5px;
-    height: 44px;
+    height: 36px;
 
     VerticalLayout {
         alignment: center;
@@ -541,7 +580,7 @@ component UserProfileRow inherits Rectangle {
     border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 44px;
+    height: 38px;
 
     HorizontalLayout {
         padding-left: 10px;
@@ -764,14 +803,14 @@ component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 54px;
+    height: 46px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 7px;
-        padding-bottom: 7px;
-        spacing: 3px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 2px;
 
         HorizontalLayout {
             alignment: space-between;
@@ -888,14 +927,14 @@ component SubSessionCardBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 6px;
-    height: 70px;
+    height: 60px;
 
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 6px;
-        padding-bottom: 6px;
-        spacing: 3px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 2px;
 
         HorizontalLayout {
             alignment: space-between;
@@ -904,10 +943,9 @@ component SubSessionCardBox inherits Rectangle {
             HorizontalLayout {
                 spacing: 4px;
                 alignment: start;
-                Text {
-                    text: "📁";
-                    font-size: 10px;
-                    vertical-alignment: center;
+                FolderIcon {
+                    icon_color: root.has_sessions ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
+                    y: (parent.height - 11px) / 2;
                 }
                 Text {
                     text: root.has_sessions ? root.project_name : "暂无活动会话";
@@ -993,7 +1031,7 @@ component SubScaleCacheRow inherits Rectangle {
     callback inc_clicked();
     callback reset_clicked();
 
-    height: 24px;
+    height: 22px;
 
     HorizontalLayout {
         alignment: space-between;
@@ -1094,11 +1132,11 @@ export component MainWindow inherits Window {
     title: "Antigravity 多开分身工具 v1.0.1";
     icon: @image-url("../assets/icon.png");
     preferred-width: 1440px;
-    preferred-height: 780px;
+    preferred-height: 800px;
     min-width: 1200px;
-    min-height: 640px;
+    min-height: 680px;
     max-width: 1680px;
-    max-height: 960px;
+    max-height: 1020px;
     background: root.is_dark ? (root.redraw_tick == 0 ? #070a13 : #070a14) : (root.redraw_tick == 0 ? #f1f5f9 : #f1f5fa);
     forward-focus: fkey;
 
@@ -1358,18 +1396,23 @@ export component MainWindow inherits Window {
         padding: 10px;
         spacing: 8px;
 
-        HorizontalLayout {
-            spacing: 8px;
-            vertical-stretch: 1;
-            preferred-height: 330px;
-            min-height: 250px;
+        Rectangle {
+            vertical-stretch: 0;
+            min-height: 285px;
+            max-height: 285px;
+            preferred-height: 285px;
+
+            HorizontalLayout {
+                spacing: 8px;
 
             Rectangle {
                 horizontal-stretch: 1;
+                max-height: 285px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
                 border-radius: 10px;
+                clip: true;
 
                 VerticalLayout {
                     padding: 10px;
@@ -1478,6 +1521,7 @@ export component MainWindow inherits Window {
                             alignment: end;
                             CompactButton {
                                 width: 85px;
+                                btn_height: 36px;
                                 text: root.host_running ? "打开" : "启动";
                                 btn_color: root.host_running ? #38bdf8 : #10b981;
                                 is_dark: root.is_dark;
@@ -1485,6 +1529,7 @@ export component MainWindow inherits Window {
                             }
                             if root.host_running : CompactButton {
                                 width: 75px;
+                                btn_height: 36px;
                                 text: "停止";
                                 btn_color: #f43f5e;
                                 text_color: #ffffff;
@@ -1498,10 +1543,12 @@ export component MainWindow inherits Window {
 
             Rectangle {
                 horizontal-stretch: 1;
+                max-height: 285px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
                 border-radius: 10px;
+                clip: true;
 
                 VerticalLayout {
                     padding: 10px;
@@ -1645,10 +1692,12 @@ export component MainWindow inherits Window {
 
             Rectangle {
                 horizontal-stretch: 1;
+                max-height: 285px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
                 border-radius: 10px;
+                clip: true;
 
                 VerticalLayout {
                     padding: 10px;
@@ -1917,19 +1966,24 @@ export component MainWindow inherits Window {
                 }
             }
         }
+    }
 
-        Rectangle {
+    Rectangle {
             vertical-stretch: 1;
-            preferred-height: 420px;
-            min-height: 320px;
+            preferred-height: 430px;
+            min-height: 360px;
             background: root.is_dark ? #0d1527 : #ffffff;
             border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
             border-width: 1px;
             border-radius: 10px;
+            clip: true;
 
             VerticalLayout {
-                padding: 12px;
-                spacing: 8px;
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+                spacing: 6px;
 
                 HorizontalLayout {
                     alignment: space-between;
@@ -1964,12 +2018,10 @@ export component MainWindow inherits Window {
                                 mouse-cursor: pointer;
                             }
 
-                            Text {
-                                text: "📌";
-                                opacity: root.is_pinned ? 1.0 : (pin_ta.has_hover ? 0.85 : 0.45);
-                                font-size: 12px;
-                                vertical-alignment: center;
-                                horizontal-alignment: center;
+                            PinIcon {
+                                icon_color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8));
+                                x: (parent.width - 12px) / 2;
+                                y: (parent.height - 12px) / 2;
                             }
                         }
 
@@ -1986,12 +2038,15 @@ export component MainWindow inherits Window {
                                 mouse-cursor: pointer;
                             }
 
-                            Text {
-                                text: root.is_dark ? "☀" : "🌙";
-                                color: root.is_dark ? #f8fafc : #0f172a;
-                                font-size: 13px;
-                                vertical-alignment: center;
-                                horizontal-alignment: center;
+                            if root.is_dark : SunIcon {
+                                icon_color: theme_ta.has_hover ? #f8fafc : #94a3b8;
+                                x: (parent.width - 13px) / 2;
+                                y: (parent.height - 13px) / 2;
+                            }
+                            if !root.is_dark : MoonIcon {
+                                icon_color: theme_ta.has_hover ? #0f172a : #64748b;
+                                x: (parent.width - 13px) / 2;
+                                y: (parent.height - 13px) / 2;
                             }
                         }
                     }
@@ -1999,6 +2054,7 @@ export component MainWindow inherits Window {
 
                 HorizontalLayout {
                     spacing: 8px;
+                    vertical-stretch: 1;
 
                     Rectangle {
                         horizontal-stretch: 1;
@@ -2006,13 +2062,14 @@ export component MainWindow inherits Window {
                         border-color: root.sub1_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                         border-width: 1px;
                         border-radius: 8px;
+                        clip: true;
 
                         VerticalLayout {
                             padding-left: 10px;
                             padding-right: 10px;
-                            padding-top: 8px;
-                            padding-bottom: 8px;
-                            spacing: 5px;
+                            padding-top: 6px;
+                            padding-bottom: 6px;
+                            spacing: 3px;
 
                             HorizontalLayout {
                                 alignment: space-between;
@@ -2191,13 +2248,14 @@ export component MainWindow inherits Window {
                         border-color: root.sub2_running ? rgba(16, 185, 129, 0.6) : (root.is_dark ? #162032 : #e2e8f0);
                         border-width: root.sub2_running ? 1.5px : 1px;
                         border-radius: 8px;
+                        clip: true;
 
                         VerticalLayout {
                             padding-left: 10px;
                             padding-right: 10px;
-                            padding-top: 8px;
-                            padding-bottom: 8px;
-                            spacing: 5px;
+                            padding-top: 6px;
+                            padding-bottom: 6px;
+                            spacing: 3px;
 
                             HorizontalLayout {
                                 alignment: space-between;
@@ -2376,13 +2434,14 @@ export component MainWindow inherits Window {
                         border-color: root.sub3_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                         border-width: 1px;
                         border-radius: 8px;
+                        clip: true;
 
                         VerticalLayout {
                             padding-left: 10px;
                             padding-right: 10px;
-                            padding-top: 8px;
-                            padding-bottom: 8px;
-                            spacing: 5px;
+                            padding-top: 6px;
+                            padding-bottom: 6px;
+                            spacing: 3px;
 
                             HorizontalLayout {
                                 alignment: space-between;
@@ -2561,13 +2620,14 @@ export component MainWindow inherits Window {
                         border-color: root.sub4_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                         border-width: 1px;
                         border-radius: 8px;
+                        clip: true;
 
                         VerticalLayout {
                             padding-left: 10px;
                             padding-right: 10px;
-                            padding-top: 8px;
-                            padding-bottom: 8px;
-                            spacing: 5px;
+                            padding-top: 6px;
+                            padding-bottom: 6px;
+                            spacing: 3px;
 
                             HorizontalLayout {
                                 alignment: space-between;
