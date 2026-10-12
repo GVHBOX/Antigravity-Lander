@@ -1137,9 +1137,9 @@ export component MainWindow inherits Window {
 
         Rectangle {
             vertical-stretch: 0;
-            min-height: 320px;
-            max-height: 320px;
-            preferred-height: 320px;
+            min-height: 285px;
+            max-height: 285px;
+            preferred-height: 285px;
 
             HorizontalLayout {
                 spacing: 8px;
@@ -1148,7 +1148,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 320px;
+                max-height: 285px;
                 background: root.is_dark ? #090e1c : #f8fafc;
                 border-color: root.host_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
                 border-width: 1px;
@@ -1274,19 +1274,97 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    SubScaleCacheRow {
-                        cache_text: root.host_cache_size_text;
-                        scale_text: root.host_scale_text;
-                        is_dark: root.is_dark;
-                        dec_clicked => { root.adjust_host_scale(-10); }
-                        inc_clicked => { root.adjust_host_scale(10); }
-                        reset_clicked => { root.reset_host_scale(); }
-                    }
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 22px;
 
-                    Rectangle { vertical-stretch: 1; }
+                        OutlineButton {
+                            width: 76px;
+                            text: "打开目录";
+                            is_dark: root.is_dark;
+                            clicked => { root.action_open_app_dir(); }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 3px;
+                            alignment: end;
+
+                            Text {
+                                text: "界面";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 3px;
+                                background: dec_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9);
+                                border-color: root.is_dark ? #1e293b : #cbd5e1;
+                                border-width: 1px;
+                                dec_ta := TouchArea {
+                                    clicked => { root.adjust_host_scale(-10); }
+                                    mouse-cursor: pointer;
+                                }
+                                Text {
+                                    text: "-";
+                                    color: root.is_dark ? #cbd5e1 : #475569;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 44px;
+                                height: 18px;
+                                border-radius: 3px;
+                                background: reset_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f8fafc);
+                                border-color: root.is_dark ? #1e293b : #cbd5e1;
+                                border-width: 1px;
+                                reset_ta := TouchArea {
+                                    clicked => { root.reset_host_scale(); }
+                                    mouse-cursor: pointer;
+                                }
+                                Text {
+                                    text: root.host_scale_text;
+                                    color: root.is_dark ? #38bdf8 : #0284c7;
+                                    font-size: 10.5px;
+                                    font-family: "Cascadia Mono";
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                border-radius: 3px;
+                                background: inc_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9);
+                                border-color: root.is_dark ? #1e293b : #cbd5e1;
+                                border-width: 1px;
+                                inc_ta := TouchArea {
+                                    clicked => { root.adjust_host_scale(10); }
+                                    mouse-cursor: pointer;
+                                }
+                                Text {
+                                    text: "+";
+                                    color: root.is_dark ? #cbd5e1 : #475569;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
 
                     HorizontalLayout {
                         spacing: 6px;
+                        height: 30px;
                         if !root.host_running : CompactButton {
                             horizontal-stretch: 1;
                             text: "启动";
@@ -1310,16 +1388,6 @@ export component MainWindow inherits Window {
                             clicked => { root.action_stop_host(); }
                         }
                     }
-
-                    HorizontalLayout {
-                        spacing: 6px;
-                        OutlineButton {
-                            horizontal-stretch: 1;
-                            text: "打开目录";
-                            is_dark: root.is_dark;
-                            clicked => { root.action_open_app_dir(); }
-                        }
-                    }
                 }
             }
 
@@ -1327,7 +1395,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 320px;
+                max-height: 285px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
@@ -1480,7 +1548,7 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 min-width: 0px;
                 preferred-width: 0px;
-                max-height: 320px;
+                max-height: 285px;
                 background: root.is_dark ? #0d1527 : #ffffff;
                 border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
                 border-width: 1px;
