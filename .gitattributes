@@ -15,3 +15,7 @@
 *.png binary
 *.rgba binary
 *.pdb binary
+
+# GitHub Linguist language overrides
+tools/** linguist-vendored
+*.slint linguist-detectable=true
