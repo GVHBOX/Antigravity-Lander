@@ -25,7 +25,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     .sort((a, b) => b.length - a.length)
     .filter(w => w.length > 2 || /^[a-zA-Z0-9]+$/.test(w));
   const escapedCoreUnion = sortedCoreKeys.map(w => escapeRegExp(w)).join('|');
-  const CORE_WORDS_UNION_REGEX = new RegExp('\\\\b(' + escapedCoreUnion + ')\\\\b', 'gi');
+  const CORE_WORDS_UNION_REGEX = new RegExp('\\b(' + escapedCoreUnion + ')\\b', 'gi');
 
   function translateString(text) {
     if (!text) return text;
@@ -846,6 +846,131 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       isDynamic = true;
     }
 
+    // 侧边栏/遥测栏动态计数分组标题与空态
+    if (/^Files Changed(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Files Changed(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `已更改文件 ${m[1]}` : '已更改文件';
+      isDynamic = true;
+    }
+    if (/^Background Tasks(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Background Tasks(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `后台任务 ${m[1]}` : '后台任务';
+      isDynamic = true;
+    }
+    if (/^Terminals(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Terminals(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `终端 ${m[1]}` : '终端';
+      isDynamic = true;
+    }
+    if (/^Uploads(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Uploads(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `上传 ${m[1]}` : '上传';
+      isDynamic = true;
+    }
+    if (/^Subagents(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Subagents(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `子智能体 ${m[1]}` : '子智能体';
+      isDynamic = true;
+    }
+    if (/^Artifacts(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^Artifacts(?:\s+(\d+))?$/i);
+      dynamicMatch = m[1] !== undefined ? `工件 ${m[1]}` : '工件';
+      isDynamic = true;
+    }
+    if (/^No subagents(?:\s+running|\s+found)?$/i.test(trimmed)) {
+      dynamicMatch = '无子智能体';
+      isDynamic = true;
+    }
+    if (/^No file changes$/i.test(trimmed)) {
+      dynamicMatch = '无文件更改';
+      isDynamic = true;
+    }
+    if (/^No artifacts generated$/i.test(trimmed)) {
+      dynamicMatch = '未生成工件';
+      isDynamic = true;
+    }
+    if (/^No artifacts$/i.test(trimmed)) {
+      dynamicMatch = '无工件';
+      isDynamic = true;
+    }
+    if (/^No uploads$/i.test(trimmed)) {
+      dynamicMatch = '无上传';
+      isDynamic = true;
+    }
+    if (/^No background tasks$/i.test(trimmed)) {
+      dynamicMatch = '无后台任务';
+      isDynamic = true;
+    }
+    if (/^No terminals$/i.test(trimmed)) {
+      dynamicMatch = '无终端';
+      isDynamic = true;
+    }
+    if (/^No staged changes$/i.test(trimmed)) {
+      dynamicMatch = '无已暂存的更改';
+      isDynamic = true;
+    }
+
+    // Git / Review 审查面板动态与静态短语匹配
+    if (/^All changes since\s+(.+)$/i.test(trimmed)) {
+      const branch = trimmed.replace(/^All changes since\s+/i, '').trim();
+      dynamicMatch = `自 ${branch} 以来的所有更改`;
+      isDynamic = true;
+    }
+    if (/^Staged index changes and working tree changes$/i.test(trimmed)) {
+      dynamicMatch = '暂存区索引更改与工作区更改';
+      isDynamic = true;
+    }
+    if (/^Files modified by the agent in this conversation$/i.test(trimmed)) {
+      dynamicMatch = '此会话中由智能体修改的文件';
+      isDynamic = true;
+    }
+    if (/^Files modified by the agent$/i.test(trimmed)) {
+      dynamicMatch = '由智能体修改的文件';
+      isDynamic = true;
+    }
+    if (/^Staged Changes$/i.test(trimmed)) {
+      dynamicMatch = '已暂存的更改';
+      isDynamic = true;
+    }
+    if (/^Agent Edits$/i.test(trimmed)) {
+      dynamicMatch = '智能体编辑';
+      isDynamic = true;
+    }
+    if (/^Uncommitted$/i.test(trimmed)) {
+      dynamicMatch = '未提交';
+      isDynamic = true;
+    }
+    if (/^Review$/i.test(trimmed)) {
+      dynamicMatch = '审查';
+      isDynamic = true;
+    }
+    if (/^(?:View|Show)\s+diff$/i.test(trimmed)) {
+      dynamicMatch = '查看差异';
+      isDynamic = true;
+    }
+    if (/^Show in File Explorer$/i.test(trimmed)) {
+      dynamicMatch = '在文件资源管理器中显示';
+      isDynamic = true;
+    }
+    if (/^Show in Finder$/i.test(trimmed)) {
+      dynamicMatch = '在访达中显示';
+      isDynamic = true;
+    }
+    if (/^Push$/i.test(trimmed)) {
+      dynamicMatch = '推送';
+      isDynamic = true;
+    }
+
+    // 快捷键组合菜单
+    if (/^Open File(?:\s+(?:Ctrl|Cmd)\+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Open File/i, '打开文件');
+      isDynamic = true;
+    }
+    if (/^New Terminal(?:\s+(?:Ctrl|Cmd)\+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^New Terminal/i, '新建终端');
+      isDynamic = true;
+    }
+
     if (isDynamic) {
       return text.replace(trimmed, dynamicMatch);
     }
@@ -1030,7 +1155,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     // 3. 特殊特权放行：针对执行步骤的药丸标签（如 Ran, Explored, Edited, Viewed, Thought, Thinking, Working 等）
     // 无论其父级为 SPAN、CODE 还是 BUTTON，只要是系统执行药丸且不在用户提问气泡内，一律无条件放行汉化
     const textContent = (element.innerText || element.textContent || '').trim();
-    const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working)$/i.test(textContent);
+    const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working|Review|Reviewed)$/i.test(textContent);
     if (isActionPill) {
       let inUserInput = false;
       let inThinkingContent = false;
@@ -1192,7 +1317,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     }
     if (tag === 'CODE') {
       const textContent = (element.innerText || element.textContent || '').trim();
-      const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working)$/i.test(textContent);
+      const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working|Review|Reviewed)$/i.test(textContent);
       if (!isActionPill) return true;
     }
     if (element.getAttribute) {

@@ -53,7 +53,20 @@ const menuTranslationMap = {
   "Fork": "派生",
   "Fork Conversation": "派生对话",
   "Connect to WSL": "连接到 WSL",
-  "Reopen Locally": "本地重新打开"
+  "Reopen Locally": "本地重新打开",
+  "Show in File Explorer": "在文件资源管理器中显示",
+  "Show in Finder": "在访达中显示",
+  "Open File": "打开文件",
+  "New Terminal": "新建终端",
+  "Review": "审查",
+  "View Diff": "查看差异",
+  "View diff": "查看差异",
+  "Push": "推送",
+  "Pull": "拉取",
+  "Commit": "提交",
+  "Stage All Changes": "暂存所有更改",
+  "Unstage All Changes": "取消暂存所有更改",
+  "Discard All Changes": "放弃所有更改"
 };
 
 function translateMenu(menuItem) {
@@ -90,7 +103,27 @@ const contextMenuTranslationMap = {
   "Copy Relative Path": "复制相对路径",
   "Reveal in File Explorer": "在文件资源管理器中显示",
   "Reveal in Finder": "在访达中显示",
-  "Open in Terminal": "在终端中打开"
+  "Show in File Explorer": "在文件资源管理器中显示",
+  "Show in Finder": "在访达中显示",
+  "Show in Explorer": "在资源管理器中显示",
+  "Open File": "打开文件",
+  "New Terminal": "新建终端",
+  "Copy Content": "复制内容",
+  "Search": "搜索",
+  "Review": "审查",
+  "View Diff": "查看差异",
+  "View diff": "查看差异",
+  "Open in Terminal": "在终端中打开",
+  "Uncommitted": "未提交",
+  "Stage Change": "暂存更改",
+  "Stage Changes": "暂存更改",
+  "Stage All Changes": "暂存所有更改",
+  "Unstage Change": "取消暂存更改",
+  "Unstage Changes": "取消暂存更改",
+  "Unstage All Changes": "取消暂存所有更改",
+  "Discard Change": "放弃更改",
+  "Discard Changes": "放弃更改",
+  "Discard All Changes": "放弃所有更改"
 };
 
 function translateContextLabel(lbl) {

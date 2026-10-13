@@ -99,9 +99,9 @@
   "never": "从不",
   "always": "总是",
   "changed": "已更改",
-  "review": "审核",
-  "reviewing": "审核中",
-  "reviewed": "已审核",
+  "review": "审查",
+  "reviewing": "审查中",
+  "reviewed": "已审查",
   "canceled": "已取消",
   "js": "Js",
   "explore": "探索",
@@ -118,5 +118,11 @@
   "inherits": "继承",
   "wsl": "WSL",
   "distro": "发行版",
-  "distros": "发行版"
+  "distros": "发行版",
+  "push": "推送",
+  "pull": "拉取",
+  "commit": "提交",
+  "staged": "已暂存",
+  "stage": "暂存",
+  "unstage": "取消暂存"
 }
