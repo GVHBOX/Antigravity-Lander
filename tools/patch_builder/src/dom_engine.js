@@ -846,6 +846,68 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       isDynamic = true;
     }
 
+    // 权限模式与执行策略描述 (图 1)
+    if (/^Every command requires approval[。.]?$/i.test(trimmed)) {
+      dynamicMatch = /[。.]\s*$/.test(trimmed) ? '每条命令均需人工审批。' : '每条命令均需人工审批';
+      isDynamic = true;
+    }
+    if (/^Ask before sensitive operations[。.]?$/i.test(trimmed)) {
+      dynamicMatch = /[。.]\s*$/.test(trimmed) ? '执行敏感操作前进行询问。' : '执行敏感操作前进行询问';
+      isDynamic = true;
+    }
+    if (/^Run all commands without restrictions[。.]?$/i.test(trimmed)) {
+      dynamicMatch = /[。.]\s*$/.test(trimmed) ? '无限制运行所有命令。' : '无限制运行所有命令';
+      isDynamic = true;
+    }
+
+    // 排队消息提示与键盘快捷键气泡 (图 2)
+    if (/^Enter\s+Sends\s+immediately$/i.test(trimmed)) {
+      dynamicMatch = 'Enter 立即发送';
+      isDynamic = true;
+    }
+    if (/^Alt\+Enter\s+Queues\s+after\s+the\s+turn$/i.test(trimmed)) {
+      dynamicMatch = 'Alt+Enter 在本轮结束后排队';
+      isDynamic = true;
+    }
+    if (/^Alt\+Enter\s+On\s+empty\s+prompt,\s+sends\s+next\s+in\s+queue$/i.test(trimmed)) {
+      dynamicMatch = 'Alt+Enter 提示词为空时，发送队列中的下一条';
+      isDynamic = true;
+    }
+    if (/^Sends\s+immediately$/i.test(trimmed)) {
+      dynamicMatch = '立即发送';
+      isDynamic = true;
+    }
+    if (/^Queues\s+after\s+the\s+turn$/i.test(trimmed)) {
+      dynamicMatch = '在本轮结束后排队';
+      isDynamic = true;
+    }
+    if (/^On\s+empty\s+prompt,\s+sends\s+next\s+in\s+queue$/i.test(trimmed)) {
+      dynamicMatch = '提示词为空时，发送队列中的下一条';
+      isDynamic = true;
+    }
+
+    // 计划审核策略拆分节点与过渡短语 (图 2)
+    if (/^and\s+(?:select|选择)\s*$/i.test(trimmed)) {
+      dynamicMatch = '并选择';
+      isDynamic = true;
+    }
+    if (/^and\s+(?:select|选择)\s+plan$/i.test(trimmed)) {
+      dynamicMatch = '并选择 plan';
+      isDynamic = true;
+    }
+
+    // 模型用量面板刷新状态 (图 3)
+    if (/^Refreshing[.…]*$/i.test(trimmed)) {
+      dynamicMatch = /[.…]$/.test(trimmed) ? '正在刷新...' : '正在刷新';
+      isDynamic = true;
+    }
+
+    // 快捷键列表条目 (图 5)
+    if (/^Archive\s+This\s+Conversation[….]*$/i.test(trimmed)) {
+      dynamicMatch = /[.…]$/.test(trimmed) ? '归档此对话...' : '归档此对话';
+      isDynamic = true;
+    }
+
     // 侧边栏/遥测栏动态计数分组标题与空态
     if (/^Files Changed(?:\s+(\d+))?$/i.test(trimmed)) {
       const m = trimmed.match(/^Files Changed(?:\s+(\d+))?$/i);
@@ -970,6 +1032,63 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       dynamicMatch = trimmed.replace(/^New Terminal/i, '新建终端');
       isDynamic = true;
     }
+    if (/^Record\s+Audio(?:\s+(?:Ctrl|Cmd)\+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Record\s+Audio/i, '录制音频');
+      isDynamic = true;
+    }
+    if (/^Send\s+message(?:\s+Enter|\s*\(Enter\)|\s*\n\s*Enter)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Send\s+message/i, '发送消息');
+      isDynamic = true;
+    }
+    if (/^(?:Select|选择)\s+Environment(?:\s*\((?:Ctrl|Cmd)[^)]+\))?$/i.test(trimmed)) {
+      dynamicMatch = trimmed
+        .replace(/^(?:Select|选择)\s+Environment/i, '选择环境')
+        .replace(/\(Ctrl\+。\)/g, '(Ctrl+.)')
+        .replace(/\(Cmd\+。\)/g, '(Cmd+.)');
+      isDynamic = true;
+    }
+    if (/^Quick\s+(?:Start|启动|Launch)$/i.test(trimmed)) {
+      dynamicMatch = '快速启动';
+      isDynamic = true;
+    }
+    if (/^Sort\s+By[:：]?$/i.test(trimmed)) {
+      dynamicMatch = (trimmed.endsWith(':') || trimmed.endsWith('：')) ? '排序方式：' : '排序方式';
+      isDynamic = true;
+    }
+    if (/^Custom\s+Order$/i.test(trimmed)) {
+      dynamicMatch = '自定义排序';
+      isDynamic = true;
+    }
+    if (/^(Skills?)\s+Used(?:\s+(\d+))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^(Skills?)\s+Used(?:\s+(\d+))?$/i);
+      dynamicMatch = `${m[1]} 已使用` + (m[2] ? ` ${m[2]}` : '');
+      isDynamic = true;
+    }
+    if (/^(\d+)\s*([smhdw]|mo|yr?)\s+ago$/i.test(trimmed)) {
+      const m = trimmed.match(/^(\d+)\s*([smhdw]|mo|yr?)\s+ago$/i);
+      const uMap = { s: '秒', m: '分钟', h: '小时', d: '天', w: '周', mo: '个月', y: '年', yr: '年' };
+      dynamicMatch = `${m[1]} ${uMap[m[2].toLowerCase()] || m[2]}前`;
+      isDynamic = true;
+    }
+    if (/^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i.test(trimmed)) {
+      const m = trimmed.match(/^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i);
+      const uMap = { second: '秒', minute: '分钟', hour: '小时', day: '天', week: '周', month: '个月', year: '年' };
+      dynamicMatch = `${m[1]} ${uMap[m[2].toLowerCase()] || m[2]}前`;
+      isDynamic = true;
+    }
+    if (/^Instantly create a new project and folder to start building([.。]?)$/i.test(trimmed)) {
+      const hasDot = /[.。]$/.test(trimmed);
+      dynamicMatch = '立即创建新项目和文件夹以开始构建' + (hasDot ? '。' : '');
+      isDynamic = true;
+    }
+    if (/^ago$/i.test(trimmed)) {
+      dynamicMatch = '前';
+      isDynamic = true;
+    }
+    if (/^just\s+now$/i.test(trimmed)) {
+      dynamicMatch = '刚刚';
+      isDynamic = true;
+    }
 
     if (isDynamic) {
       return text.replace(trimmed, dynamicMatch);
@@ -1073,6 +1192,11 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     finalTranslated = finalTranslated.replace(/(\d+)\s+searches?/gi, '$1 次搜索');
     finalTranslated = finalTranslated.replace(/(?:Type|输入)\s*\/\s*(?:and|并|和)?\s*(?:select|选择)?\s*['"]?plan['"]?\s*to\s+have\s+the\s+agent\s+generate\s+a\s+plan[。.]?/gi, '输入 / 并选择 plan 来让智能体生成计划。');
     finalTranslated = finalTranslated.replace(/输入\s*\/\s*并\s*选择\s*plan\s*来让智能体生成计划[。.]?/g, '输入 / 并选择 plan 来让智能体生成计划。');
+    finalTranslated = finalTranslated.replace(/Quick\s*启动/gi, '快速启动');
+    finalTranslated = finalTranslated.replace(/Quick\s*开始/gi, '快速开始');
+    finalTranslated = finalTranslated.replace(/选择\s*Environment/gi, '选择环境');
+    finalTranslated = finalTranslated.replace(/Skills?\s*Used/gi, 'Skills 已使用');
+    finalTranslated = finalTranslated.replace(/Send\s*message\s*Enter/gi, '发送消息 Enter');
     if (matchPunc) {
       finalTranslated += trailPunc;
     }
@@ -1361,6 +1485,28 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       if (translatedNodes.has(node)) return;
       const original = node.nodeValue;
       if (!original || !original.trim()) return;
+
+      if (node.parentElement) {
+        const pText = node.parentElement.textContent || '';
+        if (/plan/i.test(pText) && (pText.includes('智能体生成计划') || /agent generate a plan/i.test(pText))) {
+          const t = original.trim();
+          if (t === 'Type') {
+            node.nodeValue = original.replace('Type', '输入');
+            translatedNodes.add(node);
+            return;
+          }
+          if (t === 'and') {
+            node.nodeValue = original.replace('and', '并');
+            translatedNodes.add(node);
+            return;
+          }
+          if (/^and\s+(?:select|选择)$/i.test(t)) {
+            node.nodeValue = original.replace(/and\s+(?:select|选择)/i, '并选择');
+            translatedNodes.add(node);
+            return;
+          }
+        }
+      }
       const translated = translateString(original);
       if (translated && translated.trim() && original !== translated) {
         node.nodeValue = translated;

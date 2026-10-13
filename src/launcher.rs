@@ -188,8 +188,6 @@ impl LauncherConfig {
                 if exe_dir.join("data").exists()
                     || exe_dir.join("Antigravity-Lander.exe").exists()
                     || exe_dir.join("antigravity-lander.exe").exists()
-                    || exe_dir.join("Multi-Antigravity.exe").exists()
-                    || exe_dir.join("multi-antigravity.exe").exists()
                 {
                     return Ok(exe_dir.to_path_buf());
                 }

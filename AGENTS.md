@@ -1,6 +1,6 @@
 # Antigravity Lander 作业规程
 
-`D:\Development_Environment\AI_Vibe_Coding_Workspace\Multi-Antigravity-rust`：Rust + Slint 1.18 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
+`D:\Development_Environment\AI_Vibe_Coding_Workspace\Antigravity-Lander`：Rust + Slint 1.18 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
 两种运行形态：默认 Slint GUI（带系统托盘），`--tui` / `-t` 走 Ratatui 终端仪表盘。
 本文件只讲规矩，功能介绍在 `README.md`。
 
@@ -55,7 +55,7 @@ python tools/scan_comment.py --selfcheck
 报告、备份、脚本、截图、临时中间物全进 `.scratch/`（整体不进版本库）。
 根目录只允许：源码（`src/`）、资源（`assets/`）、仓库元文件
 （`README.md`、`AGENTS.md`、`Cargo.toml`、`Cargo.lock`、`build.rs`、`.gitignore`、
-`tools/`）、`target/`、`data/`、`Antigravity-Lander.exe`（与过渡兼容的 `Multi-Antigravity.exe`）
+`tools/`）、`target/`、`data/`、`Antigravity-Lander.exe`
 （发布产物，`*.exe` 已被 `.gitignore` 排除，是手工复制出来的，不是构建输出）。
 
 `assets/icon.png` 是 Slint 唯一引用的图片，**不能让 `.gitignore` 的 `*.png` 把它排除掉**
@@ -109,8 +109,8 @@ TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知�
 - **主循环必须是 `slint::run_event_loop_until_quit()`**：`hide()` 会 release 一个 keepalive，
   用 `run_event_loop()` 的话最小化到托盘会直接把进程结束掉。
 - **托盘回调在 tray-icon 自己的线程**：动 Slint 或窗口前必须 `slint::invoke_from_event_loop`。
-- **进程判定要排除自己**：发布 exe 叫 `Antigravity-Lander.exe`（或 `multi-antigravity.exe`），
-  任何按进程名 `contains("antigravity")` 的匹配都要排除 `multi` 和 `lander`，避免把自己算成主机实例。
+- **进程判定要排除自己**：发布 exe 叫 `Antigravity-Lander.exe`，
+  任何按进程名 `contains("antigravity")` 的匹配都要排除 `lander`，避免把自己算成主机实例。
 - **状态只信扫描结果**：分身的「是否运行」以是否真扫到进程为准，
   不要把「上次 spawn 记下的 PID」当成运行状态的依据。
 - **不要动 `trim_working_set()` 在缩托盘时的那次调用**。
@@ -118,7 +118,7 @@ TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知�
   核心原则：**「代码写完」不等于「生效交付」**。必须以**目标路径的二进制产物完成原位物理覆盖、且加载运行最新代码**为交付闭环。严禁新建别名副本（如 `_new.exe`）或仅将产物留在构建目录（如 `target/release/`）。
   1. **严格区分「源码编辑」与「运行态生效」**：严禁将“代码已修改”等同于“已生效完成”。
   2. **热更新进程接管授权（主动解除文件锁与端口占用）**：
-     - **正式接管授权**：在覆盖根目录/目标路径二进制（如 `Antigravity-Lander.exe` / `Multi-Antigravity.exe`）或启动测试实例时，若遭遇旧实例正在运行引发的文件锁（Windows `WinError 32` / `Device or resource busy`）或单实例互斥锁占用，**AI 获得正式授权主动接管并精准终止旧版管理器进程**（`taskkill /PID <pid> /F`）。
+     - **正式接管授权**：在覆盖根目录/目标路径二进制（如 `Antigravity-Lander.exe`）或启动测试实例时，若遭遇旧实例正在运行引发的文件锁（Windows `WinError 32` / `Device or resource busy`）或单实例互斥锁占用，**AI 获得正式授权主动接管并精准终止旧版管理器进程**（`taskkill /PID <pid> /F`）。
      - **原位物理覆盖**：解除占用后，必须立即完成根目录 `Antigravity-Lander.exe` 的覆盖写入，确保用户调起即为最新版。
      - **严格限定接管边界**：仅限终止由本项目自身构建运行的旧版进程，绝不触碰用户宿主环境或其他系统关键进程。
   3. **验收凭证原则（拒绝幽灵验证）**：自测必须有新产物生效的确定性证据（UI 改动使用 `slint-viewer` 截存或由用户视觉验收；后台/进程改动以真实 PID 与回执存证，严禁为了强行截屏在后台自编脚本折腾）。
@@ -147,7 +147,7 @@ slint-viewer --screenshot .scratch/preview_default.png src/cockpit.slint -I asse
 
 - **严禁使用脚本强行捏造窗口假尺寸（如私自调用 SetWindowPos 篡改宽高）进行掩耳盗铃式测试**。
 - 改动涉及进程拉起、系统托盘、互斥锁时，使用真实 exe 验证。
-- **发布产物原位覆盖**：`cargo build --release --offline` 编译完成后，将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`（并同步更新 `Multi-Antigravity.exe` 保持过渡兼容）。
+- **发布产物原位覆盖**：`cargo build --release --offline` 编译完成后，将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`。
 
 ## 环境与语法事实
 

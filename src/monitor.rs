@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[derive(Clone)]
@@ -282,11 +283,13 @@ impl TelemetryMonitor {
             self.cached_host_csrf = host_ls_csrf;
         }
 
+        let mut pids_to_detect = Vec::new();
+
         if let Some(pid) = host_ls_pid {
             if self.cached_host_port.is_none() {
                 self.host_port_retry_count = self.host_port_retry_count.wrapping_add(1);
                 if self.host_port_retry_count <= 10 || self.host_port_retry_count % 5 == 0 {
-                    self.cached_host_port = detect_listening_port(pid);
+                    pids_to_detect.push(pid);
                 }
             }
         } else {
@@ -310,13 +313,29 @@ impl TelemetryMonitor {
                 if self.cached_sub_ports[slot].is_none() {
                     self.sub_port_retry_counts[slot] = self.sub_port_retry_counts[slot].wrapping_add(1);
                     if self.sub_port_retry_counts[slot] <= 10 || self.sub_port_retry_counts[slot] % 5 == 0 {
-                        self.cached_sub_ports[slot] = detect_listening_port(pid);
+                        pids_to_detect.push(pid);
                     }
                 }
             } else {
                 self.cached_sub_ports[slot] = None;
                 self.cached_sub_csrfs[slot] = None;
                 self.sub_port_retry_counts[slot] = 0;
+            }
+        }
+
+        if !pids_to_detect.is_empty() {
+            let detected = detect_listening_ports(&pids_to_detect);
+            if let Some(pid) = host_ls_pid {
+                if let Some(&p) = detected.get(&pid) {
+                    self.cached_host_port = Some(p);
+                }
+            }
+            for slot in 0..4 {
+                if let Some(pid) = sub_ls_pids[slot] {
+                    if let Some(&p) = detected.get(&pid) {
+                        self.cached_sub_ports[slot] = Some(p);
+                    }
+                }
             }
         }
 
@@ -357,19 +376,24 @@ impl TelemetryMonitor {
     }
 }
 
-fn detect_listening_port(pid: u32) -> Option<u16> {
+fn detect_listening_ports(pids: &[u32]) -> HashMap<u32, u16> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
-    let output = Command::new("netstat")
+    let mut result = HashMap::new();
+    if pids.is_empty() {
+        return result;
+    }
+
+    let Ok(output) = Command::new("netstat")
         .args(["-ano", "-p", "tcp"])
         .creation_flags(0x08000000)
-        .output()
-        .ok()?;
+        .output() else {
+        return result;
+    };
 
     let text = String::from_utf8_lossy(&output.stdout);
-    let target = pid.to_string();
-    let mut ports = Vec::new();
+    let mut pid_ports: HashMap<u32, Vec<u16>> = HashMap::new();
     for line in text.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 5 || !parts[0].eq_ignore_ascii_case("tcp") {
@@ -378,16 +402,25 @@ fn detect_listening_port(pid: u32) -> Option<u16> {
         if !parts.iter().any(|p| p.eq_ignore_ascii_case("listening")) {
             continue;
         }
-        if parts[parts.len() - 1] != target {
+        let Ok(target_pid) = parts[parts.len() - 1].parse::<u32>() else {
             continue;
-        }
-        if let Some(port) = parts[1]
-            .rfind(':')
-            .and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok())
-        {
-            ports.push(port);
+        };
+        if pids.contains(&target_pid) {
+            if let Some(port) = parts[1]
+                .rfind(':')
+                .and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok())
+            {
+                pid_ports.entry(target_pid).or_default().push(port);
+            }
         }
     }
-    ports.sort_unstable();
-    ports.last().copied()
+
+    for (&pid, ports) in pid_ports.iter_mut() {
+        ports.sort_unstable();
+        if let Some(&last_port) = ports.last() {
+            result.insert(pid, last_port);
+        }
+    }
+
+    result
 }

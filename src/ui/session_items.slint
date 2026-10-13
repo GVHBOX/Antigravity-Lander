@@ -20,8 +20,8 @@ export component SessionGroupHeader inherits Rectangle {
     in property <bool> is_dark: true;
 
     height: 38px;
-    background: root.is_dark ? #18191d : #f1f5f9;
-    border-color: root.is_dark ? #2a2d36 : #cbd5e1;
+    background: root.is_dark ? #141c2b : #f1f5f9;
+    border-color: root.is_dark ? #1e293b : #cbd5e1;
     border-width: 1px;
     border-radius: 6px;
 
@@ -74,8 +74,8 @@ export component SessionModalRow inherits Rectangle {
     in property <SessionUiItem> item;
     in property <bool> is_dark: true;
 
-    background: root.is_dark ? #222225 : #f8fafc;
-    border-color: root.item.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #33373e : #e2e8f0);
+    background: root.is_dark ? #0d1527 : #f8fafc;
+    border-color: root.item.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
     border-width: 1px;
     border-radius: 6px;
     height: 58px;
@@ -95,7 +95,7 @@ export component SessionModalRow inherits Rectangle {
                 width: 10px;
                 height: 10px;
                 border-radius: 5px;
-                background: root.item.is_running ? #10b981 : (root.is_dark ? #525866 : #94a3b8);
+                background: root.item.is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
                 y: (parent.height - 10px) / 2;
             }
 
@@ -198,6 +198,7 @@ export component SubSessionCardBox inherits Rectangle {
     in property <string> time_text: "等待初始化";
     in property <bool> is_running: false;
     in property <bool> has_sessions: false;
+    in property <[SessionUiItem]> items: [];
     in property <bool> is_dark: true;
     callback clicked();
 
@@ -205,7 +206,11 @@ export component SubSessionCardBox inherits Rectangle {
     border-color: root.has_sessions && card_ta.has_hover ? rgba(56, 189, 248, 0.45) : (root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0);
     border-width: 1px;
     border-radius: 6px;
-    height: 50px;
+    min-height: 50px;
+    preferred-height: root.items.length > 0 ? (22px + root.items.length * 17px) : 50px;
+    max-height: 260px;
+    vertical-stretch: 1;
+    clip: true;
 
     card_ta := TouchArea {
         enabled: root.has_sessions;
@@ -220,9 +225,9 @@ export component SubSessionCardBox inherits Rectangle {
     VerticalLayout {
         padding-left: 10px;
         padding-right: 10px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        spacing: 1px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 2px;
 
         HorizontalLayout {
             alignment: space-between;
@@ -255,9 +260,47 @@ export component SubSessionCardBox inherits Rectangle {
             }
         }
 
-        HorizontalLayout {
-            height: 14px;
-            alignment: start;
+        if root.items.length > 0 : VerticalLayout {
+            spacing: 2px;
+            vertical-stretch: 1;
+            alignment: center;
+
+            for item in root.items : HorizontalLayout {
+                height: 15px;
+                spacing: 6px;
+
+                Rectangle {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: item.is_running ? #10b981 : (root.is_dark ? #475569 : #94a3b8);
+                    y: (parent.height - 6px) / 2;
+                }
+
+                Text {
+                    text: item.title != "" ? item.title : "标准会话";
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    color: item.is_running ? (root.is_dark ? #e2e8f0 : #1e293b) : (root.is_dark ? #94a3b8 : #64748b);
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: item.time_ago_str;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        if root.items.length == 0 : VerticalLayout {
+            spacing: 1px;
+            vertical-stretch: 1;
+            alignment: center;
+
             Text {
                 text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
                 color: root.has_sessions ? (root.is_dark ? #94a3b8 : #64748b) : (root.is_dark ? #475569 : #94a3b8);
@@ -265,26 +308,25 @@ export component SubSessionCardBox inherits Rectangle {
                 overflow: elide;
                 vertical-alignment: center;
             }
-        }
 
-        HorizontalLayout {
-            spacing: 4px;
-            alignment: start;
-            height: 14px;
+            HorizontalLayout {
+                spacing: 4px;
+                height: 14px;
 
-            if root.is_running : Rectangle {
-                width: 6px;
-                height: 6px;
-                border-radius: 3px;
-                background: #10b981;
-                y: (parent.height - 6px) / 2;
-            }
-            Text {
-                text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
-                color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 10.5px;
-                font-family: "Cascadia Mono";
-                vertical-alignment: center;
+                if root.is_running : Rectangle {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: #10b981;
+                    y: (parent.height - 6px) / 2;
+                }
+                Text {
+                    text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
+                    color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
             }
         }
     }

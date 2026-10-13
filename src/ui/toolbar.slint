@@ -1,0 +1,101 @@
+import { CompactButton, OutlineButton } from "buttons.slint";
+
+export component StatusToolbar inherits Rectangle {
+    in property <bool> is_dark: true;
+    in property <string> toast_text: "就绪";
+    in property <string> uptime_text: "--";
+    in property <string> summary_text: "";
+    in property <string> proxy_text: "";
+
+    callback launch_all();
+    callback stop_all();
+    callback refresh_telemetry();
+
+    height: 36px;
+    background: root.is_dark ? #090e1c : #f8fafc;
+    border-color: root.is_dark ? #162032 : #e2e8f0;
+    border-width: 1px;
+    border-radius: 8px;
+
+    HorizontalLayout {
+        vertical-stretch: 1;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        alignment: start;
+
+            CompactButton {
+                width: 84px;
+                btn_height: 26px;
+                text: "全部启动";
+                btn_color: #10b981;
+                is_dark: root.is_dark;
+                clicked => { root.launch_all(); }
+            }
+
+            CompactButton {
+                width: 84px;
+                btn_height: 26px;
+                text: "全部停止";
+                btn_color: #f43f5e;
+                is_dark: root.is_dark;
+                clicked => { root.stop_all(); }
+            }
+
+            OutlineButton {
+                width: 56px;
+                btn_height: 26px;
+                text: "刷新";
+                is_dark: root.is_dark;
+                clicked => { root.refresh_telemetry(); }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                background: transparent;
+
+                Text {
+                    width: 100%;
+                    text: root.toast_text;
+                    overflow: elide;
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 11.5px;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                width: 1px;
+                height: 16px;
+                background: root.is_dark ? #1e293b : #e2e8f0;
+                y: (parent.height - 16px) / 2;
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: end;
+
+                Text {
+                    text: root.uptime_text == "--" ? "主号未运行" : ("主号运行 " + root.uptime_text);
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.summary_text;
+                    color: root.is_dark ? #cbd5e1 : #334155;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.proxy_text;
+                    color: root.is_dark ? #38bdf8 : #0284c7;
+                    font-size: 11px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
+        }
+}

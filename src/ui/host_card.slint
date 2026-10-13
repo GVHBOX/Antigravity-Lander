@@ -1,6 +1,6 @@
 import { CompactButton, OutlineButton } from "buttons.slint";
 import { MiniMetricBox, UserProfileRow, SubQuotaCompactBox, SubScaleCacheRow } from "widgets.slint";
-import { SubSessionCardBox } from "session_items.slint";
+import { SubSessionCardBox, SessionUiItem } from "session_items.slint";
 
 export component HostCard inherits Rectangle {
     in property <bool> is_running: false;
@@ -29,6 +29,7 @@ export component HostCard inherits Rectangle {
     in property <string> recent_time: "等待初始化";
     in property <bool> has_running_session: false;
     in property <bool> has_sessions: false;
+    in property <[SessionUiItem]> session_items: [];
     in property <string> cache_size_text: "缓存 0 MB";
     in property <string> scale_text: "100%";
     in property <bool> is_dark: true;
@@ -167,6 +168,7 @@ export component HostCard inherits Rectangle {
             time_text: root.recent_time;
             is_running: root.is_running || root.has_running_session;
             has_sessions: root.has_sessions;
+            items: root.session_items;
             is_dark: root.is_dark;
             clicked => { root.session_clicked(); }
         }
@@ -222,7 +224,7 @@ export component HostCard inherits Rectangle {
                 }
                 OutlineButton {
                     horizontal-stretch: 1;
-                    text: "打开目录";
+                    text: "程序目录";
                     is_dark: root.is_dark;
                     clicked => { root.open_app_dir(); }
                 }

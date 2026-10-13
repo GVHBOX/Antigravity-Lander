@@ -264,8 +264,8 @@ export component SessionListModal inherits Rectangle {
             height: Math.min(parent.height - 60px, 760px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: root.is_dark ? #1e1f22 : #ffffff;
-            border-color: root.is_dark ? #33373e : #cbd5e1;
+            background: root.is_dark ? #0f172a : #ffffff;
+            border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
             border-radius: 12px;
             clip: true;
@@ -305,7 +305,7 @@ export component SessionListModal inherits Rectangle {
                         width: 28px;
                         height: 28px;
                         border-radius: 5px;
-                        background: close_ta.has_hover ? (root.is_dark ? #2b2d31 : #e2e8f0) : transparent;
+                        background: close_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : transparent;
 
                         close_ta := TouchArea {
                             clicked => { root.close(); }

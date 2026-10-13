@@ -6,6 +6,7 @@ import { HostCard } from "ui/host_card.slint";
 import { ComponentsCard } from "ui/components_card.slint";
 import { TelemetryCard } from "ui/telemetry_card.slint";
 import { SubInstanceCard } from "ui/instance_card.slint";
+import { StatusToolbar } from "ui/toolbar.slint";
 import { ConfirmModal, CleanCacheModal, PatchModal, SessionListModal } from "ui/modals.slint";
 
 export component MainWindow inherits Window {
@@ -21,9 +22,13 @@ export component MainWindow inherits Window {
     fkey := FocusScope {
         key-pressed(event) => {
             if event.text == "s" || event.text == "S" {
-                root.session_modal_slot = 2;
-                root.session_modal_visible = !root.session_modal_visible;
-                root.show_session_modal(2);
+                if root.session_modal_visible {
+                    root.session_modal_visible = false;
+                } else {
+                    root.session_modal_slot = root.live_session_target_slot < 0 ? 0 : root.live_session_target_slot;
+                    root.session_modal_visible = true;
+                    root.show_session_modal(root.session_modal_slot);
+                }
                 accept
             }
             if event.text == Key.Escape {
@@ -256,6 +261,11 @@ export component MainWindow inherits Window {
     in property <string> host_recent_title: "";
     in property <string> host_recent_tokens: "";
     in property <string> host_recent_time: "等待初始化";
+    in property <[SessionUiItem]> host_session_items: [];
+    in property <[SessionUiItem]> sub1_session_items: [];
+    in property <[SessionUiItem]> sub2_session_items: [];
+    in property <[SessionUiItem]> sub3_session_items: [];
+    in property <[SessionUiItem]> sub4_session_items: [];
 
     in property <string> sub_running_count_text: "活动分身: 0 / 4";
     in property <string> sub1_session_count_text: "--";
@@ -284,418 +294,448 @@ export component MainWindow inherits Window {
     in property <string> sub4_recent_time: "等待初始化";
 
     VerticalLayout {
-        padding: 10px;
-        spacing: 8px;
+        spacing: 0;
 
-        Rectangle {
-            vertical-stretch: 0;
-            min-height: 310px;
-            max-height: 310px;
-            preferred-height: 310px;
+        VerticalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 10px;
+            spacing: 8px;
+            vertical-stretch: 1;
 
-            HorizontalLayout {
-                spacing: 8px;
-
-                HostCard {
-                    is_running: root.host_running;
-                    pid_text: root.host_pid;
-                    user_name: root.host_user_name;
-                    user_email: root.host_user_email;
-                    tier: root.host_tier;
-                    avatar: root.host_avatar;
-                    has_avatar: root.host_has_avatar;
-                    port_text: root.host_port;
-                    weekly_reset: root.host_weekly_reset;
-                    weekly_pct: root.host_weekly_text;
-                    weekly_ring: root.host_weekly_ring;
-                    five_h_reset: root.host_five_h_reset;
-                    five_h_pct: root.host_five_h_text;
-                    five_h_ring: root.host_five_h_ring;
-                    quota_refreshing: root.host_quota_refreshing;
-                    token_present: root.host_token_present;
-                    spin_angle: root.quota_spin_angle;
-                    cpu_text: root.host_cpu_text;
-                    ram_text: root.host_ram_text;
-                    session_count_text: root.host_session_count_text;
-                    recent_project: root.host_recent_project;
-                    recent_title: root.host_recent_title;
-                    recent_tokens: root.host_recent_tokens;
-                    recent_time: root.host_recent_time;
-                    has_running_session: root.host_has_running;
-                    has_sessions: root.host_has_sessions;
-                    cache_size_text: root.host_cache_size_text;
-                    scale_text: root.host_scale_text;
-                    is_dark: root.is_dark;
-
-                    refresh_quota => { root.action_refresh_quota(0); }
-                    session_clicked => {
-                        root.session_modal_slot = 0;
-                        root.session_modal_visible = true;
-                        root.show_session_modal(0);
-                    }
-                    adjust_scale(delta) => { root.adjust_host_scale(delta); }
-                    reset_scale => { root.reset_host_scale(); }
-                    launch => { root.action_launch_host(); }
-                    stop => { root.action_stop_host(); }
-                    clear_token => {
-                        root.confirm_modal_slot = 0;
-                        root.confirm_modal_visible = true;
-                    }
-                    open_app_dir => { root.action_open_app_dir(); }
-                }
-
-                ComponentsCard {
-                    patch_ag2_installed: root.patch_ag2_installed;
-                    patch_ag2_version: root.patch_ag2_version;
-                    proxy_injected: root.proxy_injected;
-                    proxy_status_text: root.proxy_status_text;
-                    total_mem_text: root.total_mem_text;
-                    mem_host_pct: root.mem_host_pct;
-                    mem_subs_pct: root.mem_subs_pct;
-                    mem_detail_text: root.mem_detail_text;
-                    cache_summary_text: root.cache_summary_text;
-                    is_dark: root.is_dark;
-
-                    toggle_patch_ag2 => { root.toggle_patch_ag2(); }
-                    toggle_proxy => { root.toggle_proxy(); }
-                    scan_cache => { root.action_scan_cache(); }
-                }
-
-                TelemetryCard {
-                    live_session_is_running: root.live_session_is_running;
-                    live_session_target_text: root.live_session_target_text;
-                    live_session_target_slot: root.live_session_target_slot;
-                    live_session_project: root.live_session_project;
-                    live_session_status_text: root.live_session_status_text;
-                    live_session_title: root.live_session_title;
-                    live_session_speed_text: root.live_session_speed_text;
-                    live_session_speed_sub: root.live_session_speed_sub;
-                    live_bar0_h: root.live_bar0_h;
-                    live_bar1_h: root.live_bar1_h;
-                    live_bar2_h: root.live_bar2_h;
-                    live_bar3_h: root.live_bar3_h;
-                    live_bar4_h: root.live_bar4_h;
-                    live_bar5_h: root.live_bar5_h;
-                    live_bar6_h: root.live_bar6_h;
-                    live_bar7_h: root.live_bar7_h;
-                    live_session_context_text: root.live_session_context_text;
-                    live_prompt_pct: root.live_prompt_pct;
-                    live_cache_pct: root.live_cache_pct;
-                    live_output_pct: root.live_output_pct;
-                    live_prompt_text: root.live_prompt_text;
-                    live_cache_legend: root.live_cache_legend;
-                    live_output_text: root.live_output_text;
-                    live_session_available_text: root.live_session_available_text;
-                    live_session_optimization_text: root.live_session_optimization_text;
-                    is_dark: root.is_dark;
-
-                    switch_target(target) => { root.switch_live_session_target(target); }
-                    show_history(slot) => {
-                        root.session_modal_slot = slot;
-                        root.session_modal_visible = true;
-                        root.show_session_modal(slot);
-                    }
-                }
-            }
-        }
-
-        Rectangle {
-            vertical-stretch: 0;
-            preferred-height: 380px;
-            min-height: 360px;
-            max-height: 385px;
-            background: root.is_dark ? #0d1527 : #ffffff;
-            border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
-            border-width: 1px;
-            border-radius: 10px;
-            clip: true;
-
-            VerticalLayout {
-                padding-left: 10px;
-                padding-right: 10px;
-                padding-top: 8px;
-                padding-bottom: 8px;
-                spacing: 6px;
-
-                HorizontalLayout {
-                    alignment: space-between;
-                    height: 26px;
-
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
-                        Text {
-                            text: "分身管理";
-                            color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 14px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: end;
-
-                        Rectangle {
-                            width: 26px;
-                            height: 26px;
-                            border-radius: 5px;
-                            border-color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
-                            border-width: 1px;
-                            background: root.is_pinned ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.16)) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
-
-                            pin_ta := TouchArea {
-                                clicked => { root.toggle_pin_window(); }
-                                mouse-cursor: pointer;
-                            }
-
-                            PinIcon {
-                                icon_color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8));
-                                x: (parent.width - 12px) / 2;
-                                y: (parent.height - 12px) / 2;
-                            }
-                        }
-
-                        Rectangle {
-                            width: 26px;
-                            height: 26px;
-                            border-radius: 5px;
-                            border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
-                            border-width: 1px;
-                            background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
-
-                            theme_ta := TouchArea {
-                                clicked => { root.toggle_theme(); }
-                                mouse-cursor: pointer;
-                            }
-
-                            if root.is_dark : SunIcon {
-                                icon_color: theme_ta.has_hover ? #f8fafc : #94a3b8;
-                                x: (parent.width - 13px) / 2;
-                                y: (parent.height - 13px) / 2;
-                            }
-                            if !root.is_dark : MoonIcon {
-                                icon_color: theme_ta.has_hover ? #0f172a : #64748b;
-                                x: (parent.width - 13px) / 2;
-                                y: (parent.height - 13px) / 2;
-                            }
-                        }
-                    }
-                }
+            Rectangle {
+                vertical-stretch: 0;
+                min-height: 310px;
+                max-height: 310px;
+                preferred-height: 310px;
 
                 HorizontalLayout {
                     spacing: 8px;
-                    vertical-stretch: 1;
 
-                    SubInstanceCard {
-                        slot: 1;
-                        title_text: "分身 1";
-                        instance_id_text: "instance_1";
-                        is_running: root.sub1_running;
-                        pid_text: root.sub1_pid;
-                        user_name: root.sub1_user_name;
-                        user_email: root.sub1_user_email;
-                        tier: root.sub1_tier;
-                        avatar: root.sub1_avatar;
-                        has_avatar: root.sub1_has_avatar;
-                        port_text: root.sub1_port;
-                        weekly_reset: root.sub1_weekly_reset;
-                        weekly_pct: root.sub1_weekly_text;
-                        weekly_ring: root.sub1_weekly_ring;
-                        five_h_reset: root.sub1_five_h_reset;
-                        five_h_pct: root.sub1_five_h_text;
-                        five_h_ring: root.sub1_five_h_ring;
-                        quota_refreshing: root.sub1_quota_refreshing;
-                        token_present: root.sub1_token_present;
+                    HostCard {
+                        is_running: root.host_running;
+                        pid_text: root.host_pid;
+                        user_name: root.host_user_name;
+                        user_email: root.host_user_email;
+                        tier: root.host_tier;
+                        avatar: root.host_avatar;
+                        has_avatar: root.host_has_avatar;
+                        port_text: root.host_port;
+                        weekly_reset: root.host_weekly_reset;
+                        weekly_pct: root.host_weekly_text;
+                        weekly_ring: root.host_weekly_ring;
+                        five_h_reset: root.host_five_h_reset;
+                        five_h_pct: root.host_five_h_text;
+                        five_h_ring: root.host_five_h_ring;
+                        quota_refreshing: root.host_quota_refreshing;
+                        token_present: root.host_token_present;
                         spin_angle: root.quota_spin_angle;
-                        cpu_text: root.sub1_cpu_text;
-                        ram_text: root.sub1_ram_text;
-                        session_count_text: root.sub1_session_count_text;
-                        recent_project: root.sub1_recent_project;
-                        recent_title: root.sub1_recent_title;
-                        recent_tokens: root.sub1_recent_tokens;
-                        recent_time: root.sub1_recent_time;
-                        has_running_session: root.sub1_has_running;
-                        has_sessions: root.sub1_has_sessions;
-                        cache_size_text: root.sub1_cache_size_text;
-                        scale_text: root.sub1_scale_text;
+                        cpu_text: root.host_cpu_text;
+                        ram_text: root.host_ram_text;
+                        session_count_text: root.host_session_count_text;
+                        recent_project: root.host_recent_project;
+                        recent_title: root.host_recent_title;
+                        recent_tokens: root.host_recent_tokens;
+                    recent_time: root.host_recent_time;
+                    has_running_session: root.host_has_running;
+                    has_sessions: root.host_has_sessions;
+                    session_items: root.host_session_items;
+                        cache_size_text: root.host_cache_size_text;
+                        scale_text: root.host_scale_text;
                         is_dark: root.is_dark;
 
-                        refresh_quota => { root.action_refresh_quota(1); }
+                        refresh_quota => { root.action_refresh_quota(0); }
                         session_clicked => {
-                            root.session_modal_slot = 1;
+                            root.session_modal_slot = 0;
                             root.session_modal_visible = true;
-                            root.show_session_modal(1);
+                            root.show_session_modal(0);
                         }
-                        adjust_scale(delta) => { root.adjust_sub_scale(1, delta); }
-                        reset_scale => { root.reset_sub_scale(1); }
-                        launch => { root.action_launch_sub(1); }
-                        stop => { root.action_stop_sub(1); }
+                        adjust_scale(delta) => { root.adjust_host_scale(delta); }
+                        reset_scale => { root.reset_host_scale(); }
+                        launch => { root.action_launch_host(); }
+                        stop => { root.action_stop_host(); }
                         clear_token => {
-                            root.confirm_modal_slot = 1;
+                            root.confirm_modal_slot = 0;
                             root.confirm_modal_visible = true;
                         }
-                        open_sandbox => { root.action_open_sandbox(1); }
+                        open_app_dir => { root.action_open_app_dir(); }
                     }
 
-                    SubInstanceCard {
-                        slot: 2;
-                        title_text: "分身 2";
-                        instance_id_text: "instance_2";
-                        is_running: root.sub2_running;
-                        pid_text: root.sub2_pid;
-                        user_name: root.sub2_user_name;
-                        user_email: root.sub2_user_email;
-                        tier: root.sub2_tier;
-                        avatar: root.sub2_avatar;
-                        has_avatar: root.sub2_has_avatar;
-                        port_text: root.sub2_port;
-                        weekly_reset: root.sub2_weekly_reset;
-                        weekly_pct: root.sub2_weekly_text;
-                        weekly_ring: root.sub2_weekly_ring;
-                        five_h_reset: root.sub2_five_h_reset;
-                        five_h_pct: root.sub2_five_h_text;
-                        five_h_ring: root.sub2_five_h_ring;
-                        quota_refreshing: root.sub2_quota_refreshing;
-                        token_present: root.sub2_token_present;
-                        spin_angle: root.quota_spin_angle;
-                        cpu_text: root.sub2_cpu_text;
-                        ram_text: root.sub2_ram_text;
-                        session_count_text: root.sub2_session_count_text;
-                        recent_project: root.sub2_recent_project;
-                        recent_title: root.sub2_recent_title;
-                        recent_tokens: root.sub2_recent_tokens;
-                        recent_time: root.sub2_recent_time;
-                        has_running_session: root.sub2_has_running;
-                        has_sessions: root.sub2_has_sessions;
-                        cache_size_text: root.sub2_cache_size_text;
-                        scale_text: root.sub2_scale_text;
+                    ComponentsCard {
+                        patch_ag2_installed: root.patch_ag2_installed;
+                        patch_ag2_version: root.patch_ag2_version;
+                        proxy_injected: root.proxy_injected;
+                        proxy_status_text: root.proxy_status_text;
+                        total_mem_text: root.total_mem_text;
+                        mem_host_pct: root.mem_host_pct;
+                        mem_subs_pct: root.mem_subs_pct;
+                        mem_detail_text: root.mem_detail_text;
+                        cache_summary_text: root.cache_summary_text;
                         is_dark: root.is_dark;
 
-                        refresh_quota => { root.action_refresh_quota(2); }
-                        session_clicked => {
-                            root.session_modal_slot = 2;
-                            root.session_modal_visible = true;
-                            root.show_session_modal(2);
-                        }
-                        adjust_scale(delta) => { root.adjust_sub_scale(2, delta); }
-                        reset_scale => { root.reset_sub_scale(2); }
-                        launch => { root.action_launch_sub(2); }
-                        stop => { root.action_stop_sub(2); }
-                        clear_token => {
-                            root.confirm_modal_slot = 2;
-                            root.confirm_modal_visible = true;
-                        }
-                        open_sandbox => { root.action_open_sandbox(2); }
+                        toggle_patch_ag2 => { root.toggle_patch_ag2(); }
+                        toggle_proxy => { root.toggle_proxy(); }
+                        scan_cache => { root.action_scan_cache(); }
                     }
 
-                    SubInstanceCard {
-                        slot: 3;
-                        title_text: "分身 3";
-                        instance_id_text: "instance_3";
-                        is_running: root.sub3_running;
-                        pid_text: root.sub3_pid;
-                        user_name: root.sub3_user_name;
-                        user_email: root.sub3_user_email;
-                        tier: root.sub3_tier;
-                        avatar: root.sub3_avatar;
-                        has_avatar: root.sub3_has_avatar;
-                        port_text: root.sub3_port;
-                        weekly_reset: root.sub3_weekly_reset;
-                        weekly_pct: root.sub3_weekly_text;
-                        weekly_ring: root.sub3_weekly_ring;
-                        five_h_reset: root.sub3_five_h_reset;
-                        five_h_pct: root.sub3_five_h_text;
-                        five_h_ring: root.sub3_five_h_ring;
-                        quota_refreshing: root.sub3_quota_refreshing;
-                        token_present: root.sub3_token_present;
-                        spin_angle: root.quota_spin_angle;
-                        cpu_text: root.sub3_cpu_text;
-                        ram_text: root.sub3_ram_text;
-                        session_count_text: root.sub3_session_count_text;
-                        recent_project: root.sub3_recent_project;
-                        recent_title: root.sub3_recent_title;
-                        recent_tokens: root.sub3_recent_tokens;
-                        recent_time: root.sub3_recent_time;
-                        has_running_session: root.sub3_has_running;
-                        has_sessions: root.sub3_has_sessions;
-                        cache_size_text: root.sub3_cache_size_text;
-                        scale_text: root.sub3_scale_text;
+                    TelemetryCard {
+                        live_session_is_running: root.live_session_is_running;
+                        live_session_target_text: root.live_session_target_text;
+                        live_session_target_slot: root.live_session_target_slot;
+                        live_session_project: root.live_session_project;
+                        live_session_status_text: root.live_session_status_text;
+                        live_session_title: root.live_session_title;
+                        live_session_speed_text: root.live_session_speed_text;
+                        live_session_speed_sub: root.live_session_speed_sub;
+                        live_bar0_h: root.live_bar0_h;
+                        live_bar1_h: root.live_bar1_h;
+                        live_bar2_h: root.live_bar2_h;
+                        live_bar3_h: root.live_bar3_h;
+                        live_bar4_h: root.live_bar4_h;
+                        live_bar5_h: root.live_bar5_h;
+                        live_bar6_h: root.live_bar6_h;
+                        live_bar7_h: root.live_bar7_h;
+                        live_session_context_text: root.live_session_context_text;
+                        live_prompt_pct: root.live_prompt_pct;
+                        live_cache_pct: root.live_cache_pct;
+                        live_output_pct: root.live_output_pct;
+                        live_prompt_text: root.live_prompt_text;
+                        live_cache_legend: root.live_cache_legend;
+                        live_output_text: root.live_output_text;
+                        live_session_available_text: root.live_session_available_text;
+                        live_session_optimization_text: root.live_session_optimization_text;
                         is_dark: root.is_dark;
 
-                        refresh_quota => { root.action_refresh_quota(3); }
-                        session_clicked => {
-                            root.session_modal_slot = 3;
+                        switch_target(target) => { root.switch_live_session_target(target); }
+                        show_history(slot) => {
+                            root.session_modal_slot = slot;
                             root.session_modal_visible = true;
-                            root.show_session_modal(3);
+                            root.show_session_modal(slot);
                         }
-                        adjust_scale(delta) => { root.adjust_sub_scale(3, delta); }
-                        reset_scale => { root.reset_sub_scale(3); }
-                        launch => { root.action_launch_sub(3); }
-                        stop => { root.action_stop_sub(3); }
-                        clear_token => {
-                            root.confirm_modal_slot = 3;
-                            root.confirm_modal_visible = true;
-                        }
-                        open_sandbox => { root.action_open_sandbox(3); }
-                    }
-
-                    SubInstanceCard {
-                        slot: 4;
-                        title_text: "分身 4";
-                        instance_id_text: "instance_4";
-                        is_running: root.sub4_running;
-                        pid_text: root.sub4_pid;
-                        user_name: root.sub4_user_name;
-                        user_email: root.sub4_user_email;
-                        tier: root.sub4_tier;
-                        avatar: root.sub4_avatar;
-                        has_avatar: root.sub4_has_avatar;
-                        port_text: root.sub4_port;
-                        weekly_reset: root.sub4_weekly_reset;
-                        weekly_pct: root.sub4_weekly_text;
-                        weekly_ring: root.sub4_weekly_ring;
-                        five_h_reset: root.sub4_five_h_reset;
-                        five_h_pct: root.sub4_five_h_text;
-                        five_h_ring: root.sub4_five_h_ring;
-                        quota_refreshing: root.sub4_quota_refreshing;
-                        token_present: root.sub4_token_present;
-                        spin_angle: root.quota_spin_angle;
-                        cpu_text: root.sub4_cpu_text;
-                        ram_text: root.sub4_ram_text;
-                        session_count_text: root.sub4_session_count_text;
-                        recent_project: root.sub4_recent_project;
-                        recent_title: root.sub4_recent_title;
-                        recent_tokens: root.sub4_recent_tokens;
-                        recent_time: root.sub4_recent_time;
-                        has_running_session: root.sub4_has_running;
-                        has_sessions: root.sub4_has_sessions;
-                        cache_size_text: root.sub4_cache_size_text;
-                        scale_text: root.sub4_scale_text;
-                        is_dark: root.is_dark;
-
-                        refresh_quota => { root.action_refresh_quota(4); }
-                        session_clicked => {
-                            root.session_modal_slot = 4;
-                            root.session_modal_visible = true;
-                            root.show_session_modal(4);
-                        }
-                        adjust_scale(delta) => { root.adjust_sub_scale(4, delta); }
-                        reset_scale => { root.reset_sub_scale(4); }
-                        launch => { root.action_launch_sub(4); }
-                        stop => { root.action_stop_sub(4); }
-                        clear_token => {
-                            root.confirm_modal_slot = 4;
-                            root.confirm_modal_visible = true;
-                        }
-                        open_sandbox => { root.action_open_sandbox(4); }
                     }
                 }
             }
+
+        Rectangle {
+            vertical-stretch: 50;
+            preferred-height: 380px;
+            min-height: 360px;
+            max-height: 720px;
+                background: root.is_dark ? #0d1527 : #ffffff;
+                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+                border-width: 1px;
+                border-radius: 10px;
+                clip: true;
+
+                VerticalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    spacing: 6px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 26px;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            Text {
+                                text: "分身管理";
+                                color: root.is_dark ? #f8fafc : #0f172a;
+                                font-size: 14px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: end;
+
+                            Rectangle {
+                                width: 26px;
+                                height: 26px;
+                                border-radius: 5px;
+                                border-color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
+                                border-width: 1px;
+                                background: root.is_pinned ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.16)) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
+
+                                pin_ta := TouchArea {
+                                    clicked => { root.toggle_pin_window(); }
+                                    mouse-cursor: pointer;
+                                }
+
+                                PinIcon {
+                                    icon_color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8));
+                                    x: (parent.width - 12px) / 2;
+                                    y: (parent.height - 12px) / 2;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 26px;
+                                height: 26px;
+                                border-radius: 5px;
+                                border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
+                                border-width: 1px;
+                                background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
+
+                                theme_ta := TouchArea {
+                                    clicked => { root.toggle_theme(); }
+                                    mouse-cursor: pointer;
+                                }
+
+                                if root.is_dark : SunIcon {
+                                    icon_color: theme_ta.has_hover ? #f8fafc : #94a3b8;
+                                    x: (parent.width - 13px) / 2;
+                                    y: (parent.height - 13px) / 2;
+                                }
+                                if !root.is_dark : MoonIcon {
+                                    icon_color: theme_ta.has_hover ? #0f172a : #64748b;
+                                    x: (parent.width - 13px) / 2;
+                                    y: (parent.height - 13px) / 2;
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        vertical-stretch: 1;
+
+                        SubInstanceCard {
+                            slot: 1;
+                            title_text: "分身 1";
+                            instance_id_text: "instance_1";
+                            is_running: root.sub1_running;
+                            pid_text: root.sub1_pid;
+                            user_name: root.sub1_user_name;
+                            user_email: root.sub1_user_email;
+                            tier: root.sub1_tier;
+                            avatar: root.sub1_avatar;
+                            has_avatar: root.sub1_has_avatar;
+                            port_text: root.sub1_port;
+                            weekly_reset: root.sub1_weekly_reset;
+                            weekly_pct: root.sub1_weekly_text;
+                            weekly_ring: root.sub1_weekly_ring;
+                            five_h_reset: root.sub1_five_h_reset;
+                            five_h_pct: root.sub1_five_h_text;
+                            five_h_ring: root.sub1_five_h_ring;
+                            quota_refreshing: root.sub1_quota_refreshing;
+                            token_present: root.sub1_token_present;
+                            spin_angle: root.quota_spin_angle;
+                            cpu_text: root.sub1_cpu_text;
+                            ram_text: root.sub1_ram_text;
+                            session_count_text: root.sub1_session_count_text;
+                            recent_project: root.sub1_recent_project;
+                            recent_title: root.sub1_recent_title;
+                            recent_tokens: root.sub1_recent_tokens;
+                        recent_time: root.sub1_recent_time;
+                        has_running_session: root.sub1_has_running;
+                        has_sessions: root.sub1_has_sessions;
+                        session_items: root.sub1_session_items;
+                            cache_size_text: root.sub1_cache_size_text;
+                            scale_text: root.sub1_scale_text;
+                            is_dark: root.is_dark;
+
+                            refresh_quota => { root.action_refresh_quota(1); }
+                            session_clicked => {
+                                root.session_modal_slot = 1;
+                                root.session_modal_visible = true;
+                                root.show_session_modal(1);
+                            }
+                            adjust_scale(delta) => { root.adjust_sub_scale(1, delta); }
+                            reset_scale => { root.reset_sub_scale(1); }
+                            launch => { root.action_launch_sub(1); }
+                            stop => { root.action_stop_sub(1); }
+                            clear_token => {
+                                root.confirm_modal_slot = 1;
+                                root.confirm_modal_visible = true;
+                            }
+                            open_sandbox => { root.action_open_sandbox(1); }
+                        }
+
+                        SubInstanceCard {
+                            slot: 2;
+                            title_text: "分身 2";
+                            instance_id_text: "instance_2";
+                            is_running: root.sub2_running;
+                            pid_text: root.sub2_pid;
+                            user_name: root.sub2_user_name;
+                            user_email: root.sub2_user_email;
+                            tier: root.sub2_tier;
+                            avatar: root.sub2_avatar;
+                            has_avatar: root.sub2_has_avatar;
+                            port_text: root.sub2_port;
+                            weekly_reset: root.sub2_weekly_reset;
+                            weekly_pct: root.sub2_weekly_text;
+                            weekly_ring: root.sub2_weekly_ring;
+                            five_h_reset: root.sub2_five_h_reset;
+                            five_h_pct: root.sub2_five_h_text;
+                            five_h_ring: root.sub2_five_h_ring;
+                            quota_refreshing: root.sub2_quota_refreshing;
+                            token_present: root.sub2_token_present;
+                            spin_angle: root.quota_spin_angle;
+                            cpu_text: root.sub2_cpu_text;
+                            ram_text: root.sub2_ram_text;
+                            session_count_text: root.sub2_session_count_text;
+                            recent_project: root.sub2_recent_project;
+                            recent_title: root.sub2_recent_title;
+                            recent_tokens: root.sub2_recent_tokens;
+                        recent_time: root.sub2_recent_time;
+                        has_running_session: root.sub2_has_running;
+                        has_sessions: root.sub2_has_sessions;
+                        session_items: root.sub2_session_items;
+                            cache_size_text: root.sub2_cache_size_text;
+                            scale_text: root.sub2_scale_text;
+                            is_dark: root.is_dark;
+
+                            refresh_quota => { root.action_refresh_quota(2); }
+                            session_clicked => {
+                                root.session_modal_slot = 2;
+                                root.session_modal_visible = true;
+                                root.show_session_modal(2);
+                            }
+                            adjust_scale(delta) => { root.adjust_sub_scale(2, delta); }
+                            reset_scale => { root.reset_sub_scale(2); }
+                            launch => { root.action_launch_sub(2); }
+                            stop => { root.action_stop_sub(2); }
+                            clear_token => {
+                                root.confirm_modal_slot = 2;
+                                root.confirm_modal_visible = true;
+                            }
+                            open_sandbox => { root.action_open_sandbox(2); }
+                        }
+
+                        SubInstanceCard {
+                            slot: 3;
+                            title_text: "分身 3";
+                            instance_id_text: "instance_3";
+                            is_running: root.sub3_running;
+                            pid_text: root.sub3_pid;
+                            user_name: root.sub3_user_name;
+                            user_email: root.sub3_user_email;
+                            tier: root.sub3_tier;
+                            avatar: root.sub3_avatar;
+                            has_avatar: root.sub3_has_avatar;
+                            port_text: root.sub3_port;
+                            weekly_reset: root.sub3_weekly_reset;
+                            weekly_pct: root.sub3_weekly_text;
+                            weekly_ring: root.sub3_weekly_ring;
+                            five_h_reset: root.sub3_five_h_reset;
+                            five_h_pct: root.sub3_five_h_text;
+                            five_h_ring: root.sub3_five_h_ring;
+                            quota_refreshing: root.sub3_quota_refreshing;
+                            token_present: root.sub3_token_present;
+                            spin_angle: root.quota_spin_angle;
+                            cpu_text: root.sub3_cpu_text;
+                            ram_text: root.sub3_ram_text;
+                            session_count_text: root.sub3_session_count_text;
+                            recent_project: root.sub3_recent_project;
+                            recent_title: root.sub3_recent_title;
+                            recent_tokens: root.sub3_recent_tokens;
+                        recent_time: root.sub3_recent_time;
+                        has_running_session: root.sub3_has_running;
+                        has_sessions: root.sub3_has_sessions;
+                        session_items: root.sub3_session_items;
+                            cache_size_text: root.sub3_cache_size_text;
+                            scale_text: root.sub3_scale_text;
+                            is_dark: root.is_dark;
+
+                            refresh_quota => { root.action_refresh_quota(3); }
+                            session_clicked => {
+                                root.session_modal_slot = 3;
+                                root.session_modal_visible = true;
+                                root.show_session_modal(3);
+                            }
+                            adjust_scale(delta) => { root.adjust_sub_scale(3, delta); }
+                            reset_scale => { root.reset_sub_scale(3); }
+                            launch => { root.action_launch_sub(3); }
+                            stop => { root.action_stop_sub(3); }
+                            clear_token => {
+                                root.confirm_modal_slot = 3;
+                                root.confirm_modal_visible = true;
+                            }
+                            open_sandbox => { root.action_open_sandbox(3); }
+                        }
+
+                        SubInstanceCard {
+                            slot: 4;
+                            title_text: "分身 4";
+                            instance_id_text: "instance_4";
+                            is_running: root.sub4_running;
+                            pid_text: root.sub4_pid;
+                            user_name: root.sub4_user_name;
+                            user_email: root.sub4_user_email;
+                            tier: root.sub4_tier;
+                            avatar: root.sub4_avatar;
+                            has_avatar: root.sub4_has_avatar;
+                            port_text: root.sub4_port;
+                            weekly_reset: root.sub4_weekly_reset;
+                            weekly_pct: root.sub4_weekly_text;
+                            weekly_ring: root.sub4_weekly_ring;
+                            five_h_reset: root.sub4_five_h_reset;
+                            five_h_pct: root.sub4_five_h_text;
+                            five_h_ring: root.sub4_five_h_ring;
+                            quota_refreshing: root.sub4_quota_refreshing;
+                            token_present: root.sub4_token_present;
+                            spin_angle: root.quota_spin_angle;
+                            cpu_text: root.sub4_cpu_text;
+                            ram_text: root.sub4_ram_text;
+                            session_count_text: root.sub4_session_count_text;
+                            recent_project: root.sub4_recent_project;
+                            recent_title: root.sub4_recent_title;
+                            recent_tokens: root.sub4_recent_tokens;
+                        recent_time: root.sub4_recent_time;
+                        has_running_session: root.sub4_has_running;
+                        has_sessions: root.sub4_has_sessions;
+                        session_items: root.sub4_session_items;
+                            cache_size_text: root.sub4_cache_size_text;
+                            scale_text: root.sub4_scale_text;
+                            is_dark: root.is_dark;
+
+                            refresh_quota => { root.action_refresh_quota(4); }
+                            session_clicked => {
+                                root.session_modal_slot = 4;
+                                root.session_modal_visible = true;
+                                root.show_session_modal(4);
+                            }
+                            adjust_scale(delta) => { root.adjust_sub_scale(4, delta); }
+                            reset_scale => { root.reset_sub_scale(4); }
+                            launch => { root.action_launch_sub(4); }
+                            stop => { root.action_stop_sub(4); }
+                            clear_token => {
+                                root.confirm_modal_slot = 4;
+                                root.confirm_modal_visible = true;
+                            }
+                            open_sandbox => { root.action_open_sandbox(4); }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
         }
 
-        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-bottom: 10px;
+
+            StatusToolbar {
+                horizontal-stretch: 1;
+                is_dark: root.is_dark;
+                toast_text: root.toast_message;
+                uptime_text: root.host_uptime_text;
+                summary_text: root.global_summary_text;
+                proxy_text: root.proxy_badge_text;
+                launch_all => { root.action_launch_all(); }
+                stop_all => { root.action_stop_all(); }
+                refresh_telemetry => { root.action_refresh_telemetry(); }
+            }
+        }
     }
 
     ConfirmModal {

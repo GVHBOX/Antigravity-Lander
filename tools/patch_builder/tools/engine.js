@@ -96,7 +96,8 @@ function refreshCache(asarPath) {
     fs.mkdirSync(path.dirname(CACHE_ASAR), { recursive: true });
     const tmp = CACHE_ASAR + '.tmp';
     fs.copyFileSync(asarPath, tmp);
-    fs.renameSync(tmp, CACHE_ASAR);
+    fs.copyFileSync(tmp, CACHE_ASAR);
+    try { fs.unlinkSync(tmp); } catch {}
     writeCacheStamp(hostVersion(asarPath));
   } catch (err) {
     console.warn('警告: 离线汉化包缓存刷新失败:', err.message);
@@ -517,10 +518,15 @@ function extractTree(asarPath, bakPath) {
   stripModifications(EXTRACT_DIR);
 }
 
-function install(customPath) {
+function install(customPath, options = {}) {
+  const noKill = Boolean(options.noKill || process.argv.includes('--no-kill'));
   if (isAppRunning()) {
-    console.log('检测到正在运行的 Antigravity 进程，正在关闭...');
-    killApp();
+    if (noKill) {
+      console.log('检测到正在运行的 Antigravity 进程，按要求保持运行（不关闭）...');
+    } else {
+      console.log('检测到正在运行的 Antigravity 进程，正在关闭...');
+      killApp();
+    }
   }
 
   const resDir = resolveAppResourcesDir(customPath);
@@ -570,10 +576,15 @@ function repackTo(extractDir, asarPath) {
   try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch {}
 }
 
-function restore(customPath) {
+function restore(customPath, options = {}) {
+  const noKill = Boolean(options.noKill || process.argv.includes('--no-kill'));
   if (isAppRunning()) {
-    console.log('检测到正在运行的 Antigravity 进程，正在关闭...');
-    killApp();
+    if (noKill) {
+      console.log('检测到正在运行的 Antigravity 进程，按要求保持运行（不关闭）...');
+    } else {
+      console.log('检测到正在运行的 Antigravity 进程，正在关闭...');
+      killApp();
+    }
   }
 
   const resDir = resolveAppResourcesDir(customPath);
@@ -725,13 +736,19 @@ function buildPatchFile(targetFile) {
   applyModificationsToExtracted(EXTRACT_DIR);
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+  const tempAsar = path.join(WORKSPACE_DIR, 'app.asar.build_tmp');
+  if (fs.existsSync(tempAsar)) {
+    try { fs.unlinkSync(tempAsar); } catch {}
+  }
 
   console.log('正在打包到:', outPath);
-  execSync(`${getAsarCmd()} pack "${EXTRACT_DIR}" "${outPath}" --unpack-dir "**/chrome-devtools-mcp"`, { cwd: WORKSPACE_DIR });
+  execSync(`${getAsarCmd()} pack "${EXTRACT_DIR}" "${tempAsar}" --unpack-dir "**/chrome-devtools-mcp"`, { cwd: WORKSPACE_DIR });
 
-  const version = verifyAsar(outPath);
+  const version = verifyAsar(tempAsar);
+  fs.copyFileSync(tempAsar, outPath);
   if (path.resolve(outPath) === path.resolve(CACHE_ASAR)) writeCacheStamp(version);
+  try { fs.unlinkSync(tempAsar); } catch {}
+  try { fs.rmSync(tempAsar + '.unpacked', { recursive: true, force: true }); } catch {}
   try { fs.rmSync(EXTRACT_DIR, { recursive: true, force: true }); } catch {}
   reportMisses();
   console.log(`预编译汉化包构建完成: ${outPath} (适配桌面版 ${version})`);
@@ -746,10 +763,11 @@ if (pathIdx !== -1 && args[pathIdx + 1]) {
 }
 
 try {
+  const noKill = args.includes('--no-kill');
   if (args.includes('--install') || args.includes('--now')) {
-    install(customPath);
+    install(customPath, { noKill });
   } else if (args.includes('--restore') || args.includes('--uninstall')) {
-    restore(customPath);
+    restore(customPath, { noKill });
   } else if (args.includes('--status')) {
     status(customPath);
   } else if (args.includes('--build-patch')) {

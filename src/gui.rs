@@ -44,6 +44,28 @@ fn to_session_ui_model(groups: &[crate::session::SessionGroup]) -> slint::ModelR
     std::rc::Rc::new(slint::VecModel::from(ui_vec)).into()
 }
 
+fn to_recent_session_model(inst: &crate::session::InstanceSessions, limit: usize) -> slint::ModelRc<SessionUiItem> {
+    let mut rows: Vec<&crate::session::SessionItem> = inst.groups.iter().flat_map(|g| g.sessions.iter()).collect();
+    rows.sort_by_key(|s| s.last_updated_secs_ago);
+    let ui_vec: Vec<SessionUiItem> = rows
+        .into_iter()
+        .take(limit)
+        .map(|it| SessionUiItem {
+            is_group_header: false,
+            group_name: it.project_name.as_str().into(),
+            group_count_str: "".into(),
+            group_has_running: false,
+            id: if it.id.len() >= 8 { it.id[..8].into() } else { it.id.as_str().into() },
+            title: it.title.as_str().into(),
+            context_str: it.context_str.as_str().into(),
+            cache_rate_str: it.cache_rate_str.as_str().into(),
+            time_ago_str: it.time_ago_str.as_str().into(),
+            is_running: it.is_running,
+        })
+        .collect();
+    std::rc::Rc::new(slint::VecModel::from(ui_vec)).into()
+}
+
 fn apply_quota_to_ui(
     state: Option<&InstanceQuotaState>,
     is_dark: bool,
@@ -345,6 +367,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let _ = LauncherConfig::ensure_all_sandboxes();
     let sub_pids = Arc::new(Mutex::new([None::<u32>; 4]));
     let monitor = Arc::new(Mutex::new(TelemetryMonitor::new()));
+    {
+        let mut initial_mon = monitor.lock().unwrap();
+        initial_mon.refresh([None, None, None, None]);
+    }
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
@@ -567,12 +593,22 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let is_launching_all = Arc::new(std::sync::atomic::AtomicBool::new(false));
     main_window.on_action_launch_all({
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
+        let is_launching = Arc::clone(&is_launching_all);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
+            if is_launching.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
+                return;
+            }
+            let ui_weak_thread = ui_weak.clone();
+            let mon_arc = Arc::clone(&mon_arc);
+            let sub_pids = Arc::clone(&sub_pids);
+            let is_launching_thread = Arc::clone(&is_launching);
+
+            std::thread::spawn(move || {
                 let mut started = 0;
                 let is_host_running = mon_arc.lock().unwrap().host.is_running;
                 if !is_host_running {
@@ -597,17 +633,32 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         }
                     }
                 }
-                ui.set_toast_message(format!("已启动 {} 个实例", started).into());
-            }
+                is_launching_thread.store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak_thread.upgrade() {
+                        ui.set_toast_message(format!("已启动 {} 个实例", started).into());
+                    }
+                });
+            });
         }
     });
 
+    let is_stopping_all = Arc::new(std::sync::atomic::AtomicBool::new(false));
     main_window.on_action_stop_all({
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
+        let is_stopping = Arc::clone(&is_stopping_all);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
+            if is_stopping.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
+                return;
+            }
+            let ui_weak_thread = ui_weak.clone();
+            let mon_arc = Arc::clone(&mon_arc);
+            let sub_pids = Arc::clone(&sub_pids);
+            let is_stopping_thread = Arc::clone(&is_stopping);
+
+            std::thread::spawn(move || {
                 let _ = LauncherConfig::kill_all_antigravity();
                 {
                     let mut pids = sub_pids.lock().unwrap();
@@ -624,8 +675,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         s.electron_pid = None;
                     }
                 }
-                ui.set_toast_message("已停止全部运行中实例".into());
-            }
+                is_stopping_thread.store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak_thread.upgrade() {
+                        ui.set_toast_message("已停止全部运行中实例".into());
+                    }
+                });
+            });
         }
     });
 
@@ -634,11 +690,18 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
+            let ui_weak_thread = ui_weak.clone();
+            let mon_arc = Arc::clone(&mon_arc);
+            let sub_pids = Arc::clone(&sub_pids);
+            std::thread::spawn(move || {
                 let known_subs = *sub_pids.lock().unwrap();
                 mon_arc.lock().unwrap().refresh(known_subs);
-                ui.set_toast_message("遥测数据已刷新".into());
-            }
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak_thread.upgrade() {
+                        ui.set_toast_message("遥测数据已刷新".into());
+                    }
+                });
+            });
         }
     });
 
@@ -1380,9 +1443,29 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let timer = Timer::default();
     let ui_weak_mon = main_window.as_weak();
     let monitor_timer = Arc::clone(&monitor);
-    let sub_pids_mon = Arc::clone(&sub_pids);
     let sessions_store_timer = Arc::clone(&sessions_store);
     let live_session_slot_timer = Arc::clone(&live_session_slot);
+
+    let monitor_bg = Arc::clone(&monitor);
+    let sub_pids_bg = Arc::clone(&sub_pids);
+    std::thread::spawn(move || {
+        loop {
+            let known_subs = *sub_pids_bg.lock().unwrap();
+            {
+                let mut mon = monitor_bg.lock().unwrap();
+                mon.refresh(known_subs);
+                let mut pids = sub_pids_bg.lock().unwrap();
+                for i in 0..4 {
+                    if let Some(pid) = mon.subs[i].electron_pid {
+                        pids[i] = Some(pid);
+                    } else if !mon.subs[i].is_running {
+                        pids[i] = None;
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+    });
 
     #[cfg(windows)]
     let restore_timer = Timer::default();
@@ -1465,18 +1548,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
-            let mut mon = monitor_timer.lock().unwrap();
-            let known_subs = *sub_pids_mon.lock().unwrap();
-            mon.refresh(known_subs);
-
-            let mut pids = sub_pids_mon.lock().unwrap();
-            for i in 0..4 {
-                if let Some(pid) = mon.subs[i].electron_pid {
-                    pids[i] = Some(pid);
-                } else if !mon.subs[i].is_running {
-                    pids[i] = None;
-                }
-            }
+            let mon = monitor_timer.lock().unwrap();
 
             ui.set_host_running(mon.host.is_running);
             ui.set_host_pid(mon.host.electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
@@ -1748,6 +1820,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_recent_title(h_title.into());
             ui.set_host_recent_tokens(h_t.into());
             ui.set_host_recent_time(h_time.into());
+            ui.set_host_session_items(to_recent_session_model(&host_sessions, 16));
 
             ui.set_sub1_summary_text(sub1_sessions.summary_text.as_str().into());
             ui.set_sub1_has_running(sub1_sessions.has_running);
@@ -1758,6 +1831,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub1_recent_title(s1_title.into());
             ui.set_sub1_recent_tokens(s1_t.into());
             ui.set_sub1_recent_time(s1_time.into());
+            ui.set_sub1_session_items(to_recent_session_model(&sub1_sessions, 16));
 
             ui.set_sub2_summary_text(sub2_sessions.summary_text.as_str().into());
             ui.set_sub2_has_running(sub2_sessions.has_running);
@@ -1768,6 +1842,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub2_recent_title(s2_title.into());
             ui.set_sub2_recent_tokens(s2_t.into());
             ui.set_sub2_recent_time(s2_time.into());
+            ui.set_sub2_session_items(to_recent_session_model(&sub2_sessions, 16));
 
             ui.set_sub3_summary_text(sub3_sessions.summary_text.as_str().into());
             ui.set_sub3_has_running(sub3_sessions.has_running);
@@ -1778,6 +1853,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub3_recent_title(s3_title.into());
             ui.set_sub3_recent_tokens(s3_t.into());
             ui.set_sub3_recent_time(s3_time.into());
+            ui.set_sub3_session_items(to_recent_session_model(&sub3_sessions, 16));
 
             ui.set_sub4_summary_text(sub4_sessions.summary_text.as_str().into());
             ui.set_sub4_has_running(sub4_sessions.has_running);
@@ -1788,6 +1864,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub4_recent_title(s4_title.into());
             ui.set_sub4_recent_tokens(s4_t.into());
             ui.set_sub4_recent_time(s4_time.into());
+            ui.set_sub4_session_items(to_recent_session_model(&sub4_sessions, 16));
 
             let is_modal_visible = ui.get_session_modal_visible();
             let current_modal_slot = ui.get_session_modal_slot() as usize;

@@ -189,11 +189,7 @@ fn extract_host_offline_profile(base_dir: &Path) -> Option<AccountProfile> {
     }
     let default_avatar = base_dir.join("data").join("avatars").join("host.png");
     Some(AccountProfile {
-        name: if email.contains("hzm") || email.contains("175760") {
-            "Jimmii He".to_string()
-        } else {
-            email.split('@').next().unwrap_or("Host").to_string()
-        },
+        name: email.split('@').next().unwrap_or("Host").to_string(),
         email: email.to_string(),
         tier: "Pro".to_string(),
         avatar_path: if default_avatar.exists() { Some(default_avatar) } else { None },

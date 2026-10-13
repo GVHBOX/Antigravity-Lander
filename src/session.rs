@@ -4,6 +4,7 @@ use std::ffi::{c_char, c_void, CStr, CString};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
 
 type OpenFn = unsafe extern "C" fn(*const c_char, *mut *mut c_void, i32, *const c_char) -> i32;
@@ -17,7 +18,47 @@ type CloseFn = unsafe extern "C" fn(*mut c_void) -> i32;
 unsafe extern "system" {
     fn LoadLibraryA(lpLibFileName: *const c_char) -> *mut c_void;
     fn GetProcAddress(hModule: *mut c_void, lpProcName: *const c_char) -> *mut c_void;
-    fn FreeLibrary(hModule: *mut c_void) -> i32;
+}
+
+struct SqliteFunctions {
+    open: OpenFn,
+    prep: PrepareFn,
+    step: StepFn,
+    col: ColumnTextFn,
+    col_int: ColumnIntFn,
+    fin: FinalizeFn,
+    close: CloseFn,
+}
+
+unsafe impl Send for SqliteFunctions {}
+unsafe impl Sync for SqliteFunctions {}
+
+static SQLITE_FUNCS: OnceLock<Option<SqliteFunctions>> = OnceLock::new();
+
+fn get_sqlite_funcs() -> Option<&'static SqliteFunctions> {
+    SQLITE_FUNCS.get_or_init(|| {
+        unsafe {
+            let handle = LoadLibraryA(c"winsqlite3.dll".as_ptr());
+            if handle.is_null() {
+                return None;
+            }
+            let open_fn: Option<OpenFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_open_v2".as_ptr()));
+            let prep_fn: Option<PrepareFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_prepare_v2".as_ptr()));
+            let step_fn: Option<StepFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_step".as_ptr()));
+            let col_fn: Option<ColumnTextFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_text".as_ptr()));
+            let col_int_fn: Option<ColumnIntFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_int".as_ptr()));
+            let fin_fn: Option<FinalizeFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_finalize".as_ptr()));
+            let close_fn: Option<CloseFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_close".as_ptr()));
+
+            if let (Some(open), Some(prep), Some(step), Some(col), Some(col_int), Some(fin), Some(close)) =
+                (open_fn, prep_fn, step_fn, col_fn, col_int_fn, fin_fn, close_fn)
+            {
+                Some(SqliteFunctions { open, prep, step, col, col_int, fin, close })
+            } else {
+                None
+            }
+        }
+    }).as_ref()
 }
 
 #[derive(Clone, Debug, Default)]
@@ -83,7 +124,7 @@ struct TailStep {
     output_tokens: Option<u64>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct TailMetrics {
     input_tokens: u64,
     cache_read_tokens: u64,
@@ -95,6 +136,24 @@ struct TailMetrics {
     round_tps: f32,
     recent_tps: [f32; 8],
     file_step_count: u32,
+}
+
+static TAIL_CACHE: Mutex<Option<HashMap<String, (u64, SystemTime, TailMetrics)>>> = Mutex::new(None);
+
+fn get_or_parse_tail_metrics(uuid: &str, log_path: &Path, len: u64, mtime: SystemTime) -> TailMetrics {
+    let mut cache_guard = TAIL_CACHE.lock().unwrap();
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+    if let Some((c_len, c_mtime, metrics)) = cache.get(uuid) {
+        if *c_len == len && *c_mtime == mtime {
+            return metrics.clone();
+        }
+    }
+    let metrics = parse_tail_metrics(log_path, len);
+    if cache.len() > 512 {
+        cache.clear();
+    }
+    cache.insert(uuid.to_string(), (len, mtime, metrics.clone()));
+    metrics
 }
 
 #[derive(Deserialize)]
@@ -343,56 +402,42 @@ fn load_db_sessions(db_path: &Path) -> HashMap<String, DbMeta> {
     let db_str = db_path.to_string_lossy().to_string();
     let Ok(c_path) = CString::new(db_str) else { return map };
 
+    let Some(funcs) = get_sqlite_funcs() else {
+        return map;
+    };
+
     unsafe {
-        let handle = LoadLibraryA(c"winsqlite3.dll".as_ptr());
-        if handle.is_null() {
-            return map;
-        }
+        let mut db: *mut c_void = std::ptr::null_mut();
+        let rc = (funcs.open)(c_path.as_ptr(), &mut db, 1, std::ptr::null());
+        if rc == 0 {
+            let query = c"SELECT conversation_id, title, project_id, workspace_uris, status, not_fully_idle, step_count FROM conversation_summaries";
+            let mut stmt: *mut c_void = std::ptr::null_mut();
+            if (funcs.prep)(db, query.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) == 0 {
+                while (funcs.step)(stmt) == 100 {
+                    let id_p = (funcs.col)(stmt, 0);
+                    let title_p = (funcs.col)(stmt, 1);
+                    let proj_p = (funcs.col)(stmt, 2);
+                    let ws_p = (funcs.col)(stmt, 3);
+                    let status_p = (funcs.col)(stmt, 4);
 
-        let open_fn: Option<OpenFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_open_v2".as_ptr()));
-        let prep_fn: Option<PrepareFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_prepare_v2".as_ptr()));
-        let step_fn: Option<StepFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_step".as_ptr()));
-        let col_fn: Option<ColumnTextFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_text".as_ptr()));
-        let col_int_fn: Option<ColumnIntFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_column_int".as_ptr()));
-        let fin_fn: Option<FinalizeFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_finalize".as_ptr()));
-        let close_fn: Option<CloseFn> = std::mem::transmute(GetProcAddress(handle, c"sqlite3_close".as_ptr()));
+                    let id = if !id_p.is_null() { CStr::from_ptr(id_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                    let title = if !title_p.is_null() { CStr::from_ptr(title_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                    let project_id = if !proj_p.is_null() { CStr::from_ptr(proj_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                    let workspace_uris = if !ws_p.is_null() { CStr::from_ptr(ws_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                    let status = if !status_p.is_null() { CStr::from_ptr(status_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
+                    let not_fully_idle = (funcs.col_int)(stmt, 5) != 0;
+                    let step_count = (funcs.col_int)(stmt, 6).max(0) as u32;
 
-        if let (Some(open), Some(prep), Some(step), Some(col), Some(col_int), Some(fin), Some(close)) =
-            (open_fn, prep_fn, step_fn, col_fn, col_int_fn, fin_fn, close_fn)
-        {
-            let mut db: *mut c_void = std::ptr::null_mut();
-            let rc = open(c_path.as_ptr(), &mut db, 1, std::ptr::null());
-            if rc == 0 {
-                let query = c"SELECT conversation_id, title, project_id, workspace_uris, status, not_fully_idle, step_count FROM conversation_summaries";
-                let mut stmt: *mut c_void = std::ptr::null_mut();
-                if prep(db, query.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) == 0 {
-                    while step(stmt) == 100 {
-                        let id_p = col(stmt, 0);
-                        let title_p = col(stmt, 1);
-                        let proj_p = col(stmt, 2);
-                        let ws_p = col(stmt, 3);
-                        let status_p = col(stmt, 4);
-
-                        let id = if !id_p.is_null() { CStr::from_ptr(id_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
-                        let title = if !title_p.is_null() { CStr::from_ptr(title_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
-                        let project_id = if !proj_p.is_null() { CStr::from_ptr(proj_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
-                        let workspace_uris = if !ws_p.is_null() { CStr::from_ptr(ws_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
-                        let status = if !status_p.is_null() { CStr::from_ptr(status_p as *const c_char).to_string_lossy().to_string() } else { String::new() };
-                        let not_fully_idle = col_int(stmt, 5) != 0;
-                        let step_count = col_int(stmt, 6).max(0) as u32;
-
-                        if !id.is_empty() {
-                            map.insert(id, DbMeta { title, project_id, workspace_uris, status, not_fully_idle, step_count });
-                        }
+                    if !id.is_empty() {
+                        map.insert(id, DbMeta { title, project_id, workspace_uris, status, not_fully_idle, step_count });
                     }
-                    fin(stmt);
                 }
-            }
-            if !db.is_null() {
-                close(db);
+                (funcs.fin)(stmt);
             }
         }
-        FreeLibrary(handle);
+        if !db.is_null() {
+            (funcs.close)(db);
+        }
     }
     map
 }
@@ -514,7 +559,7 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             "其他会话".to_string()
         };
 
-        let tail = parse_tail_metrics(&log_path, len);
+        let tail = get_or_parse_tail_metrics(&uuid, &log_path, len, mtime);
 
         let is_running_db = if let Some(m) = db_meta {
             (m.status == "CASCADE_RUN_STATUS_RUNNING" || m.not_fully_idle) && secs_ago <= 60

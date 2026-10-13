@@ -124,5 +124,17 @@
   "commit": "提交",
   "staged": "已暂存",
   "stage": "暂存",
-  "unstage": "取消暂存"
+  "unstage": "取消暂存",
+  "environment": "环境",
+  "environments": "环境",
+  "quick": "快速",
+  "record": "录制",
+  "audio": "音频",
+  "sort": "排序",
+  "order": "顺序",
+  "custom": "自定义",
+  "ago": "前",
+  "used": "已使用",
+  "skill": "技能",
+  "skills": "技能"
 }
