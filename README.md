@@ -6,9 +6,9 @@
 
 **Antigravity 实例调度与遥测中枢**
 
-[![CI](https://github.com/GVHBOX/multi-antigravity/actions/workflows/ci.yml/badge.svg)](https://github.com/GVHBOX/multi-antigravity/actions/workflows/ci.yml)
+[![CI](https://github.com/GVHBOX/Antigravity-Lander/actions/workflows/ci.yml/badge.svg)](https://github.com/GVHBOX/Antigravity-Lander/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)](https://github.com/GVHBOX/multi-antigravity)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)](https://github.com/GVHBOX/Antigravity-Lander)
 [![Rust](https://img.shields.io/badge/Rust-2024%20Edition-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![UI](https://img.shields.io/badge/UI-Slint%20Native-00599C)](https://slint.dev/)
 

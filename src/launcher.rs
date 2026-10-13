@@ -185,9 +185,21 @@ impl LauncherConfig {
     pub fn resolve_base_dir() -> Result<PathBuf> {
         if let Ok(exe_path) = env::current_exe() {
             if let Some(exe_dir) = exe_path.parent() {
+                let mut check_dir = Some(exe_dir);
+                while let Some(dir) = check_dir {
+                    if dir.file_name().map(|n| n == "target").unwrap_or(false) {
+                        if let Some(project_root) = dir.parent() {
+                            if project_root.join("data").exists()
+                                || project_root.join("Cargo.toml").exists()
+                            {
+                                return Ok(project_root.to_path_buf());
+                            }
+                        }
+                    }
+                    check_dir = dir.parent();
+                }
                 if exe_dir.join("data").exists()
                     || exe_dir.join("Antigravity-Lander.exe").exists()
-                    || exe_dir.join("antigravity-lander.exe").exists()
                 {
                     return Ok(exe_dir.to_path_buf());
                 }
