@@ -1,0 +1,75 @@
+export component CompactButton inherits Rectangle {
+    in property <string> text;
+    in property <color> btn_color: #38bdf8;
+    in property <color> text_color: (ta.has_hover ? #ffffff : root.btn_color);
+    in property <color> ghost_bg: root.btn_color == #10b981 ? rgba(16, 185, 129, 0.14) : (root.btn_color == #f43f5e ? rgba(244, 63, 94, 0.15) : rgba(56, 189, 248, 0.14));
+    in property <bool> is_dark: true;
+    in property <bool> is_disabled: false;
+    in property <length> btn_height: 28px;
+    callback clicked();
+
+    background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(10%) : (ta.has_hover ? btn_color : root.ghost_bg));
+    border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : btn_color;
+    border-width: 1px;
+    border-radius: 6px;
+    height: root.btn_height;
+
+    animate background { duration: 150ms; easing: ease-out; }
+    animate border-color { duration: 150ms; easing: ease-out; }
+
+    ta := TouchArea {
+        enabled: !root.is_disabled;
+        clicked => { root.clicked(); }
+        mouse-cursor: root.is_disabled ? default : pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
+            font-size: 13px;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            animate color { duration: 150ms; easing: ease-out; }
+        }
+    }
+}
+
+export component OutlineButton inherits Rectangle {
+    in property <string> text;
+    in property <color> hover_color: #38bdf8;
+    in property <bool> is_dark: true;
+    in property <bool> is_disabled: false;
+    in property <length> btn_height: 26px;
+    callback clicked();
+
+    background: is_disabled ? (root.is_dark ? #090e1c : #f8fafc) : (ta.pressed ? (root.is_dark ? #1e293b : #e2e8f0) : (ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc)));
+    border-color: is_disabled ? (root.is_dark ? #162032 : #e2e8f0) : (ta.has_hover ? hover_color : (root.is_dark ? #1e293b : #cbd5e1));
+    border-width: 1px;
+    border-radius: 5px;
+    height: root.btn_height;
+
+    ta := TouchArea {
+        enabled: !root.is_disabled;
+        clicked => { root.clicked(); }
+        mouse-cursor: root.is_disabled ? default : pointer;
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? hover_color : (root.is_dark ? #94a3b8 : #475569));
+            font-size: 11.5px;
+            font-weight: 600;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}

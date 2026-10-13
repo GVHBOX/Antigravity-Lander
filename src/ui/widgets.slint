@@ -1,0 +1,510 @@
+export component MiniMetricBox inherits Rectangle {
+    in property <string> label;
+    in property <string> val_text;
+    in property <color> val_color: transparent;
+    in property <bool> is_dark: true;
+
+    background: root.is_dark ? #0d1527 : #ffffff;
+    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+    border-width: 1px;
+    border-radius: 5px;
+    height: 32px;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+
+        Text {
+            text: root.label;
+            color: root.is_dark ? #64748b : #94a3b8;
+            font-size: 10px;
+            font-family: "Cascadia Mono";
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.val_text;
+            color: root.val_color != transparent ? root.val_color : (root.val_text == "--" ? (root.is_dark ? #475569 : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a));
+            font-size: 12px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+            horizontal-alignment: center;
+        }
+    }
+}
+
+export component PatchItemRow inherits Rectangle {
+    in property <string> title;
+    in property <string> status_text;
+    in property <bool> is_installed: false;
+    in property <string> btn_text;
+    in property <bool> is_dark: true;
+    callback btn_clicked();
+
+    background: root.is_dark ? #090e1c : #f8fafc;
+    border-color: root.is_dark ? #162032 : #e2e8f0;
+    border-width: 1px;
+    border-radius: 6px;
+    height: 46px;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        alignment: space-between;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+
+            Text {
+                text: root.title;
+                color: root.is_dark ? #f8fafc : #0f172a;
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            HorizontalLayout {
+                spacing: 5px;
+                Rectangle {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: root.is_installed ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                    y: (parent.height - 6px) / 2;
+                }
+                Text {
+                    text: root.status_text;
+                    color: root.is_installed ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 11px;
+                    font-family: "Cascadia Mono";
+                }
+            }
+        }
+
+        Rectangle {
+            width: 68px;
+            height: 28px;
+            y: (parent.height - 28px) / 2;
+            background: root.is_installed ? (ta.has_hover ? #f43f5e : rgba(244, 63, 94, 0.15)) : (ta.has_hover ? #34d399 : #10b981);
+            border-color: root.is_installed ? #f43f5e : #10b981;
+            border-width: 1px;
+            border-radius: 5px;
+
+            animate background { duration: 150ms; easing: ease-out; }
+
+            ta := TouchArea {
+                clicked => { root.btn_clicked(); }
+                mouse-cursor: pointer;
+            }
+
+            Text {
+                text: root.btn_text;
+                color: root.is_installed ? (ta.has_hover ? #ffffff : #f43f5e) : #ffffff;
+                font-size: 11.5px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                animate color { duration: 150ms; easing: ease-out; }
+            }
+        }
+    }
+}
+
+export component UserProfileRow inherits Rectangle {
+    in property <string> user_name: "--";
+    in property <string> user_email: "--";
+    in property <string> tier: "";
+    in property <image> avatar;
+    in property <bool> has_avatar: false;
+    in property <string> port_text: "";
+    in property <bool> is_dark: true;
+
+    background: root.is_dark ? #090e1c : #f8fafc;
+    border-color: root.is_dark ? #162032 : #e2e8f0;
+    border-width: 1px;
+    border-radius: 6px;
+    height: 34px;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        spacing: 9px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 9px;
+            alignment: start;
+
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: 14px;
+                clip: true;
+                background: root.is_dark ? #141c2b : #e2e8f0;
+                y: (parent.height - 28px) / 2;
+
+                if root.has_avatar : Image {
+                    source: root.avatar;
+                    width: 100%;
+                    height: 100%;
+                }
+                if !root.has_avatar : Text {
+                    text: root.user_name != "" && root.user_name != "--" ? "ID" : "--";
+                    font-size: 11px;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+
+                HorizontalLayout {
+                    spacing: 5px;
+                    alignment: start;
+
+                    Text {
+                        text: root.user_name == "--" ? "未登录账号" : root.user_name;
+                        color: root.user_name == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
+                        font-size: 13px;
+                        font-weight: 700;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+
+                    if root.tier != "" : Rectangle {
+                        background: root.is_dark ? rgba(16, 185, 129, 0.15) : rgba(16, 185, 129, 0.18);
+                        border-color: root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4);
+                        border-width: 1px;
+                        border-radius: 3px;
+                        height: 16px;
+                        y: (parent.height - 16px) / 2;
+
+                        HorizontalLayout {
+                            padding-left: 5px;
+                            padding-right: 5px;
+                            alignment: center;
+                            Text {
+                                text: root.tier;
+                                color: root.is_dark ? #34d399 : #059669;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: root.user_name == "--" ? "首次启动自动派生沙箱" : root.user_email;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 11px;
+                    font-family: root.user_name == "--" ? "" : "Cascadia Mono";
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Text {
+            text: root.port_text != "" ? (":" + root.port_text) : ":--";
+            color: root.port_text != "" ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
+            font-size: 11.5px;
+            font-family: "Cascadia Mono";
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component QuotaRefreshButton inherits Rectangle {
+    in property <bool> is_refreshing: false;
+    in property <bool> is_disabled: false;
+    in property <bool> is_dark: true;
+    in property <angle> spin_angle: 0deg;
+    callback clicked();
+
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border-width: 1px;
+    background: is_disabled ? (root.is_dark ? rgba(30, 41, 59, 0.4) : rgba(226, 232, 240, 0.5)) : (ta.has_hover && !root.is_refreshing ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
+    border-color: is_disabled ? (root.is_dark ? rgba(51, 65, 85, 0.4) : rgba(203, 213, 225, 0.5)) : (root.is_dark ? #334155 : #cbd5e1);
+
+    animate background { duration: 150ms; }
+    animate border-color { duration: 150ms; }
+
+    ta := TouchArea {
+        enabled: !root.is_disabled && !root.is_refreshing;
+        mouse-cursor: (root.is_disabled || root.is_refreshing) ? default : pointer;
+        clicked => { root.clicked(); }
+    }
+
+    Image {
+        width: 11px;
+        height: 11px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: @image-url("../../assets/refresh.svg");
+        colorize: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #cbd5e1 : #475569));
+        transform-rotation: root.spin_angle;
+    }
+}
+
+export component SubQuotaCompactBox inherits Rectangle {
+    in property <string> weekly_reset: "";
+    in property <string> weekly_pct: "--";
+    in property <image> weekly_ring;
+    in property <string> five_h_reset: "";
+    in property <string> five_h_pct: "--";
+    in property <image> five_h_ring;
+    in property <bool> is_dark: true;
+    in property <bool> is_refreshing: false;
+    in property <bool> is_refresh_disabled: false;
+    in property <angle> spin_angle: 0deg;
+    callback refresh_clicked();
+
+    background: root.is_dark ? #0d1527 : #ffffff;
+    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+    border-width: 1px;
+    border-radius: 6px;
+    height: 68px;
+
+    VerticalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 2px;
+
+        HorizontalLayout {
+            height: 18px;
+            alignment: start;
+            spacing: 6px;
+
+            Text {
+                text: "Gemini 模型";
+                color: root.is_dark ? #94a3b8 : #64748b;
+                font-size: 10.5px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+
+            QuotaRefreshButton {
+                is_refreshing: root.is_refreshing;
+                is_disabled: root.is_refresh_disabled;
+                is_dark: root.is_dark;
+                spin_angle: root.spin_angle;
+                clicked => { root.refresh_clicked(); }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            height: 16px;
+
+            HorizontalLayout {
+                spacing: 5px;
+                alignment: start;
+                Text {
+                    text: "每周限额";
+                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+                if root.weekly_reset != "" : Text {
+                    text: root.weekly_reset;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+                if root.weekly_reset == "" && root.weekly_pct == "--" : Text {
+                    text: "等待同步";
+                    color: root.is_dark ? #334155 : #cbd5e1;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: end;
+                Text {
+                    text: root.weekly_pct;
+                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
+                    font-size: 11.5px;
+                    font-family: "Cascadia Mono";
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Image {
+                    source: root.weekly_ring;
+                    width: 16px;
+                    height: 16px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            height: 16px;
+
+            HorizontalLayout {
+                spacing: 5px;
+                alignment: start;
+                Text {
+                    text: "5小时限额";
+                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+                if root.five_h_reset != "" : Text {
+                    text: root.five_h_reset;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+                if root.five_h_reset == "" && root.five_h_pct == "--" : Text {
+                    text: "等待同步";
+                    color: root.is_dark ? #334155 : #cbd5e1;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: end;
+                Text {
+                    text: root.five_h_pct;
+                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
+                    font-size: 11.5px;
+                    font-family: "Cascadia Mono";
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Image {
+                    source: root.five_h_ring;
+                    width: 16px;
+                    height: 16px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+export component SubScaleCacheRow inherits Rectangle {
+    in property <string> cache_text: "缓存 0 MB";
+    in property <string> scale_text: "100%";
+    in property <bool> is_dark: true;
+    callback dec_clicked();
+    callback inc_clicked();
+    callback reset_clicked();
+
+    height: 20px;
+
+    HorizontalLayout {
+        alignment: space-between;
+
+        Text {
+            text: root.cache_text;
+            color: root.is_dark ? #64748b : #94a3b8;
+            font-size: 11px;
+            font-family: "Cascadia Mono";
+            vertical-alignment: center;
+        }
+
+        HorizontalLayout {
+            spacing: 3px;
+            alignment: end;
+
+            Text {
+                text: "界面";
+                color: root.is_dark ? #64748b : #94a3b8;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                background: b_dec.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
+                border-color: root.is_dark ? #334155 : #cbd5e1;
+                border-width: 1px;
+                y: (parent.height - 20px) / 2;
+                b_dec := TouchArea {
+                    clicked => { root.dec_clicked(); }
+                    mouse-cursor: pointer;
+                }
+                Text {
+                    text: "-";
+                    color: root.is_dark ? #cbd5e1 : #334155;
+                    font-size: 12px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+
+            Rectangle {
+                height: 20px;
+                border-radius: 4px;
+                background: b_reset.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #ffffff);
+                border-color: root.is_dark ? #334155 : #cbd5e1;
+                border-width: 1px;
+                y: (parent.height - 20px) / 2;
+                b_reset := TouchArea {
+                    clicked => { root.reset_clicked(); }
+                    mouse-cursor: pointer;
+                }
+                HorizontalLayout {
+                    padding-left: 5px;
+                    padding-right: 5px;
+                    alignment: center;
+                    Text {
+                        text: root.scale_text;
+                        color: root.is_dark ? #38bdf8 : #0284c7;
+                        font-size: 11.5px;
+                        font-family: "Cascadia Mono";
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                background: b_inc.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
+                border-color: root.is_dark ? #334155 : #cbd5e1;
+                border-width: 1px;
+                y: (parent.height - 20px) / 2;
+                b_inc := TouchArea {
+                    clicked => { root.inc_clicked(); }
+                    mouse-cursor: pointer;
+                }
+                Text {
+                    text: "+";
+                    color: root.is_dark ? #cbd5e1 : #334155;
+                    font-size: 12px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+}

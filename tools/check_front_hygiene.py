@@ -24,7 +24,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
-TARGETS = ["src/*.slint", "src/*.rs"]
+TARGETS = ["src/**/*.slint", "src/**/*.rs"]
 
 BANNED_WORDS = (
     "点击", "请选择", "您可以", "建议", "试试", "请注意",

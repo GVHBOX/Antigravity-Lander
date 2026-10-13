@@ -1,0 +1,37 @@
+export component FolderIcon inherits Path {
+    in property <color> icon_color: #38bdf8;
+    width: 13px;
+    height: 11px;
+    commands: "M 1 2 L 4.5 2 L 6 3.5 L 12 3.5 C 12.5 3.5 13 4 13 4.5 L 13 9.5 C 13 10 12.5 10.5 12 10.5 L 1 10.5 C 0.5 10.5 0 10 0 9.5 L 0 3 C 0 2.5 0.5 2 1 2 Z";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+    fill: transparent;
+}
+
+export component PinIcon inherits Path {
+    in property <color> icon_color: #64748b;
+    width: 12px;
+    height: 12px;
+    commands: "M 2.5 2 L 9.5 2 M 3.5 2 L 3.5 5 L 2 7 L 10 7 L 8.5 5 L 8.5 2 M 6 7 L 6 11.5";
+    stroke: root.icon_color;
+    stroke-width: 1.2px;
+}
+
+export component SunIcon inherits Path {
+    in property <color> icon_color: #f8fafc;
+    width: 13px;
+    height: 13px;
+    commands: "M 6.5 4 A 2.5 2.5 0 1 0 6.5 9 A 2.5 2.5 0 1 0 6.5 4 M 6.5 1 L 6.5 2.5 M 6.5 10.5 L 6.5 12 M 1 6.5 L 2.5 6.5 M 10.5 6.5 L 12 6.5 M 2.6 2.6 L 3.7 3.7 M 9.3 9.3 L 10.4 10.4 M 2.6 10.4 L 3.7 9.3 M 9.3 3.7 L 10.4 2.6";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+}
+
+export component MoonIcon inherits Path {
+    in property <color> icon_color: #0f172a;
+    width: 13px;
+    height: 13px;
+    commands: "M 10 8 A 4.2 4.2 0 1 1 4.5 2 A 3.5 3.5 0 0 0 10 8 Z";
+    stroke: root.icon_color;
+    stroke-width: 1.1px;
+    fill: transparent;
+}

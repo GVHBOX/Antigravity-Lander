@@ -1,6 +1,7 @@
 fn main() {
     println!("cargo:rerun-if-changed=assets/icon.ico");
     println!("cargo:rerun-if-changed=src/cockpit.slint");
+    println!("cargo:rerun-if-changed=src/ui");
     println!("cargo:rerun-if-changed=build.rs");
 
     slint_build::compile("src/cockpit.slint").expect("Failed to compile Slint UI specification");

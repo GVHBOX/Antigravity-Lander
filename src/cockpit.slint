@@ -1,922 +1,12 @@
-import { ScrollView } from "std-widgets.slint";
-
-export struct SessionUiItem {
-    is_group_header: bool,
-    group_name: string,
-    group_count_str: string,
-    group_has_running: bool,
-    id: string,
-    title: string,
-    context_str: string,
-    cache_rate_str: string,
-    time_ago_str: string,
-    is_running: bool,
-}
-component FolderIcon inherits Path {
-    in property <color> icon_color: #38bdf8;
-    width: 13px;
-    height: 11px;
-    commands: "M 1 2 L 4.5 2 L 6 3.5 L 12 3.5 C 12.5 3.5 13 4 13 4.5 L 13 9.5 C 13 10 12.5 10.5 12 10.5 L 1 10.5 C 0.5 10.5 0 10 0 9.5 L 0 3 C 0 2.5 0.5 2 1 2 Z";
-    stroke: root.icon_color;
-    stroke-width: 1.1px;
-    fill: transparent;
-}
-
-component PinIcon inherits Path {
-    in property <color> icon_color: #64748b;
-    width: 12px;
-    height: 12px;
-    commands: "M 2.5 2 L 9.5 2 M 3.5 2 L 3.5 5 L 2 7 L 10 7 L 8.5 5 L 8.5 2 M 6 7 L 6 11.5";
-    stroke: root.icon_color;
-    stroke-width: 1.2px;
-}
-
-component SunIcon inherits Path {
-    in property <color> icon_color: #f8fafc;
-    width: 13px;
-    height: 13px;
-    commands: "M 6.5 4 A 2.5 2.5 0 1 0 6.5 9 A 2.5 2.5 0 1 0 6.5 4 M 6.5 1 L 6.5 2.5 M 6.5 10.5 L 6.5 12 M 1 6.5 L 2.5 6.5 M 10.5 6.5 L 12 6.5 M 2.6 2.6 L 3.7 3.7 M 9.3 9.3 L 10.4 10.4 M 2.6 10.4 L 3.7 9.3 M 9.3 3.7 L 10.4 2.6";
-    stroke: root.icon_color;
-    stroke-width: 1.1px;
-}
-
-component MoonIcon inherits Path {
-    in property <color> icon_color: #0f172a;
-    width: 13px;
-    height: 13px;
-    commands: "M 10 8 A 4.2 4.2 0 1 1 4.5 2 A 3.5 3.5 0 0 0 10 8 Z";
-    stroke: root.icon_color;
-    stroke-width: 1.1px;
-    fill: transparent;
-}
-
-
-component SessionGroupHeader inherits Rectangle {
-    in property <string> group_name;
-    in property <string> count_str;
-    in property <bool> has_running: false;
-    in property <bool> is_dark: true;
-
-    height: 38px;
-    background: root.is_dark ? #18191d : #f1f5f9;
-    border-color: root.is_dark ? #2a2d36 : #cbd5e1;
-    border-width: 1px;
-    border-radius: 6px;
-
-    HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 14px;
-        spacing: 10px;
-        alignment: space-between;
-
-        HorizontalLayout {
-            spacing: 10px;
-            alignment: start;
-
-            Rectangle {
-                width: 4px;
-                height: 16px;
-                border-radius: 2px;
-                background: #38bdf8;
-                y: (parent.height - 16px) / 2;
-            }
-
-            Text {
-                text: root.group_name;
-                color: root.is_dark ? #f8fafc : #0f172a;
-                font-size: 15px;
-                font-weight: 700;
-                vertical-alignment: center;
-            }
-
-            if root.has_running : Rectangle {
-                width: 7px;
-                height: 7px;
-                border-radius: 3.5px;
-                background: #10b981;
-                y: (parent.height - 7px) / 2;
-            }
-        }
-
-        Text {
-            text: root.count_str;
-            color: root.is_dark ? #94a3b8 : #64748b;
-            font-size: 13px;
-            font-weight: 600;
-            vertical-alignment: center;
-        }
-    }
-}
-
-component SessionModalRow inherits Rectangle {
-    in property <SessionUiItem> item;
-    in property <bool> is_dark: true;
-
-    background: root.is_dark ? #222225 : #f8fafc;
-    border-color: root.item.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #33373e : #e2e8f0);
-    border-width: 1px;
-    border-radius: 6px;
-    height: 58px;
-
-    HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 14px;
-        alignment: space-between;
-
-        HorizontalLayout {
-            spacing: 12px;
-            alignment: start;
-            horizontal-stretch: 1;
-
-            Rectangle {
-                width: 10px;
-                height: 10px;
-                border-radius: 5px;
-                background: root.item.is_running ? #10b981 : (root.is_dark ? #525866 : #94a3b8);
-                y: (parent.height - 10px) / 2;
-            }
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 2px;
-                horizontal-stretch: 1;
-
-                Text {
-                    text: root.item.title;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 15px;
-                    font-weight: 600;
-                    overflow: elide;
-                }
-
-                Text {
-                    text: root.item.id;
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
-                    font-family: "Cascadia Mono";
-                    overflow: elide;
-                }
-            }
-        }
-
-        HorizontalLayout {
-            spacing: 22px;
-            alignment: end;
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 1px;
-                min-width: 100px;
-
-                Text {
-                    text: "上下文";
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
-                    horizontal-alignment: right;
-                }
-                Text {
-                    text: root.item.context_str;
-                    color: root.is_dark ? #38bdf8 : #0284c7;
-                    font-size: 15px;
-                    font-weight: 700;
-                    font-family: "Cascadia Mono";
-                    horizontal-alignment: right;
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 1px;
-                min-width: 90px;
-
-                Text {
-                    text: "缓存率";
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
-                    horizontal-alignment: right;
-                }
-                Text {
-                    text: root.item.cache_rate_str;
-                    color: root.is_dark ? #34d399 : #059669;
-                    font-size: 15px;
-                    font-weight: 700;
-                    font-family: "Cascadia Mono";
-                    horizontal-alignment: right;
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 1px;
-                min-width: 85px;
-
-                Text {
-                    text: "更新";
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
-                    horizontal-alignment: right;
-                }
-                Text {
-                    text: root.item.time_ago_str;
-                    color: root.is_dark ? #cbd5e1 : #64748b;
-                    font-size: 12.5px;
-                    font-family: "Cascadia Mono";
-                    horizontal-alignment: right;
-                }
-            }
-        }
-    }
-}
-
-component CompactButton inherits Rectangle {
-    in property <string> text;
-    in property <color> btn_color: #38bdf8;
-    in property <color> text_color: (ta.has_hover ? #ffffff : root.btn_color);
-    in property <color> ghost_bg: root.btn_color == #10b981 ? rgba(16, 185, 129, 0.14) : (root.btn_color == #f43f5e ? rgba(244, 63, 94, 0.15) : rgba(56, 189, 248, 0.14));
-    in property <bool> is_dark: true;
-    in property <bool> is_disabled: false;
-    in property <length> btn_height: 28px;
-    callback clicked();
-
-    background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(10%) : (ta.has_hover ? btn_color : root.ghost_bg));
-    border-color: is_disabled ? (root.is_dark ? #1f2937 : #cbd5e1) : btn_color;
-    border-width: 1px;
-    border-radius: 6px;
-    height: root.btn_height;
-
-    animate background { duration: 150ms; easing: ease-out; }
-    animate border-color { duration: 150ms; easing: ease-out; }
-
-    ta := TouchArea {
-        enabled: !root.is_disabled;
-        clicked => { root.clicked(); }
-        mouse-cursor: root.is_disabled ? default : pointer;
-    }
-
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        alignment: center;
-        Text {
-            text: root.text;
-            color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
-            font-size: 13px;
-            font-weight: 700;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            animate color { duration: 150ms; easing: ease-out; }
-        }
-    }
-}
-
-component OutlineButton inherits Rectangle {
-    in property <string> text;
-    in property <color> hover_color: #38bdf8;
-    in property <bool> is_dark: true;
-    in property <bool> is_disabled: false;
-    in property <length> btn_height: 26px;
-    callback clicked();
-
-    background: is_disabled ? (root.is_dark ? #090e1c : #f8fafc) : (ta.pressed ? (root.is_dark ? #1e293b : #e2e8f0) : (ta.has_hover ? (root.is_dark ? #131c2b : #f1f5f9) : (root.is_dark ? #090e1c : #f8fafc)));
-    border-color: is_disabled ? (root.is_dark ? #162032 : #e2e8f0) : (ta.has_hover ? hover_color : (root.is_dark ? #1e293b : #cbd5e1));
-    border-width: 1px;
-    border-radius: 5px;
-    height: root.btn_height;
-
-    ta := TouchArea {
-        enabled: !root.is_disabled;
-        clicked => { root.clicked(); }
-        mouse-cursor: root.is_disabled ? default : pointer;
-    }
-
-    HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        alignment: center;
-        Text {
-            text: root.text;
-            color: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? hover_color : (root.is_dark ? #94a3b8 : #475569));
-            font-size: 11.5px;
-            font-weight: 600;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-        }
-    }
-}
-
-
-
-component MiniMetricBox inherits Rectangle {
-    in property <string> label;
-    in property <string> val_text;
-    in property <color> val_color: transparent;
-    in property <bool> is_dark: true;
-
-    background: root.is_dark ? #0d1527 : #ffffff;
-    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
-    border-width: 1px;
-    border-radius: 5px;
-    height: 32px;
-
-    VerticalLayout {
-        alignment: center;
-        spacing: 1px;
-
-        Text {
-            text: root.label;
-            color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 10px;
-            font-family: "Cascadia Mono";
-            horizontal-alignment: center;
-        }
-
-        Text {
-            text: root.val_text;
-            color: root.val_color != transparent ? root.val_color : (root.val_text == "--" ? (root.is_dark ? #475569 : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a));
-            font-size: 12px;
-            font-weight: 700;
-            font-family: "Cascadia Mono";
-            horizontal-alignment: center;
-        }
-    }
-}
-
-component PatchItemRow inherits Rectangle {
-    in property <string> title;
-    in property <string> status_text;
-    in property <bool> is_installed: false;
-    in property <string> btn_text;
-    in property <bool> is_dark: true;
-    callback btn_clicked();
-
-    background: root.is_dark ? #090e1c : #f8fafc;
-    border-color: root.is_dark ? #162032 : #e2e8f0;
-    border-width: 1px;
-    border-radius: 6px;
-    height: 46px;
-
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        alignment: space-between;
-
-        VerticalLayout {
-            alignment: center;
-            spacing: 2px;
-
-            Text {
-                text: root.title;
-                color: root.is_dark ? #f8fafc : #0f172a;
-                font-size: 13px;
-                font-weight: 600;
-            }
-
-            HorizontalLayout {
-                spacing: 5px;
-                Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
-                    background: root.is_installed ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                    y: (parent.height - 6px) / 2;
-                }
-                Text {
-                    text: root.status_text;
-                    color: root.is_installed ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 11px;
-                    font-family: "Cascadia Mono";
-                }
-            }
-        }
-
-        Rectangle {
-            width: 68px;
-            height: 28px;
-            y: (parent.height - 28px) / 2;
-            background: root.is_installed ? (ta.has_hover ? #f43f5e : rgba(244, 63, 94, 0.15)) : (ta.has_hover ? #34d399 : #10b981);
-            border-color: root.is_installed ? #f43f5e : #10b981;
-            border-width: 1px;
-            border-radius: 5px;
-
-            animate background { duration: 150ms; easing: ease-out; }
-
-            ta := TouchArea {
-                clicked => { root.btn_clicked(); }
-                mouse-cursor: pointer;
-            }
-
-            Text {
-                text: root.btn_text;
-                color: root.is_installed ? (ta.has_hover ? #ffffff : #f43f5e) : #ffffff;
-                font-size: 11.5px;
-                font-weight: 600;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-                animate color { duration: 150ms; easing: ease-out; }
-            }
-        }
-    }
-}
-
-component UserProfileRow inherits Rectangle {
-    in property <string> user_name: "--";
-    in property <string> user_email: "--";
-    in property <string> tier: "";
-    in property <image> avatar;
-    in property <bool> has_avatar: false;
-    in property <string> port_text: "";
-    in property <bool> is_dark: true;
-
-    background: root.is_dark ? #090e1c : #f8fafc;
-    border-color: root.is_dark ? #162032 : #e2e8f0;
-    border-width: 1px;
-    border-radius: 6px;
-    height: 34px;
-
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 2px;
-        padding-bottom: 2px;
-        spacing: 9px;
-        alignment: space-between;
-
-        HorizontalLayout {
-            spacing: 9px;
-            alignment: start;
-
-            Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: 14px;
-                clip: true;
-                background: root.is_dark ? #141c2b : #e2e8f0;
-                y: (parent.height - 28px) / 2;
-
-                if root.has_avatar : Image {
-                    source: root.avatar;
-                    width: 100%;
-                    height: 100%;
-                }
-                if !root.has_avatar : Text {
-                    text: root.user_name != "" && root.user_name != "--" ? "ID" : "--";
-                    font-size: 11px;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                spacing: 1px;
-
-                HorizontalLayout {
-                    spacing: 5px;
-                    alignment: start;
-
-                    Text {
-                        text: root.user_name == "--" ? "未登录账号" : root.user_name;
-                        color: root.user_name == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                        font-size: 13px;
-                        font-weight: 700;
-                        overflow: elide;
-                        vertical-alignment: center;
-                    }
-
-                    if root.tier != "" : Rectangle {
-                        background: root.is_dark ? rgba(16, 185, 129, 0.15) : rgba(16, 185, 129, 0.18);
-                        border-color: root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4);
-                        border-width: 1px;
-                        border-radius: 3px;
-                        height: 16px;
-                        y: (parent.height - 16px) / 2;
-
-                        HorizontalLayout {
-                            padding-left: 5px;
-                            padding-right: 5px;
-                            alignment: center;
-                            Text {
-                                text: root.tier;
-                                color: root.is_dark ? #34d399 : #059669;
-                                font-size: 10px;
-                                font-weight: 700;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-                }
-
-                Text {
-                    text: root.user_name == "--" ? "首次启动自动派生沙箱" : root.user_email;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 11px;
-                    font-family: root.user_name == "--" ? "" : "Cascadia Mono";
-                    overflow: elide;
-                    vertical-alignment: center;
-                }
-            }
-        }
-
-        Text {
-            text: root.port_text != "" ? (":" + root.port_text) : ":--";
-            color: root.port_text != "" ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
-            font-size: 11.5px;
-            font-family: "Cascadia Mono";
-            font-weight: 600;
-            vertical-alignment: center;
-        }
-    }
-}
-
-
-component QuotaRefreshButton inherits Rectangle {
-    in property <bool> is_refreshing: false;
-    in property <bool> is_disabled: false;
-    in property <bool> is_dark: true;
-    in property <angle> spin_angle: 0deg;
-    callback clicked();
-
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    border-width: 1px;
-    background: is_disabled ? (root.is_dark ? rgba(30, 41, 59, 0.4) : rgba(226, 232, 240, 0.5)) : (ta.has_hover && !root.is_refreshing ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
-    border-color: is_disabled ? (root.is_dark ? rgba(51, 65, 85, 0.4) : rgba(203, 213, 225, 0.5)) : (root.is_dark ? #334155 : #cbd5e1);
-
-    animate background { duration: 150ms; }
-    animate border-color { duration: 150ms; }
-
-    ta := TouchArea {
-        enabled: !root.is_disabled && !root.is_refreshing;
-        mouse-cursor: (root.is_disabled || root.is_refreshing) ? default : pointer;
-        clicked => { root.clicked(); }
-    }
-
-    Image {
-        width: 11px;
-        height: 11px;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        source: @image-url("../assets/refresh.svg");
-        colorize: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #cbd5e1 : #475569));
-        transform-rotation: root.spin_angle;
-    }
-}
-
-component SubQuotaCompactBox inherits Rectangle {
-    in property <string> weekly_reset: "";
-    in property <string> weekly_pct: "--";
-    in property <image> weekly_ring;
-    in property <string> five_h_reset: "";
-    in property <string> five_h_pct: "--";
-    in property <image> five_h_ring;
-    in property <bool> is_dark: true;
-    in property <bool> is_refreshing: false;
-    in property <bool> is_refresh_disabled: false;
-    in property <angle> spin_angle: 0deg;
-    callback refresh_clicked();
-
-    background: root.is_dark ? #0d1527 : #ffffff;
-    border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
-    border-width: 1px;
-    border-radius: 6px;
-    height: 68px;
-
-    VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 5px;
-        padding-bottom: 5px;
-        spacing: 2px;
-
-        HorizontalLayout {
-            height: 18px;
-            alignment: start;
-            spacing: 6px;
-
-            Text {
-                text: "Gemini 模型";
-                color: root.is_dark ? #94a3b8 : #64748b;
-                font-size: 10.5px;
-                font-weight: 600;
-                vertical-alignment: center;
-            }
-
-            QuotaRefreshButton {
-                is_refreshing: root.is_refreshing;
-                is_disabled: root.is_refresh_disabled;
-                is_dark: root.is_dark;
-                spin_angle: root.spin_angle;
-                clicked => { root.refresh_clicked(); }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: space-between;
-            height: 16px;
-
-            HorizontalLayout {
-                spacing: 5px;
-                alignment: start;
-                Text {
-                    text: "每周限额";
-                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
-                    font-size: 11px;
-                    vertical-alignment: center;
-                }
-                if root.weekly_reset != "" : Text {
-                    text: root.weekly_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-                if root.weekly_reset == "" && root.weekly_pct == "--" : Text {
-                    text: "等待同步";
-                    color: root.is_dark ? #334155 : #cbd5e1;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: end;
-                Text {
-                    text: root.weekly_pct;
-                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                    font-size: 11.5px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Image {
-                    source: root.weekly_ring;
-                    width: 16px;
-                    height: 16px;
-                    vertical-alignment: center;
-                }
-            }
-        }
-
-        Rectangle {
-            height: 1px;
-            background: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
-        }
-
-        HorizontalLayout {
-            alignment: space-between;
-            height: 16px;
-
-            HorizontalLayout {
-                spacing: 5px;
-                alignment: start;
-                Text {
-                    text: "5小时限额";
-                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
-                    font-size: 11px;
-                    vertical-alignment: center;
-                }
-                if root.five_h_reset != "" : Text {
-                    text: root.five_h_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-                if root.five_h_reset == "" && root.five_h_pct == "--" : Text {
-                    text: "等待同步";
-                    color: root.is_dark ? #334155 : #cbd5e1;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: end;
-                Text {
-                    text: root.five_h_pct;
-                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                    font-size: 11.5px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Image {
-                    source: root.five_h_ring;
-                    width: 16px;
-                    height: 16px;
-                    vertical-alignment: center;
-                }
-            }
-        }
-    }
-}
-
-component SubSessionCardBox inherits Rectangle {
-    in property <string> project_name: "暂无活动会话";
-    in property <string> session_title: "";
-    in property <string> tokens_text: "";
-    in property <string> time_text: "等待初始化";
-    in property <bool> is_running: false;
-    in property <bool> has_sessions: false;
-    in property <bool> is_dark: true;
-    callback clicked();
-
-    background: root.has_sessions && card_ta.has_hover ? (root.is_dark ? #131d33 : #f1f5f9) : (root.is_dark ? #0d1527 : #ffffff);
-    border-color: root.has_sessions && card_ta.has_hover ? rgba(56, 189, 248, 0.45) : (root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0);
-    border-width: 1px;
-    border-radius: 6px;
-    height: 50px;
-
-    card_ta := TouchArea {
-        enabled: root.has_sessions;
-        clicked => {
-            if root.has_sessions {
-                root.clicked();
-            }
-        }
-        mouse-cursor: root.has_sessions ? pointer : default;
-    }
-
-    VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        spacing: 1px;
-
-        HorizontalLayout {
-            alignment: space-between;
-            height: 14px;
-
-            HorizontalLayout {
-                spacing: 4px;
-                alignment: start;
-                FolderIcon {
-                    icon_color: root.has_sessions ? (card_ta.has_hover ? #38bdf8 : (root.is_dark ? #38bdf8 : #0284c7)) : (root.is_dark ? #64748b : #94a3b8);
-                    y: (parent.height - 11px) / 2;
-                }
-                Text {
-                    text: root.has_sessions ? root.project_name : "暂无活动会话";
-                    color: root.has_sessions ? (card_ta.has_hover ? (root.is_dark ? #ffffff : #0f172a) : (root.is_dark ? #e2e8f0 : #1e293b)) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 11.5px;
-                    font-weight: 600;
-                    overflow: elide;
-                    vertical-alignment: center;
-                }
-            }
-
-            Text {
-                text: root.has_sessions ? (root.tokens_text != "" ? root.tokens_text : "--") : "0 会话";
-                color: root.has_sessions ? (card_ta.has_hover ? #7dd3fc : #38bdf8) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 10.5px;
-                font-family: "Cascadia Mono";
-                font-weight: 600;
-                vertical-alignment: center;
-            }
-        }
-
-        HorizontalLayout {
-            height: 14px;
-            alignment: start;
-            Text {
-                text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
-                color: root.has_sessions ? (root.is_dark ? #94a3b8 : #64748b) : (root.is_dark ? #475569 : #94a3b8);
-                font-size: 11px;
-                overflow: elide;
-                vertical-alignment: center;
-            }
-        }
-
-        HorizontalLayout {
-            spacing: 4px;
-            alignment: start;
-            height: 14px;
-
-            if root.is_running : Rectangle {
-                width: 6px;
-                height: 6px;
-                border-radius: 3px;
-                background: #10b981;
-                y: (parent.height - 6px) / 2;
-            }
-            Text {
-                text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
-                color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 10.5px;
-                font-family: "Cascadia Mono";
-                vertical-alignment: center;
-            }
-        }
-    }
-}
-
-component SubScaleCacheRow inherits Rectangle {
-    in property <string> cache_text: "缓存 0 MB";
-    in property <string> scale_text: "100%";
-    in property <bool> is_dark: true;
-    callback dec_clicked();
-    callback inc_clicked();
-    callback reset_clicked();
-
-    height: 20px;
-
-    HorizontalLayout {
-        alignment: space-between;
-
-        Text {
-            text: root.cache_text;
-            color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 11px;
-            font-family: "Cascadia Mono";
-            vertical-alignment: center;
-        }
-
-        HorizontalLayout {
-            spacing: 3px;
-            alignment: end;
-
-            Text {
-                text: "界面";
-                color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 11px;
-                vertical-alignment: center;
-            }
-
-            Rectangle {
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
-                background: b_dec.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
-                border-color: root.is_dark ? #334155 : #cbd5e1;
-                border-width: 1px;
-                y: (parent.height - 20px) / 2;
-                b_dec := TouchArea {
-                    clicked => { root.dec_clicked(); }
-                    mouse-cursor: pointer;
-                }
-                Text {
-                    text: "-";
-                    color: root.is_dark ? #cbd5e1 : #334155;
-                    font-size: 12px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
-                }
-            }
-
-            Rectangle {
-                height: 20px;
-                border-radius: 4px;
-                background: b_reset.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #ffffff);
-                border-color: root.is_dark ? #334155 : #cbd5e1;
-                border-width: 1px;
-                y: (parent.height - 20px) / 2;
-                b_reset := TouchArea {
-                    clicked => { root.reset_clicked(); }
-                    mouse-cursor: pointer;
-                }
-                HorizontalLayout {
-                    padding-left: 5px;
-                    padding-right: 5px;
-                    alignment: center;
-                    Text {
-                        text: root.scale_text;
-                        color: root.is_dark ? #38bdf8 : #0284c7;
-                        font-size: 11.5px;
-                        font-family: "Cascadia Mono";
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-
-            Rectangle {
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
-                background: b_inc.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
-                border-color: root.is_dark ? #334155 : #cbd5e1;
-                border-width: 1px;
-                y: (parent.height - 20px) / 2;
-                b_inc := TouchArea {
-                    clicked => { root.inc_clicked(); }
-                    mouse-cursor: pointer;
-                }
-                Text {
-                    text: "+";
-                    color: root.is_dark ? #cbd5e1 : #334155;
-                    font-size: 12px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
-                }
-            }
-        }
-    }
-}
+import { SessionUiItem } from "ui/session_items.slint";
+export { SessionUiItem }
+
+import { PinIcon, SunIcon, MoonIcon } from "ui/icons.slint";
+import { HostCard } from "ui/host_card.slint";
+import { ComponentsCard } from "ui/components_card.slint";
+import { TelemetryCard } from "ui/telemetry_card.slint";
+import { SubInstanceCard } from "ui/instance_card.slint";
+import { ConfirmModal, CleanCacheModal, PatchModal, SessionListModal } from "ui/modals.slint";
 
 export component MainWindow inherits Window {
     title: "Antigravity Lander v1.0.1";
@@ -1206,628 +296,110 @@ export component MainWindow inherits Window {
             HorizontalLayout {
                 spacing: 8px;
 
-            Rectangle {
-                horizontal-stretch: 2;
-                min-width: 0px;
-                preferred-width: 0px;
-                max-height: 310px;
-                background: root.is_dark ? #090e1c : #f8fafc;
-                border-color: root.host_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
-                border-width: 1px;
-                border-radius: 8px;
-                clip: true;
+                HostCard {
+                    is_running: root.host_running;
+                    pid_text: root.host_pid;
+                    user_name: root.host_user_name;
+                    user_email: root.host_user_email;
+                    tier: root.host_tier;
+                    avatar: root.host_avatar;
+                    has_avatar: root.host_has_avatar;
+                    port_text: root.host_port;
+                    weekly_reset: root.host_weekly_reset;
+                    weekly_pct: root.host_weekly_text;
+                    weekly_ring: root.host_weekly_ring;
+                    five_h_reset: root.host_five_h_reset;
+                    five_h_pct: root.host_five_h_text;
+                    five_h_ring: root.host_five_h_ring;
+                    quota_refreshing: root.host_quota_refreshing;
+                    token_present: root.host_token_present;
+                    spin_angle: root.quota_spin_angle;
+                    cpu_text: root.host_cpu_text;
+                    ram_text: root.host_ram_text;
+                    session_count_text: root.host_session_count_text;
+                    recent_project: root.host_recent_project;
+                    recent_title: root.host_recent_title;
+                    recent_tokens: root.host_recent_tokens;
+                    recent_time: root.host_recent_time;
+                    has_running_session: root.host_has_running;
+                    has_sessions: root.host_has_sessions;
+                    cache_size_text: root.host_cache_size_text;
+                    scale_text: root.host_scale_text;
+                    is_dark: root.is_dark;
 
-                VerticalLayout {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    padding-top: 6px;
-                    padding-bottom: 8px;
-                    spacing: 3px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 20px;
-                        HorizontalLayout {
-                            spacing: 6px;
-                            Rectangle {
-                                width: 7px;
-                                height: 7px;
-                                border-radius: 3.5px;
-                                background: root.host_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                y: (parent.height - 7px) / 2;
-                            }
-                            Text {
-                                text: "主账号";
-                                color: root.is_dark ? #f8fafc : #0f172a;
-                                font-size: 13px;
-                                font-weight: 700;
-                                vertical-alignment: center;
-                            }
-                            Rectangle {
-                                background: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
-                                border-color: root.host_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
-                                border-width: 1px;
-                                border-radius: 3px;
-                                height: 16px;
-                                y: (parent.height - 16px) / 2;
-                                HorizontalLayout {
-                                    padding-left: 5px;
-                                    padding-right: 5px;
-                                    alignment: center;
-                                    Text {
-                                        text: "host";
-                                        color: root.host_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                                        font-size: 10px;
-                                        font-family: "Cascadia Mono";
-                                        vertical-alignment: center;
-                                    }
-                                }
-                            }
-                        }
-                        if root.host_running : Rectangle {
-                            background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                            border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                            border-width: 1px;
-                            border-radius: 4px;
-                            height: 18px;
-                            y: (parent.height - 18px) / 2;
-                            HorizontalLayout {
-                                padding-left: 6px;
-                                padding-right: 6px;
-                                alignment: center;
-                                Text {
-                                    text: "PID " + root.host_pid;
-                                    color: root.is_dark ? #34d399 : #059669;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    font-weight: 700;
-                                    vertical-alignment: center;
-                                }
-                            }
-                        }
-                        if !root.host_running : Text {
-                            text: "未运行";
-                            color: root.is_dark ? #64748b : #94a3b8;
-                            font-size: 10.5px;
-                            font-family: "Cascadia Mono";
-                            vertical-alignment: center;
-                        }
+                    refresh_quota => { root.action_refresh_quota(0); }
+                    session_clicked => {
+                        root.session_modal_slot = 0;
+                        root.session_modal_visible = true;
+                        root.show_session_modal(0);
                     }
-
-                    UserProfileRow {
-                        user_name: root.host_user_name;
-                        user_email: root.host_user_email;
-                        tier: root.host_tier;
-                        avatar: root.host_avatar;
-                        has_avatar: root.host_has_avatar;
-                        port_text: root.host_port;
-                        is_dark: root.is_dark;
+                    adjust_scale(delta) => { root.adjust_host_scale(delta); }
+                    reset_scale => { root.reset_host_scale(); }
+                    launch => { root.action_launch_host(); }
+                    stop => { root.action_stop_host(); }
+                    clear_token => {
+                        root.confirm_modal_slot = 0;
+                        root.confirm_modal_visible = true;
                     }
-
-                    SubQuotaCompactBox {
-                        weekly_reset: root.host_weekly_reset;
-                        weekly_pct: root.host_weekly_text;
-                        weekly_ring: root.host_weekly_ring;
-                        five_h_reset: root.host_five_h_reset;
-                        five_h_pct: root.host_five_h_text;
-                        five_h_ring: root.host_five_h_ring;
-                        is_dark: root.is_dark;
-                        is_refreshing: root.host_quota_refreshing;
-                        is_refresh_disabled: !root.host_token_present;
-                        spin_angle: root.quota_spin_angle;
-                        refresh_clicked => { root.action_refresh_quota(0); }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 6px;
-                        MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.host_cpu_text; val_color: root.host_running ? #34d399 : transparent; is_dark: root.is_dark; }
-                        MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.host_ram_text; val_color: root.host_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-                        MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.host_session_count_text; is_dark: root.is_dark; }
-                    }
-
-                    SubSessionCardBox {
-                        project_name: root.host_recent_project;
-                        session_title: root.host_recent_title;
-                        tokens_text: root.host_recent_tokens;
-                        time_text: root.host_recent_time;
-                        is_running: root.host_running || root.host_has_running;
-                        has_sessions: root.host_has_sessions;
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.session_modal_slot = 0;
-                            root.session_modal_visible = true;
-                            root.show_session_modal(0);
-                        }
-                    }
-
-                    VerticalLayout {
-                        spacing: 3px;
-                        vertical-stretch: 0;
-
-                        SubScaleCacheRow {
-                            cache_text: root.host_cache_size_text;
-                            scale_text: root.host_scale_text;
-                            is_dark: root.is_dark;
-                            dec_clicked => { root.adjust_host_scale(-10); }
-                            inc_clicked => { root.adjust_host_scale(10); }
-                            reset_clicked => { root.reset_host_scale(); }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 6px;
-                            height: 28px;
-                            if !root.host_running : CompactButton {
-                                horizontal-stretch: 1;
-                                text: "启动";
-                                btn_color: #10b981;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_launch_host(); }
-                            }
-                            if root.host_running : CompactButton {
-                                horizontal-stretch: 1;
-                                text: "打开";
-                                btn_color: #38bdf8;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_launch_host(); }
-                            }
-                            if root.host_running : CompactButton {
-                                horizontal-stretch: 1;
-                                text: "停止";
-                                btn_color: #f43f5e;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_stop_host(); }
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 6px;
-                            height: 26px;
-                            OutlineButton {
-                                horizontal-stretch: 1;
-                                text: "清理凭据";
-                                is_dark: root.is_dark;
-                                is_disabled: root.host_running || !root.host_token_present;
-                                clicked => {
-                                    root.confirm_modal_slot = 0;
-                                    root.confirm_modal_visible = true;
-                                }
-                            }
-                            OutlineButton {
-                                horizontal-stretch: 1;
-                                text: "打开目录";
-                                is_dark: root.is_dark;
-                                clicked => { root.action_open_app_dir(); }
-                            }
-                        }
-                    }
+                    open_app_dir => { root.action_open_app_dir(); }
                 }
-            }
 
-            Rectangle {
-                horizontal-stretch: 3;
-                min-width: 0px;
-                preferred-width: 0px;
-                max-height: 310px;
-                background: root.is_dark ? #0d1527 : #ffffff;
-                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
-                border-width: 1px;
-                border-radius: 10px;
-                clip: true;
+                ComponentsCard {
+                    patch_ag2_installed: root.patch_ag2_installed;
+                    patch_ag2_version: root.patch_ag2_version;
+                    proxy_injected: root.proxy_injected;
+                    proxy_status_text: root.proxy_status_text;
+                    total_mem_text: root.total_mem_text;
+                    mem_host_pct: root.mem_host_pct;
+                    mem_subs_pct: root.mem_subs_pct;
+                    mem_detail_text: root.mem_detail_text;
+                    cache_summary_text: root.cache_summary_text;
+                    is_dark: root.is_dark;
 
-                VerticalLayout {
-                    padding: 10px;
-                    spacing: 6px;
-
-                    HorizontalLayout {
-                        height: 22px;
-                        Text {
-                            text: "内置组件";
-                            color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 14px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    PatchItemRow {
-                        title: "Antigravity 桌面版汉化补丁";
-                        status_text: root.patch_ag2_installed ? ("已汉化 (" + root.patch_ag2_version + ")") : (root.patch_ag2_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ag2_version + ")"));
-                        is_installed: root.patch_ag2_installed;
-                        btn_text: root.patch_ag2_installed ? "卸载" : "安装";
-                        is_dark: root.is_dark;
-                        btn_clicked => { root.toggle_patch_ag2(); }
-                    }
-
-                    PatchItemRow {
-                        title: "系统代理补丁";
-                        status_text: root.proxy_status_text;
-                        is_installed: root.proxy_injected;
-                        btn_text: root.proxy_injected ? "移除" : "注入";
-                        is_dark: root.is_dark;
-                        btn_clicked => { root.toggle_proxy(); }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.is_dark ? #162032 : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 54px;
-                        VerticalLayout {
-                            padding-left: 12px;
-                            padding-right: 12px;
-                            padding-top: 5px;
-                            padding-bottom: 5px;
-                            spacing: 4px;
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text {
-                                    text: "总物理内存占用";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 11px;
-                                }
-                                Text {
-                                    text: root.total_mem_text;
-                                    color: root.is_dark ? #f8fafc : #0f172a;
-                                    font-size: 13.5px;
-                                    font-weight: 700;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                            bar_mem := Rectangle {
-                                height: 6px;
-                                background: root.is_dark ? #141c2b : #e2e8f0;
-                                border-radius: 3px;
-                                clip: true;
-                                Rectangle {
-                                    x: 0;
-                                    width: bar_mem.width * Math.min(1.0, Math.max(0.0, root.mem_host_pct));
-                                    height: 6px;
-                                    background: #38bdf8;
-                                }
-                                Rectangle {
-                                    x: bar_mem.width * Math.min(1.0, Math.max(0.0, root.mem_host_pct));
-                                    width: bar_mem.width * Math.min(1.0, Math.max(0.0, root.mem_subs_pct));
-                                    height: 6px;
-                                    background: #10b981;
-                                }
-                            }
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text {
-                                    text: root.mem_detail_text;
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.is_dark ? #162032 : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 48px;
-                        HorizontalLayout {
-                            padding-left: 12px;
-                            padding-right: 12px;
-                            alignment: space-between;
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 2px;
-                                Text {
-                                    text: "沙箱运行时磁盘缓存";
-                                    color: root.is_dark ? #f8fafc : #0f172a;
-                                    font-size: 12px;
-                                    font-weight: 600;
-                                }
-                                Text {
-                                    text: root.cache_summary_text;
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                            OutlineButton {
-                                text: "清理缓存";
-                                width: 68px;
-                                btn_height: 28px;
-                                y: (parent.height - 28px) / 2;
-                                is_dark: root.is_dark;
-                                clicked => { root.action_scan_cache(); }
-                            }
-                        }
-                    }
-
-                    Rectangle { vertical-stretch: 1; }
+                    toggle_patch_ag2 => { root.toggle_patch_ag2(); }
+                    toggle_proxy => { root.toggle_proxy(); }
+                    scan_cache => { root.action_scan_cache(); }
                 }
-            }
 
-            Rectangle {
-                horizontal-stretch: 3;
-                min-width: 0px;
-                preferred-width: 0px;
-                max-height: 310px;
-                background: root.is_dark ? #0d1527 : #ffffff;
-                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
-                border-width: 1px;
-                border-radius: 10px;
-                clip: true;
+                TelemetryCard {
+                    live_session_is_running: root.live_session_is_running;
+                    live_session_target_text: root.live_session_target_text;
+                    live_session_target_slot: root.live_session_target_slot;
+                    live_session_project: root.live_session_project;
+                    live_session_status_text: root.live_session_status_text;
+                    live_session_title: root.live_session_title;
+                    live_session_speed_text: root.live_session_speed_text;
+                    live_session_speed_sub: root.live_session_speed_sub;
+                    live_bar0_h: root.live_bar0_h;
+                    live_bar1_h: root.live_bar1_h;
+                    live_bar2_h: root.live_bar2_h;
+                    live_bar3_h: root.live_bar3_h;
+                    live_bar4_h: root.live_bar4_h;
+                    live_bar5_h: root.live_bar5_h;
+                    live_bar6_h: root.live_bar6_h;
+                    live_bar7_h: root.live_bar7_h;
+                    live_session_context_text: root.live_session_context_text;
+                    live_prompt_pct: root.live_prompt_pct;
+                    live_cache_pct: root.live_cache_pct;
+                    live_output_pct: root.live_output_pct;
+                    live_prompt_text: root.live_prompt_text;
+                    live_cache_legend: root.live_cache_legend;
+                    live_output_text: root.live_output_text;
+                    live_session_available_text: root.live_session_available_text;
+                    live_session_optimization_text: root.live_session_optimization_text;
+                    is_dark: root.is_dark;
 
-                VerticalLayout {
-                    padding: 10px;
-                    spacing: 6px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 22px;
-                        HorizontalLayout {
-                            spacing: 6px;
-                            Rectangle {
-                                width: 8px;
-                                height: 8px;
-                                border-radius: 4px;
-                                background: root.live_session_is_running ? #10b981 : (root.is_dark ? #475569 : #94a3b8);
-                                y: (parent.height - 8px) / 2;
-                            }
-                            Text {
-                                text: "当前会话实时遥测";
-                                color: root.is_dark ? #f8fafc : #0f172a;
-                                font-size: 14px;
-                                font-weight: 700;
-                                vertical-alignment: center;
-                            }
-                        }
-                        Rectangle {
-                            height: 22px;
-                            border-radius: 4px;
-                            background: target_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
-                            border-color: root.is_dark ? #162032 : #cbd5e1;
-                            border-width: 1px;
-                            HorizontalLayout {
-                                padding-left: 6px;
-                                padding-right: 6px;
-                                spacing: 4px;
-                                Text {
-                                    text: root.live_session_target_text;
-                                    color: #38bdf8;
-                                    font-size: 11px;
-                                    font-family: "Cascadia Mono";
-                                    font-weight: 600;
-                                    vertical-alignment: center;
-                                }
-                                Text {
-                                    text: "▾";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10px;
-                                    vertical-alignment: center;
-                                }
-                            }
-                            target_ta := TouchArea {
-                                clicked => { root.switch_live_session_target(root.live_session_target_slot + 1); }
-                                mouse-cursor: pointer;
-                            }
-                        }
+                    switch_target(target) => { root.switch_live_session_target(target); }
+                    show_history(slot) => {
+                        root.session_modal_slot = slot;
+                        root.session_modal_visible = true;
+                        root.show_session_modal(slot);
                     }
-
-                    Rectangle {
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.is_dark ? #162032 : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 44px;
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 4px;
-                            padding-bottom: 4px;
-                            spacing: 2px;
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text {
-                                    text: root.live_session_project;
-                                    color: root.is_dark ? #f8fafc : #0f172a;
-                                    font-size: 12px;
-                                    font-weight: 700;
-                                    overflow: elide;
-                                }
-                                Text {
-                                    text: root.live_session_status_text;
-                                    color: root.live_session_is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                    font-size: 11px;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                            Text {
-                                text: root.live_session_title;
-                                color: root.is_dark ? #94a3b8 : #64748b;
-                                font-size: 11px;
-                                overflow: elide;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.is_dark ? #162032 : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 62px;
-                        HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            alignment: space-between;
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 2px;
-                                Text {
-                                    text: "单轮 Token 吞吐";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 11px;
-                                }
-                                HorizontalLayout {
-                                    spacing: 4px;
-                                    Text {
-                                        text: root.live_session_speed_text;
-                                        color: #10b981;
-                                        font-size: 18px;
-                                        font-weight: 700;
-                                        font-family: "Cascadia Mono";
-                                    }
-                                    Text {
-                                        text: "Tokens/s";
-                                        color: root.is_dark ? #64748b : #94a3b8;
-                                        font-size: 11px;
-                                        font-family: "Cascadia Mono";
-                                        vertical-alignment: bottom;
-                                    }
-                                }
-                                Text {
-                                    text: root.live_session_speed_sub;
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10px;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 3px;
-                                alignment: end;
-                                Rectangle { width: 4px; height: root.live_bar0_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.35); y: parent.height - (root.live_bar0_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar1_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.45); y: parent.height - (root.live_bar1_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar2_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.55); y: parent.height - (root.live_bar2_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar3_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.65); y: parent.height - (root.live_bar3_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar4_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.75); y: parent.height - (root.live_bar4_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar5_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.85); y: parent.height - (root.live_bar5_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar6_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.90); y: parent.height - (root.live_bar6_h * 1px) - 14px; }
-                                Rectangle { width: 4px; height: root.live_bar7_h * 1px; border-radius: 2px; background: #10b981; y: parent.height - (root.live_bar7_h * 1px) - 14px; }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.is_dark ? #162032 : #e2e8f0;
-                        border-width: 1px;
-                        border-radius: 6px;
-                        height: 56px;
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 5px;
-                            padding-bottom: 5px;
-                            spacing: 3px;
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text {
-                                    text: "上下文容量深度";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 11px;
-                                }
-                                Text {
-                                    text: root.live_session_context_text;
-                                    color: root.is_dark ? #f8fafc : #0f172a;
-                                    font-size: 12px;
-                                    font-weight: 700;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                            bar_ctx := Rectangle {
-                                height: 6px;
-                                background: root.is_dark ? #141c2b : #e2e8f0;
-                                border-radius: 3px;
-                                clip: true;
-                                Rectangle {
-                                    x: 0;
-                                    width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
-                                    height: 6px;
-                                    background: #38bdf8;
-                                }
-                                Rectangle {
-                                    x: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
-                                    width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_cache_pct));
-                                    height: 6px;
-                                    background: #10b981;
-                                }
-                                Rectangle {
-                                    x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_prompt_pct)) + Math.min(1.0, Math.max(0.0, root.live_cache_pct)));
-                                    width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_output_pct));
-                                    height: 6px;
-                                    background: #818cf8;
-                                }
-                            }
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text {
-                                    text: root.live_prompt_text;
-                                    color: #38bdf8;
-                                    font-size: 10px;
-                                    font-family: "Cascadia Mono";
-                                }
-                                Text {
-                                    text: root.live_cache_legend;
-                                    color: #10b981;
-                                    font-size: 10px;
-                                    font-family: "Cascadia Mono";
-                                    font-weight: 600;
-                                }
-                                Text {
-                                    text: root.live_output_text;
-                                    color: #818cf8;
-                                    font-size: 10px;
-                                    font-family: "Cascadia Mono";
-                                }
-                                Text {
-                                    text: root.live_session_available_text;
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10px;
-                                    font-family: "Cascadia Mono";
-                                }
-                            }
-                        }
-                    }
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 22px;
-                        Text {
-                            text: root.live_session_optimization_text;
-                            color: root.is_dark ? #64748b : #94a3b8;
-                            font-size: 11px;
-                            font-family: "Cascadia Mono";
-                            vertical-alignment: center;
-                        }
-                        Rectangle {
-                            width: 100px;
-                            height: 22px;
-                            Text {
-                                text: "会话完整历史 >";
-                                color: hist_ta.has_hover ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
-                                font-size: 12px;
-                                font-weight: 600;
-                                vertical-alignment: center;
-                                horizontal-alignment: right;
-                            }
-                            hist_ta := TouchArea {
-                                clicked => {
-                                    root.session_modal_slot = root.live_session_target_slot;
-                                    root.session_modal_visible = true;
-                                    root.show_session_modal(root.live_session_target_slot);
-                                }
-                                mouse-cursor: pointer;
-                            }
-                        }
-                    }
-
-                    Rectangle { vertical-stretch: 1; }
                 }
             }
         }
-    }
 
-    Rectangle {
+        Rectangle {
             vertical-stretch: 0;
             preferred-height: 380px;
             min-height: 360px;
@@ -1916,788 +488,208 @@ export component MainWindow inherits Window {
                     spacing: 8px;
                     vertical-stretch: 1;
 
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        min-width: 0px;
-                        preferred-width: 0px;
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.sub1_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
-                        border-width: 1px;
-                        border-radius: 8px;
-                        clip: true;
+                    SubInstanceCard {
+                        slot: 1;
+                        title_text: "分身 1";
+                        instance_id_text: "instance_1";
+                        is_running: root.sub1_running;
+                        pid_text: root.sub1_pid;
+                        user_name: root.sub1_user_name;
+                        user_email: root.sub1_user_email;
+                        tier: root.sub1_tier;
+                        avatar: root.sub1_avatar;
+                        has_avatar: root.sub1_has_avatar;
+                        port_text: root.sub1_port;
+                        weekly_reset: root.sub1_weekly_reset;
+                        weekly_pct: root.sub1_weekly_text;
+                        weekly_ring: root.sub1_weekly_ring;
+                        five_h_reset: root.sub1_five_h_reset;
+                        five_h_pct: root.sub1_five_h_text;
+                        five_h_ring: root.sub1_five_h_ring;
+                        quota_refreshing: root.sub1_quota_refreshing;
+                        token_present: root.sub1_token_present;
+                        spin_angle: root.quota_spin_angle;
+                        cpu_text: root.sub1_cpu_text;
+                        ram_text: root.sub1_ram_text;
+                        session_count_text: root.sub1_session_count_text;
+                        recent_project: root.sub1_recent_project;
+                        recent_title: root.sub1_recent_title;
+                        recent_tokens: root.sub1_recent_tokens;
+                        recent_time: root.sub1_recent_time;
+                        has_running_session: root.sub1_has_running;
+                        has_sessions: root.sub1_has_sessions;
+                        cache_size_text: root.sub1_cache_size_text;
+                        scale_text: root.sub1_scale_text;
+                        is_dark: root.is_dark;
 
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 6px;
-                            padding-bottom: 6px;
-                            spacing: 3px;
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                height: 20px;
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Rectangle {
-                                        width: 7px;
-                                        height: 7px;
-                                        border-radius: 3.5px;
-                                        background: root.sub1_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                        y: (parent.height - 7px) / 2;
-                                    }
-                                    Text {
-                                        text: "分身 1";
-                                        color: root.is_dark ? #f8fafc : #0f172a;
-                                        font-size: 13px;
-                                        font-weight: 700;
-                                        vertical-alignment: center;
-                                    }
-                                    Rectangle {
-                                        background: root.sub1_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
-                                        border-color: root.sub1_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
-                                        border-width: 1px;
-                                        border-radius: 3px;
-                                        height: 16px;
-                                        y: (parent.height - 16px) / 2;
-                                        HorizontalLayout {
-                                            padding-left: 5px;
-                                            padding-right: 5px;
-                                            alignment: center;
-                                            Text {
-                                                text: "instance_1";
-                                                color: root.sub1_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                                                font-size: 10px;
-                                                font-family: "Cascadia Mono";
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                    }
-                                }
-                                if root.sub1_running : Rectangle {
-                                    background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                                    border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                                    border-width: 1px;
-                                    border-radius: 4px;
-                                    height: 18px;
-                                    y: (parent.height - 18px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 6px;
-                                        padding-right: 6px;
-                                        alignment: center;
-                                        Text {
-                                            text: "PID " + root.sub1_pid;
-                                            color: root.is_dark ? #34d399 : #059669;
-                                            font-size: 10.5px;
-                                            font-family: "Cascadia Mono";
-                                            font-weight: 700;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                }
-                                if !root.sub1_running : Text {
-                                    text: "未运行";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            UserProfileRow {
-                                user_name: root.sub1_user_name;
-                                user_email: root.sub1_user_email;
-                                tier: root.sub1_tier;
-                                avatar: root.sub1_avatar;
-                                has_avatar: root.sub1_has_avatar;
-                                port_text: root.sub1_port;
-                                is_dark: root.is_dark;
-                            }
-
-                            SubQuotaCompactBox {
-                                weekly_reset: root.sub1_weekly_reset;
-                                weekly_pct: root.sub1_weekly_text;
-                                weekly_ring: root.sub1_weekly_ring;
-                                five_h_reset: root.sub1_five_h_reset;
-                                five_h_pct: root.sub1_five_h_text;
-                                five_h_ring: root.sub1_five_h_ring;
-                                is_dark: root.is_dark;
-                                is_refreshing: root.sub1_quota_refreshing;
-                                is_refresh_disabled: !root.sub1_token_present;
-                                spin_angle: root.quota_spin_angle;
-                                refresh_clicked => { root.action_refresh_quota(1); }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub1_cpu_text; val_color: root.sub1_running ? #34d399 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub1_ram_text; val_color: root.sub1_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.sub1_session_count_text; is_dark: root.is_dark; }
-                            }
-
-                            SubSessionCardBox {
-                                project_name: root.sub1_recent_project;
-                                session_title: root.sub1_recent_title;
-                                tokens_text: root.sub1_recent_tokens;
-                                time_text: root.sub1_recent_time;
-                                is_running: root.sub1_running || root.sub1_has_running;
-                                has_sessions: root.sub1_has_sessions;
-                                is_dark: root.is_dark;
-                                clicked => {
-                                    root.session_modal_slot = 1;
-                                    root.session_modal_visible = true;
-                                    root.show_session_modal(1);
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 3px;
-                                vertical-stretch: 0;
-
-                                SubScaleCacheRow {
-                                    cache_text: root.sub1_cache_size_text;
-                                    scale_text: root.sub1_scale_text;
-                                    is_dark: root.is_dark;
-                                    dec_clicked => { root.adjust_sub_scale(1, -10); }
-                                    inc_clicked => { root.adjust_sub_scale(1, 10); }
-                                    reset_clicked => { root.reset_sub_scale(1); }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 28px;
-                                    if !root.sub1_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "启动";
-                                        btn_color: #10b981;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(1); }
-                                    }
-                                    if root.sub1_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开";
-                                        btn_color: #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(1); }
-                                    }
-                                    if root.sub1_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "停止";
-                                        btn_color: #f43f5e;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_stop_sub(1); }
-                                    }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 26px;
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "清理凭据";
-                                        is_dark: root.is_dark;
-                                        is_disabled: root.sub1_running || !root.sub1_token_present;
-                                        clicked => {
-                                            root.confirm_modal_slot = 1;
-                                            root.confirm_modal_visible = true;
-                                        }
-                                    }
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开目录";
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_open_sandbox(1); }
-                                    }
-                                }
-                            }
+                        refresh_quota => { root.action_refresh_quota(1); }
+                        session_clicked => {
+                            root.session_modal_slot = 1;
+                            root.session_modal_visible = true;
+                            root.show_session_modal(1);
                         }
+                        adjust_scale(delta) => { root.adjust_sub_scale(1, delta); }
+                        reset_scale => { root.reset_sub_scale(1); }
+                        launch => { root.action_launch_sub(1); }
+                        stop => { root.action_stop_sub(1); }
+                        clear_token => {
+                            root.confirm_modal_slot = 1;
+                            root.confirm_modal_visible = true;
+                        }
+                        open_sandbox => { root.action_open_sandbox(1); }
                     }
 
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        min-width: 0px;
-                        preferred-width: 0px;
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.sub2_running ? rgba(16, 185, 129, 0.6) : (root.is_dark ? #162032 : #e2e8f0);
-                        border-width: root.sub2_running ? 1.5px : 1px;
-                        border-radius: 8px;
-                        clip: true;
+                    SubInstanceCard {
+                        slot: 2;
+                        title_text: "分身 2";
+                        instance_id_text: "instance_2";
+                        is_running: root.sub2_running;
+                        pid_text: root.sub2_pid;
+                        user_name: root.sub2_user_name;
+                        user_email: root.sub2_user_email;
+                        tier: root.sub2_tier;
+                        avatar: root.sub2_avatar;
+                        has_avatar: root.sub2_has_avatar;
+                        port_text: root.sub2_port;
+                        weekly_reset: root.sub2_weekly_reset;
+                        weekly_pct: root.sub2_weekly_text;
+                        weekly_ring: root.sub2_weekly_ring;
+                        five_h_reset: root.sub2_five_h_reset;
+                        five_h_pct: root.sub2_five_h_text;
+                        five_h_ring: root.sub2_five_h_ring;
+                        quota_refreshing: root.sub2_quota_refreshing;
+                        token_present: root.sub2_token_present;
+                        spin_angle: root.quota_spin_angle;
+                        cpu_text: root.sub2_cpu_text;
+                        ram_text: root.sub2_ram_text;
+                        session_count_text: root.sub2_session_count_text;
+                        recent_project: root.sub2_recent_project;
+                        recent_title: root.sub2_recent_title;
+                        recent_tokens: root.sub2_recent_tokens;
+                        recent_time: root.sub2_recent_time;
+                        has_running_session: root.sub2_has_running;
+                        has_sessions: root.sub2_has_sessions;
+                        cache_size_text: root.sub2_cache_size_text;
+                        scale_text: root.sub2_scale_text;
+                        is_dark: root.is_dark;
 
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 6px;
-                            padding-bottom: 6px;
-                            spacing: 3px;
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                height: 20px;
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Rectangle {
-                                        width: 7px;
-                                        height: 7px;
-                                        border-radius: 3.5px;
-                                        background: root.sub2_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                        y: (parent.height - 7px) / 2;
-                                    }
-                                    Text {
-                                        text: "分身 2";
-                                        color: root.is_dark ? #f8fafc : #0f172a;
-                                        font-size: 13px;
-                                        font-weight: 700;
-                                        vertical-alignment: center;
-                                    }
-                                    Rectangle {
-                                        background: root.sub2_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
-                                        border-color: root.sub2_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
-                                        border-width: 1px;
-                                        border-radius: 3px;
-                                        height: 16px;
-                                        y: (parent.height - 16px) / 2;
-                                        HorizontalLayout {
-                                            padding-left: 5px;
-                                            padding-right: 5px;
-                                            alignment: center;
-                                            Text {
-                                                text: "instance_2";
-                                                color: root.sub2_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                                                font-size: 10px;
-                                                font-family: "Cascadia Mono";
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                    }
-                                }
-                                if root.sub2_running : Rectangle {
-                                    background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                                    border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                                    border-width: 1px;
-                                    border-radius: 4px;
-                                    height: 18px;
-                                    y: (parent.height - 18px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 6px;
-                                        padding-right: 6px;
-                                        alignment: center;
-                                        Text {
-                                            text: "PID " + root.sub2_pid;
-                                            color: root.is_dark ? #34d399 : #059669;
-                                            font-size: 10.5px;
-                                            font-family: "Cascadia Mono";
-                                            font-weight: 700;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                }
-                                if !root.sub2_running : Text {
-                                    text: "未运行";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            UserProfileRow {
-                                user_name: root.sub2_user_name;
-                                user_email: root.sub2_user_email;
-                                tier: root.sub2_tier;
-                                avatar: root.sub2_avatar;
-                                has_avatar: root.sub2_has_avatar;
-                                port_text: root.sub2_port;
-                                is_dark: root.is_dark;
-                            }
-
-                            SubQuotaCompactBox {
-                                weekly_reset: root.sub2_weekly_reset;
-                                weekly_pct: root.sub2_weekly_text;
-                                weekly_ring: root.sub2_weekly_ring;
-                                five_h_reset: root.sub2_five_h_reset;
-                                five_h_pct: root.sub2_five_h_text;
-                                five_h_ring: root.sub2_five_h_ring;
-                                is_dark: root.is_dark;
-                                is_refreshing: root.sub2_quota_refreshing;
-                                is_refresh_disabled: !root.sub2_token_present;
-                                spin_angle: root.quota_spin_angle;
-                                refresh_clicked => { root.action_refresh_quota(2); }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub2_cpu_text; val_color: root.sub2_running ? #34d399 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub2_ram_text; val_color: root.sub2_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.sub2_session_count_text; is_dark: root.is_dark; }
-                            }
-
-                            SubSessionCardBox {
-                                project_name: root.sub2_recent_project;
-                                session_title: root.sub2_recent_title;
-                                tokens_text: root.sub2_recent_tokens;
-                                time_text: root.sub2_recent_time;
-                                is_running: root.sub2_running || root.sub2_has_running;
-                                has_sessions: root.sub2_has_sessions;
-                                is_dark: root.is_dark;
-                                clicked => {
-                                    root.session_modal_slot = 2;
-                                    root.session_modal_visible = true;
-                                    root.show_session_modal(2);
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 3px;
-                                vertical-stretch: 0;
-
-                                SubScaleCacheRow {
-                                    cache_text: root.sub2_cache_size_text;
-                                    scale_text: root.sub2_scale_text;
-                                    is_dark: root.is_dark;
-                                    dec_clicked => { root.adjust_sub_scale(2, -10); }
-                                    inc_clicked => { root.adjust_sub_scale(2, 10); }
-                                    reset_clicked => { root.reset_sub_scale(2); }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 28px;
-                                    if !root.sub2_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "启动";
-                                        btn_color: #10b981;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(2); }
-                                    }
-                                    if root.sub2_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开";
-                                        btn_color: #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(2); }
-                                    }
-                                    if root.sub2_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "停止";
-                                        btn_color: #f43f5e;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_stop_sub(2); }
-                                    }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 26px;
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "清理凭据";
-                                        is_dark: root.is_dark;
-                                        is_disabled: root.sub2_running || !root.sub2_token_present;
-                                        clicked => {
-                                            root.confirm_modal_slot = 2;
-                                            root.confirm_modal_visible = true;
-                                        }
-                                    }
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开目录";
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_open_sandbox(2); }
-                                    }
-                                }
-                            }
+                        refresh_quota => { root.action_refresh_quota(2); }
+                        session_clicked => {
+                            root.session_modal_slot = 2;
+                            root.session_modal_visible = true;
+                            root.show_session_modal(2);
                         }
+                        adjust_scale(delta) => { root.adjust_sub_scale(2, delta); }
+                        reset_scale => { root.reset_sub_scale(2); }
+                        launch => { root.action_launch_sub(2); }
+                        stop => { root.action_stop_sub(2); }
+                        clear_token => {
+                            root.confirm_modal_slot = 2;
+                            root.confirm_modal_visible = true;
+                        }
+                        open_sandbox => { root.action_open_sandbox(2); }
                     }
 
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        min-width: 0px;
-                        preferred-width: 0px;
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.sub3_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
-                        border-width: 1px;
-                        border-radius: 8px;
-                        clip: true;
+                    SubInstanceCard {
+                        slot: 3;
+                        title_text: "分身 3";
+                        instance_id_text: "instance_3";
+                        is_running: root.sub3_running;
+                        pid_text: root.sub3_pid;
+                        user_name: root.sub3_user_name;
+                        user_email: root.sub3_user_email;
+                        tier: root.sub3_tier;
+                        avatar: root.sub3_avatar;
+                        has_avatar: root.sub3_has_avatar;
+                        port_text: root.sub3_port;
+                        weekly_reset: root.sub3_weekly_reset;
+                        weekly_pct: root.sub3_weekly_text;
+                        weekly_ring: root.sub3_weekly_ring;
+                        five_h_reset: root.sub3_five_h_reset;
+                        five_h_pct: root.sub3_five_h_text;
+                        five_h_ring: root.sub3_five_h_ring;
+                        quota_refreshing: root.sub3_quota_refreshing;
+                        token_present: root.sub3_token_present;
+                        spin_angle: root.quota_spin_angle;
+                        cpu_text: root.sub3_cpu_text;
+                        ram_text: root.sub3_ram_text;
+                        session_count_text: root.sub3_session_count_text;
+                        recent_project: root.sub3_recent_project;
+                        recent_title: root.sub3_recent_title;
+                        recent_tokens: root.sub3_recent_tokens;
+                        recent_time: root.sub3_recent_time;
+                        has_running_session: root.sub3_has_running;
+                        has_sessions: root.sub3_has_sessions;
+                        cache_size_text: root.sub3_cache_size_text;
+                        scale_text: root.sub3_scale_text;
+                        is_dark: root.is_dark;
 
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 6px;
-                            padding-bottom: 6px;
-                            spacing: 3px;
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                height: 20px;
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Rectangle {
-                                        width: 7px;
-                                        height: 7px;
-                                        border-radius: 3.5px;
-                                        background: root.sub3_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                        y: (parent.height - 7px) / 2;
-                                    }
-                                    Text {
-                                        text: "分身 3";
-                                        color: root.is_dark ? #f8fafc : #0f172a;
-                                        font-size: 13px;
-                                        font-weight: 700;
-                                        vertical-alignment: center;
-                                    }
-                                    Rectangle {
-                                        background: root.sub3_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
-                                        border-color: root.sub3_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
-                                        border-width: 1px;
-                                        border-radius: 3px;
-                                        height: 16px;
-                                        y: (parent.height - 16px) / 2;
-                                        HorizontalLayout {
-                                            padding-left: 5px;
-                                            padding-right: 5px;
-                                            alignment: center;
-                                            Text {
-                                                text: "instance_3";
-                                                color: root.sub3_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                                                font-size: 10px;
-                                                font-family: "Cascadia Mono";
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                    }
-                                }
-                                if root.sub3_running : Rectangle {
-                                    background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                                    border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                                    border-width: 1px;
-                                    border-radius: 4px;
-                                    height: 18px;
-                                    y: (parent.height - 18px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 6px;
-                                        padding-right: 6px;
-                                        alignment: center;
-                                        Text {
-                                            text: "PID " + root.sub3_pid;
-                                            color: root.is_dark ? #34d399 : #059669;
-                                            font-size: 10.5px;
-                                            font-family: "Cascadia Mono";
-                                            font-weight: 700;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                }
-                                if !root.sub3_running : Text {
-                                    text: "未运行";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            UserProfileRow {
-                                user_name: root.sub3_user_name;
-                                user_email: root.sub3_user_email;
-                                tier: root.sub3_tier;
-                                avatar: root.sub3_avatar;
-                                has_avatar: root.sub3_has_avatar;
-                                port_text: root.sub3_port;
-                                is_dark: root.is_dark;
-                            }
-
-                            SubQuotaCompactBox {
-                                weekly_reset: root.sub3_weekly_reset;
-                                weekly_pct: root.sub3_weekly_text;
-                                weekly_ring: root.sub3_weekly_ring;
-                                five_h_reset: root.sub3_five_h_reset;
-                                five_h_pct: root.sub3_five_h_text;
-                                five_h_ring: root.sub3_five_h_ring;
-                                is_dark: root.is_dark;
-                                is_refreshing: root.sub3_quota_refreshing;
-                                is_refresh_disabled: !root.sub3_token_present;
-                                spin_angle: root.quota_spin_angle;
-                                refresh_clicked => { root.action_refresh_quota(3); }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub3_cpu_text; val_color: root.sub3_running ? #34d399 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub3_ram_text; val_color: root.sub3_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.sub3_session_count_text; is_dark: root.is_dark; }
-                            }
-
-                            SubSessionCardBox {
-                                project_name: root.sub3_recent_project;
-                                session_title: root.sub3_recent_title;
-                                tokens_text: root.sub3_recent_tokens;
-                                time_text: root.sub3_recent_time;
-                                is_running: root.sub3_running || root.sub3_has_running;
-                                has_sessions: root.sub3_has_sessions;
-                                is_dark: root.is_dark;
-                                clicked => {
-                                    root.session_modal_slot = 3;
-                                    root.session_modal_visible = true;
-                                    root.show_session_modal(3);
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 3px;
-                                vertical-stretch: 0;
-
-                                SubScaleCacheRow {
-                                    cache_text: root.sub3_cache_size_text;
-                                    scale_text: root.sub3_scale_text;
-                                    is_dark: root.is_dark;
-                                    dec_clicked => { root.adjust_sub_scale(3, -10); }
-                                    inc_clicked => { root.adjust_sub_scale(3, 10); }
-                                    reset_clicked => { root.reset_sub_scale(3); }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 28px;
-                                    if !root.sub3_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "启动";
-                                        btn_color: #10b981;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(3); }
-                                    }
-                                    if root.sub3_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开";
-                                        btn_color: #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(3); }
-                                    }
-                                    if root.sub3_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "停止";
-                                        btn_color: #f43f5e;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_stop_sub(3); }
-                                    }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 26px;
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "清理凭据";
-                                        is_dark: root.is_dark;
-                                        is_disabled: root.sub3_running || !root.sub3_token_present;
-                                        clicked => {
-                                            root.confirm_modal_slot = 3;
-                                            root.confirm_modal_visible = true;
-                                        }
-                                    }
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开目录";
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_open_sandbox(3); }
-                                    }
-                                }
-                            }
+                        refresh_quota => { root.action_refresh_quota(3); }
+                        session_clicked => {
+                            root.session_modal_slot = 3;
+                            root.session_modal_visible = true;
+                            root.show_session_modal(3);
                         }
+                        adjust_scale(delta) => { root.adjust_sub_scale(3, delta); }
+                        reset_scale => { root.reset_sub_scale(3); }
+                        launch => { root.action_launch_sub(3); }
+                        stop => { root.action_stop_sub(3); }
+                        clear_token => {
+                            root.confirm_modal_slot = 3;
+                            root.confirm_modal_visible = true;
+                        }
+                        open_sandbox => { root.action_open_sandbox(3); }
                     }
 
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        min-width: 0px;
-                        preferred-width: 0px;
-                        background: root.is_dark ? #090e1c : #f8fafc;
-                        border-color: root.sub4_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
-                        border-width: 1px;
-                        border-radius: 8px;
-                        clip: true;
+                    SubInstanceCard {
+                        slot: 4;
+                        title_text: "分身 4";
+                        instance_id_text: "instance_4";
+                        is_running: root.sub4_running;
+                        pid_text: root.sub4_pid;
+                        user_name: root.sub4_user_name;
+                        user_email: root.sub4_user_email;
+                        tier: root.sub4_tier;
+                        avatar: root.sub4_avatar;
+                        has_avatar: root.sub4_has_avatar;
+                        port_text: root.sub4_port;
+                        weekly_reset: root.sub4_weekly_reset;
+                        weekly_pct: root.sub4_weekly_text;
+                        weekly_ring: root.sub4_weekly_ring;
+                        five_h_reset: root.sub4_five_h_reset;
+                        five_h_pct: root.sub4_five_h_text;
+                        five_h_ring: root.sub4_five_h_ring;
+                        quota_refreshing: root.sub4_quota_refreshing;
+                        token_present: root.sub4_token_present;
+                        spin_angle: root.quota_spin_angle;
+                        cpu_text: root.sub4_cpu_text;
+                        ram_text: root.sub4_ram_text;
+                        session_count_text: root.sub4_session_count_text;
+                        recent_project: root.sub4_recent_project;
+                        recent_title: root.sub4_recent_title;
+                        recent_tokens: root.sub4_recent_tokens;
+                        recent_time: root.sub4_recent_time;
+                        has_running_session: root.sub4_has_running;
+                        has_sessions: root.sub4_has_sessions;
+                        cache_size_text: root.sub4_cache_size_text;
+                        scale_text: root.sub4_scale_text;
+                        is_dark: root.is_dark;
 
-                        VerticalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            padding-top: 6px;
-                            padding-bottom: 6px;
-                            spacing: 3px;
-
-                            HorizontalLayout {
-                                alignment: space-between;
-                                height: 20px;
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    Rectangle {
-                                        width: 7px;
-                                        height: 7px;
-                                        border-radius: 3.5px;
-                                        background: root.sub4_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                                        y: (parent.height - 7px) / 2;
-                                    }
-                                    Text {
-                                        text: "分身 4";
-                                        color: root.is_dark ? #f8fafc : #0f172a;
-                                        font-size: 13px;
-                                        font-weight: 700;
-                                        vertical-alignment: center;
-                                    }
-                                    Rectangle {
-                                        background: root.sub4_running ? (root.is_dark ? rgba(16, 185, 129, 0.1) : rgba(16, 185, 129, 0.12)) : (root.is_dark ? #0d1527 : #e2e8f0);
-                                        border-color: root.sub4_running ? (root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4)) : (root.is_dark ? #1e293b : #cbd5e1);
-                                        border-width: 1px;
-                                        border-radius: 3px;
-                                        height: 16px;
-                                        y: (parent.height - 16px) / 2;
-                                        HorizontalLayout {
-                                            padding-left: 5px;
-                                            padding-right: 5px;
-                                            alignment: center;
-                                            Text {
-                                                text: "instance_4";
-                                                color: root.sub4_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                                                font-size: 10px;
-                                                font-family: "Cascadia Mono";
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                    }
-                                }
-                                if root.sub4_running : Rectangle {
-                                    background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                                    border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                                    border-width: 1px;
-                                    border-radius: 4px;
-                                    height: 18px;
-                                    y: (parent.height - 18px) / 2;
-                                    HorizontalLayout {
-                                        padding-left: 6px;
-                                        padding-right: 6px;
-                                        alignment: center;
-                                        Text {
-                                            text: "PID " + root.sub4_pid;
-                                            color: root.is_dark ? #34d399 : #059669;
-                                            font-size: 10.5px;
-                                            font-family: "Cascadia Mono";
-                                            font-weight: 700;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                }
-                                if !root.sub4_running : Text {
-                                    text: "未运行";
-                                    color: root.is_dark ? #64748b : #94a3b8;
-                                    font-size: 10.5px;
-                                    font-family: "Cascadia Mono";
-                                    vertical-alignment: center;
-                                }
-                            }
-
-                            UserProfileRow {
-                                user_name: root.sub4_user_name;
-                                user_email: root.sub4_user_email;
-                                tier: root.sub4_tier;
-                                avatar: root.sub4_avatar;
-                                has_avatar: root.sub4_has_avatar;
-                                port_text: root.sub4_port;
-                                is_dark: root.is_dark;
-                            }
-
-                            SubQuotaCompactBox {
-                                weekly_reset: root.sub4_weekly_reset;
-                                weekly_pct: root.sub4_weekly_text;
-                                weekly_ring: root.sub4_weekly_ring;
-                                five_h_reset: root.sub4_five_h_reset;
-                                five_h_pct: root.sub4_five_h_text;
-                                five_h_ring: root.sub4_five_h_ring;
-                                is_dark: root.is_dark;
-                                is_refreshing: root.sub4_quota_refreshing;
-                                is_refresh_disabled: !root.sub4_token_present;
-                                spin_angle: root.quota_spin_angle;
-                                refresh_clicked => { root.action_refresh_quota(4); }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 6px;
-                                MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.sub4_cpu_text; val_color: root.sub4_running ? #34d399 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.sub4_ram_text; val_color: root.sub4_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-                                MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.sub4_session_count_text; is_dark: root.is_dark; }
-                            }
-
-                            SubSessionCardBox {
-                                project_name: root.sub4_recent_project;
-                                session_title: root.sub4_recent_title;
-                                tokens_text: root.sub4_recent_tokens;
-                                time_text: root.sub4_recent_time;
-                                is_running: root.sub4_running || root.sub4_has_running;
-                                has_sessions: root.sub4_has_sessions;
-                                is_dark: root.is_dark;
-                                clicked => {
-                                    root.session_modal_slot = 4;
-                                    root.session_modal_visible = true;
-                                    root.show_session_modal(4);
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 3px;
-                                vertical-stretch: 0;
-
-                                SubScaleCacheRow {
-                                    cache_text: root.sub4_cache_size_text;
-                                    scale_text: root.sub4_scale_text;
-                                    is_dark: root.is_dark;
-                                    dec_clicked => { root.adjust_sub_scale(4, -10); }
-                                    inc_clicked => { root.adjust_sub_scale(4, 10); }
-                                    reset_clicked => { root.reset_sub_scale(4); }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 28px;
-                                    if !root.sub4_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "启动";
-                                        btn_color: #10b981;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(4); }
-                                    }
-                                    if root.sub4_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开";
-                                        btn_color: #38bdf8;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_launch_sub(4); }
-                                    }
-                                    if root.sub4_running : CompactButton {
-                                        horizontal-stretch: 1;
-                                        text: "停止";
-                                        btn_color: #f43f5e;
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_stop_sub(4); }
-                                    }
-                                }
-
-                                HorizontalLayout {
-                                    spacing: 6px;
-                                    height: 26px;
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "清理凭据";
-                                        is_dark: root.is_dark;
-                                        is_disabled: root.sub4_running || !root.sub4_token_present;
-                                        clicked => {
-                                            root.confirm_modal_slot = 4;
-                                            root.confirm_modal_visible = true;
-                                        }
-                                    }
-                                    OutlineButton {
-                                        horizontal-stretch: 1;
-                                        text: "打开目录";
-                                        is_dark: root.is_dark;
-                                        clicked => { root.action_open_sandbox(4); }
-                                    }
-                                }
-                            }
+                        refresh_quota => { root.action_refresh_quota(4); }
+                        session_clicked => {
+                            root.session_modal_slot = 4;
+                            root.session_modal_visible = true;
+                            root.show_session_modal(4);
                         }
+                        adjust_scale(delta) => { root.adjust_sub_scale(4, delta); }
+                        reset_scale => { root.reset_sub_scale(4); }
+                        launch => { root.action_launch_sub(4); }
+                        stop => { root.action_stop_sub(4); }
+                        clear_token => {
+                            root.confirm_modal_slot = 4;
+                            root.confirm_modal_visible = true;
+                        }
+                        open_sandbox => { root.action_open_sandbox(4); }
                     }
                 }
             }
@@ -2706,335 +698,47 @@ export component MainWindow inherits Window {
         Rectangle { vertical-stretch: 1; }
     }
 
-    if root.confirm_modal_visible : Rectangle {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
-        background: root.is_dark ? rgba(0, 0, 0, 0.72) : rgba(0, 0, 0, 0.45);
-
-        TouchArea {
-            clicked => {
-                root.confirm_modal_visible = false;
-            }
-        }
-
-        Rectangle {
-            width: 350px;
-            height: 154px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: root.is_dark ? #0f172a : #ffffff;
-            border-color: root.is_dark ? #334155 : #cbd5e1;
-            border-width: 1px;
-            border-radius: 8px;
-
-            TouchArea {}
-
-            VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
-
-                Text {
-                    text: "清理凭据";
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
-                    font-weight: 700;
-                }
-
-                Text {
-                    text: root.confirm_modal_slot == 0 ? "主账号 登录凭据" : ("分身 " + root.confirm_modal_slot + " 登录凭据");
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
-                }
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-
-                    OutlineButton {
-                        width: 76px;
-                        text: "取消";
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.confirm_modal_visible = false;
-                        }
-                    }
-
-                    CompactButton {
-                        width: 84px;
-                        text: "清理";
-                        btn_color: #f43f5e;
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.confirm_modal_visible = false;
-                            root.action_clear_token(root.confirm_modal_slot);
-                        }
-                    }
-                }
-            }
+    ConfirmModal {
+        is_visible: root.confirm_modal_visible;
+        slot: root.confirm_modal_slot;
+        is_dark: root.is_dark;
+        cancel => { root.confirm_modal_visible = false; }
+        confirm(slot) => {
+            root.confirm_modal_visible = false;
+            root.action_clear_token(slot);
         }
     }
 
-    if root.clean_modal_visible : Rectangle {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
-        background: root.is_dark ? rgba(0, 0, 0, 0.72) : rgba(0, 0, 0, 0.45);
-
-        TouchArea {
-            clicked => {
-                root.clean_modal_visible = false;
-            }
-        }
-
-        Rectangle {
-            width: 400px;
-            height: 236px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: root.is_dark ? #0f172a : #ffffff;
-            border-color: root.is_dark ? #334155 : #cbd5e1;
-            border-width: 1px;
-            border-radius: 8px;
-
-            TouchArea {}
-
-            VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
-
-                Text {
-                    text: "清理缓存";
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
-                    font-weight: 700;
-                }
-
-                Text {
-                    text: root.cache_detail_text;
-                    wrap: word-wrap;
-                    color: root.is_dark ? #cbd5e1 : #475569;
-                    font-size: 12px;
-                }
-
-                Text {
-                    text: root.cache_total_text;
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
-                }
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-
-                    OutlineButton {
-                        width: 76px;
-                        text: "取消";
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.clean_modal_visible = false;
-                        }
-                    }
-
-                    CompactButton {
-                        width: 84px;
-                        text: "清理";
-                        btn_color: #f43f5e;
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.action_clean_cache();
-                        }
-                    }
-                }
-            }
+    CleanCacheModal {
+        is_visible: root.clean_modal_visible;
+        detail_text: root.cache_detail_text;
+        total_text: root.cache_total_text;
+        is_dark: root.is_dark;
+        cancel => { root.clean_modal_visible = false; }
+        confirm => {
+            root.clean_modal_visible = false;
+            root.action_clean_cache();
         }
     }
 
-    if root.patch_modal_visible : Rectangle {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
-        background: root.is_dark ? rgba(0, 0, 0, 0.72) : rgba(0, 0, 0, 0.45);
-
-        TouchArea {
-            clicked => {
-                root.patch_modal_visible = false;
-            }
-        }
-
-        Rectangle {
-            width: 360px;
-            height: 160px;
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: root.is_dark ? #0f172a : #ffffff;
-            border-color: root.is_dark ? #334155 : #cbd5e1;
-            border-width: 1px;
-            border-radius: 8px;
-
-            TouchArea {}
-
-            VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
-
-                Text {
-                    text: root.patch_modal_title;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
-                    font-weight: 700;
-                }
-
-                Text {
-                    text: root.patch_modal_msg;
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
-                }
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-
-                    OutlineButton {
-                        width: 76px;
-                        text: "取消";
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.patch_modal_visible = false;
-                        }
-                    }
-
-                    CompactButton {
-                        width: 100px;
-                        text: root.patch_modal_btn_text;
-                        btn_color: #f43f5e;
-                        is_dark: root.is_dark;
-                        clicked => {
-                            root.patch_modal_visible = false;
-                            root.action_patch_modal_confirm();
-                        }
-                    }
-                }
-            }
+    PatchModal {
+        is_visible: root.patch_modal_visible;
+        title_text: root.patch_modal_title;
+        msg_text: root.patch_modal_msg;
+        btn_text: root.patch_modal_btn_text;
+        is_dark: root.is_dark;
+        cancel => { root.patch_modal_visible = false; }
+        confirm => {
+            root.patch_modal_visible = false;
+            root.action_patch_modal_confirm();
         }
     }
 
-    if root.session_modal_visible : Rectangle {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
-        background: root.is_dark ? rgba(0, 0, 0, 0.75) : rgba(0, 0, 0, 0.45);
-
-        TouchArea {
-            clicked => {
-                root.session_modal_visible = false;
-            }
-        }
-
-        Rectangle {
-            width: Math.min(parent.width - 80px, 1080px);
-            height: Math.min(parent.height - 60px, 760px);
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            background: root.is_dark ? #1e1f22 : #ffffff;
-            border-color: root.is_dark ? #33373e : #cbd5e1;
-            border-width: 1px;
-            border-radius: 12px;
-            clip: true;
-
-            TouchArea {}
-
-            VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
-
-                HorizontalLayout {
-                    alignment: space-between;
-                    height: 32px;
-
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
-
-                        Rectangle {
-                            width: 9px;
-                            height: 9px;
-                            border-radius: 4.5px;
-                            background: #38bdf8;
-                            y: (parent.height - 9px) / 2;
-                        }
-
-                        Text {
-                            text: root.session_modal_slot == 0 ? "主账号 会话监视" : ("分身 " + root.session_modal_slot + " 会话监视");
-                            color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 17px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        border-radius: 5px;
-                        background: close_ta.has_hover ? (root.is_dark ? #2b2d31 : #e2e8f0) : transparent;
-
-                        close_ta := TouchArea {
-                            clicked => {
-                                root.session_modal_visible = false;
-                            }
-                            mouse-cursor: pointer;
-                        }
-
-                        Text {
-                            text: "×";
-                            color: root.is_dark ? #94a3b8 : #64748b;
-                            font-size: 20px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
-
-                if root.session_modal_items.length == 0 : Rectangle {
-                    vertical-stretch: 1;
-                    Text {
-                        text: "当前无活动会话记录";
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 13.5px;
-                        vertical-alignment: center;
-                        horizontal-alignment: center;
-                    }
-                }
-
-                if root.session_modal_items.length > 0 : ScrollView {
-                    vertical-stretch: 1;
-
-                    VerticalLayout {
-                        padding-right: 20px;
-                        padding-bottom: 8px;
-                        spacing: 5px;
-                        for item in root.session_modal_items : VerticalLayout {
-                            if item.is_group_header : SessionGroupHeader {
-                                group_name: item.group_name;
-                                count_str: item.group_count_str;
-                                has_running: item.group_has_running;
-                                is_dark: root.is_dark;
-                            }
-                            if !item.is_group_header : SessionModalRow {
-                                item: item;
-                                is_dark: root.is_dark;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    SessionListModal {
+        is_visible: root.session_modal_visible;
+        slot: root.session_modal_slot;
+        items: root.session_modal_items;
+        is_dark: root.is_dark;
+        close => { root.session_modal_visible = false; }
     }
 }
-

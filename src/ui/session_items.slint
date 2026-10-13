@@ -1,0 +1,291 @@
+import { FolderIcon } from "icons.slint";
+
+export struct SessionUiItem {
+    is_group_header: bool,
+    group_name: string,
+    group_count_str: string,
+    group_has_running: bool,
+    id: string,
+    title: string,
+    context_str: string,
+    cache_rate_str: string,
+    time_ago_str: string,
+    is_running: bool,
+}
+
+export component SessionGroupHeader inherits Rectangle {
+    in property <string> group_name;
+    in property <string> count_str;
+    in property <bool> has_running: false;
+    in property <bool> is_dark: true;
+
+    height: 38px;
+    background: root.is_dark ? #18191d : #f1f5f9;
+    border-color: root.is_dark ? #2a2d36 : #cbd5e1;
+    border-width: 1px;
+    border-radius: 6px;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 10px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+
+            Rectangle {
+                width: 4px;
+                height: 16px;
+                border-radius: 2px;
+                background: #38bdf8;
+                y: (parent.height - 16px) / 2;
+            }
+
+            Text {
+                text: root.group_name;
+                color: root.is_dark ? #f8fafc : #0f172a;
+                font-size: 15px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            if root.has_running : Rectangle {
+                width: 7px;
+                height: 7px;
+                border-radius: 3.5px;
+                background: #10b981;
+                y: (parent.height - 7px) / 2;
+            }
+        }
+
+        Text {
+            text: root.count_str;
+            color: root.is_dark ? #94a3b8 : #64748b;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component SessionModalRow inherits Rectangle {
+    in property <SessionUiItem> item;
+    in property <bool> is_dark: true;
+
+    background: root.is_dark ? #222225 : #f8fafc;
+    border-color: root.item.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #33373e : #e2e8f0);
+    border-width: 1px;
+    border-radius: 6px;
+    height: 58px;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 14px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: start;
+            horizontal-stretch: 1;
+
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                border-radius: 5px;
+                background: root.item.is_running ? #10b981 : (root.is_dark ? #525866 : #94a3b8);
+                y: (parent.height - 10px) / 2;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.item.title;
+                    color: root.is_dark ? #f8fafc : #0f172a;
+                    font-size: 15px;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: root.item.id;
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 12px;
+                    font-family: "Cascadia Mono";
+                    overflow: elide;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 22px;
+            alignment: end;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                min-width: 100px;
+
+                Text {
+                    text: "上下文";
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 11.5px;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.item.context_str;
+                    color: root.is_dark ? #38bdf8 : #0284c7;
+                    font-size: 15px;
+                    font-weight: 700;
+                    font-family: "Cascadia Mono";
+                    horizontal-alignment: right;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                min-width: 90px;
+
+                Text {
+                    text: "缓存率";
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 11.5px;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.item.cache_rate_str;
+                    color: root.is_dark ? #34d399 : #059669;
+                    font-size: 15px;
+                    font-weight: 700;
+                    font-family: "Cascadia Mono";
+                    horizontal-alignment: right;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                min-width: 85px;
+
+                Text {
+                    text: "更新";
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 11.5px;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.item.time_ago_str;
+                    color: root.is_dark ? #cbd5e1 : #64748b;
+                    font-size: 12.5px;
+                    font-family: "Cascadia Mono";
+                    horizontal-alignment: right;
+                }
+            }
+        }
+    }
+}
+
+export component SubSessionCardBox inherits Rectangle {
+    in property <string> project_name: "暂无活动会话";
+    in property <string> session_title: "";
+    in property <string> tokens_text: "";
+    in property <string> time_text: "等待初始化";
+    in property <bool> is_running: false;
+    in property <bool> has_sessions: false;
+    in property <bool> is_dark: true;
+    callback clicked();
+
+    background: root.has_sessions && card_ta.has_hover ? (root.is_dark ? #131d33 : #f1f5f9) : (root.is_dark ? #0d1527 : #ffffff);
+    border-color: root.has_sessions && card_ta.has_hover ? rgba(56, 189, 248, 0.45) : (root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0);
+    border-width: 1px;
+    border-radius: 6px;
+    height: 50px;
+
+    card_ta := TouchArea {
+        enabled: root.has_sessions;
+        clicked => {
+            if root.has_sessions {
+                root.clicked();
+            }
+        }
+        mouse-cursor: root.has_sessions ? pointer : default;
+    }
+
+    VerticalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 1px;
+
+        HorizontalLayout {
+            alignment: space-between;
+            height: 14px;
+
+            HorizontalLayout {
+                spacing: 4px;
+                alignment: start;
+                FolderIcon {
+                    icon_color: root.has_sessions ? (card_ta.has_hover ? #38bdf8 : (root.is_dark ? #38bdf8 : #0284c7)) : (root.is_dark ? #64748b : #94a3b8);
+                    y: (parent.height - 11px) / 2;
+                }
+                Text {
+                    text: root.has_sessions ? root.project_name : "暂无活动会话";
+                    color: root.has_sessions ? (card_ta.has_hover ? (root.is_dark ? #ffffff : #0f172a) : (root.is_dark ? #e2e8f0 : #1e293b)) : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 11.5px;
+                    font-weight: 600;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+
+            Text {
+                text: root.has_sessions ? (root.tokens_text != "" ? root.tokens_text : "--") : "0 会话";
+                color: root.has_sessions ? (card_ta.has_hover ? #7dd3fc : #38bdf8) : (root.is_dark ? #64748b : #94a3b8);
+                font-size: 10.5px;
+                font-family: "Cascadia Mono";
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 14px;
+            alignment: start;
+            Text {
+                text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
+                color: root.has_sessions ? (root.is_dark ? #94a3b8 : #64748b) : (root.is_dark ? #475569 : #94a3b8);
+                font-size: 11px;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            height: 14px;
+
+            if root.is_running : Rectangle {
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: #10b981;
+                y: (parent.height - 6px) / 2;
+            }
+            Text {
+                text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
+                color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
+                font-size: 10.5px;
+                font-family: "Cascadia Mono";
+                vertical-alignment: center;
+            }
+        }
+    }
+}
