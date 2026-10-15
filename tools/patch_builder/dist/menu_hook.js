@@ -123,7 +123,27 @@ const contextMenuTranslationMap = {
   "Unstage All Changes": "取消暂存所有更改",
   "Discard Change": "放弃更改",
   "Discard Changes": "放弃更改",
-  "Discard All Changes": "放弃所有更改"
+  "Discard All Changes": "放弃所有更改",
+  "Open in New Window": "在新窗口中打开",
+  "Open in Preview": "在预览中打开",
+  "Open in Editor": "在编辑器中打开",
+  "Split Down": "向下分屏",
+  "Split Right": "向右分屏",
+  "Reveal in Explorer": "在资源管理器中显示",
+  "Format Document": "格式化文档",
+  "Format Selection": "格式化选定内容",
+  "Change All Occurrences": "更改所有匹配项",
+  "Go to Definition": "转到定义",
+  "Peek Definition": "速览定义",
+  "Find All References": "查找所有引用",
+  "Rename Symbol": "重命名符号",
+  "Refactor...": "重构...",
+  "Source Action...": "源代码操作...",
+  "Clear Terminal": "清空终端",
+  "Kill Terminal": "终止终端",
+  "Restart Terminal": "重启终端",
+  "Toggle Word Wrap": "切换自动换行",
+  "Inspect Element": "检查元素"
 };
 
 function translateContextLabel(lbl) {

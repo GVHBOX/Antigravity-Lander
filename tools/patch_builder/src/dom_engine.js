@@ -1089,6 +1089,30 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       dynamicMatch = '刚刚';
       isDynamic = true;
     }
+    if (/^less\s+than\s+a\s+minute\s+ago$/i.test(trimmed)) {
+      dynamicMatch = '不到 1 分钟前';
+      isDynamic = true;
+    }
+    if (/^about\s+(\d+|a|an)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i.test(trimmed)) {
+      const m = trimmed.match(/^about\s+(\d+|a|an)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i);
+      const num = (m[1].toLowerCase() === 'a' || m[1].toLowerCase() === 'an') ? '1' : m[1];
+      const uMap = { second: '秒', minute: '分钟', hour: '小时', day: '天', week: '周', month: '个月', year: '年' };
+      dynamicMatch = `约 ${num} ${uMap[m[2].toLowerCase()] || m[2]}前`;
+      isDynamic = true;
+    }
+    if (/^(?:almost|over)\s+(\d+|a|an)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i.test(trimmed)) {
+      const m = trimmed.match(/^(almost|over)\s+(\d+|a|an)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i);
+      const prefix = m[1].toLowerCase() === 'almost' ? '近' : '超过';
+      const num = (m[2].toLowerCase() === 'a' || m[2].toLowerCase() === 'an') ? '1' : m[2];
+      const uMap = { second: '秒', minute: '分钟', hour: '小时', day: '天', week: '周', month: '个月', year: '年' };
+      dynamicMatch = `${prefix} ${num} ${uMap[m[3].toLowerCase()] || m[3]}前`;
+      isDynamic = true;
+    }
+    if (/^(\d+)\s+of\s+(\d+)$/i.test(trimmed)) {
+      const m = trimmed.match(/^(\d+)\s+of\s+(\d+)$/i);
+      dynamicMatch = `${m[1]} / ${m[2]}`;
+      isDynamic = true;
+    }
 
     if (isDynamic) {
       return text.replace(trimmed, dynamicMatch);
@@ -1488,6 +1512,13 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
 
       if (node.parentElement) {
         const pText = node.parentElement.textContent || '';
+        if (/^\d+\s*of\s*\d+$/i.test(pText.trim())) {
+          if (original.trim() === 'of') {
+            node.nodeValue = original.replace(/of/i, '/');
+            translatedNodes.add(node);
+            return;
+          }
+        }
         if (/plan/i.test(pText) && (pText.includes('智能体生成计划') || /agent generate a plan/i.test(pText))) {
           const t = original.trim();
           if (t === 'Type') {
