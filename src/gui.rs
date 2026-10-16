@@ -2009,7 +2009,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         if tps <= 0.0 {
                             3.0
                         } else {
-                            (3.0 + (tps / max_tps) * 29.0).clamp(3.0, 32.0)
+                            (3.0 + (tps / max_tps) * 25.0).clamp(3.0, 28.0)
                         }
                     };
                     ui.set_live_bar0_h(calc_h(s.recent_tps[0]));
