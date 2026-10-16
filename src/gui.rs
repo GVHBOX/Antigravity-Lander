@@ -2038,7 +2038,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     };
                     ui.set_live_avg_line_pct(avg_pct);
 
-                    let max_tokens = 256_000u64;
+                    let max_tokens = 262_144u64;
                     let prompt_tokens = s.input_tokens;
                     let cache_tokens = s.cache_read_tokens;
                     let output_tokens = s.output_tokens;
@@ -2056,11 +2056,17 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
                     ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
 
-                    let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
-                    ui.set_live_session_context_pct(pct);
-                    let avail = max_tokens.saturating_sub(total_tokens);
-                    ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
+                    if total_tokens > max_tokens {
+                        ui.set_live_session_context_text(format!("{} / 256K (待压缩)", format_tokens(total_tokens)).into());
+                        ui.set_live_session_context_pct(1.0);
+                        ui.set_live_session_available_text("待压缩".into());
+                    } else {
+                        let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                        ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
+                        ui.set_live_session_context_pct(pct);
+                        let avail = max_tokens.saturating_sub(total_tokens);
+                        ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
+                    }
 
                     ui.set_live_session_optimization_text(format!("缓存命中率: {} · 步数 #{}", s.cache_rate_str, s.step_count).into());
                 } else {
