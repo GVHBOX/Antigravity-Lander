@@ -70,6 +70,8 @@ pub struct SessionItem {
     pub input_tokens: u64,
     pub cache_read_tokens: u64,
     pub output_tokens: u64,
+    pub thinking_tokens: u64,
+    pub content_tokens: u64,
     pub context_tokens: u64,
     pub cache_rate: f32,
     pub is_running: bool,
@@ -80,7 +82,12 @@ pub struct SessionItem {
     pub step_count: u32,
     pub round_duration_secs: f32,
     pub round_tps: f32,
-    pub recent_tps: [f32; 8],
+    pub peak_tps: f32,
+    pub avg_tps: f32,
+    pub recent_tps: [f32; 16],
+    pub recent_turn_tokens: [u64; 16],
+    pub recent_turn_durations: [f32; 16],
+    pub recent_turn_indices: [u32; 16],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -122,6 +129,10 @@ struct TailStep {
     cache_read_tokens: Option<u64>,
     #[serde(default)]
     output_tokens: Option<u64>,
+    #[serde(default)]
+    thinking: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
 }
 
 #[derive(Default, Clone)]
@@ -129,12 +140,19 @@ struct TailMetrics {
     input_tokens: u64,
     cache_read_tokens: u64,
     output_tokens: u64,
+    thinking_tokens: u64,
+    content_tokens: u64,
     context_tokens: u64,
     cache_rate: f32,
     is_running: bool,
     round_duration_secs: f32,
     round_tps: f32,
-    recent_tps: [f32; 8],
+    peak_tps: f32,
+    avg_tps: f32,
+    recent_tps: [f32; 16],
+    recent_turn_tokens: [u64; 16],
+    recent_turn_durations: [f32; 16],
+    recent_turn_indices: [u32; 16],
     file_step_count: u32,
 }
 
@@ -252,7 +270,7 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         Err(_) => return TailMetrics::default(),
     };
 
-    let tail_bytes_to_read = if file_len > 65536 { 65536 } else { file_len as usize };
+    let tail_bytes_to_read = if file_len > 131072 { 131072 } else { file_len as usize };
     if file.seek(SeekFrom::End(-(tail_bytes_to_read as i64))).is_err() {
         return TailMetrics::default();
     }
@@ -290,12 +308,35 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
     let mut found_input: u64 = 0;
     let mut found_cache: u64 = 0;
     let mut found_output: u64 = 0;
+    let mut found_thinking: u64 = 0;
+    let mut found_content: u64 = 0;
 
     for step in lines.iter().rev() {
         if step.input_tokens.is_some() || step.cache_read_tokens.is_some() || step.output_tokens.is_some() {
             found_input = step.input_tokens.unwrap_or(0);
             found_cache = step.cache_read_tokens.unwrap_or(0);
-            found_output = step.output_tokens.unwrap_or(0);
+            let out = step.output_tokens.unwrap_or(0);
+            found_output = out;
+
+            let thinking_len = step.thinking.as_ref().map(|s| s.len()).unwrap_or(0);
+            let content_len = step.content.as_ref().map(|s| s.len()).unwrap_or(0);
+            let total_chars = thinking_len + content_len;
+            if total_chars > 0 && out > 0 {
+                if content_len == 0 {
+                    found_thinking = out;
+                    found_content = 0;
+                } else if thinking_len == 0 {
+                    found_thinking = 0;
+                    found_content = out;
+                } else {
+                    let th = ((out as f64 * thinking_len as f64) / total_chars as f64).round() as u64;
+                    found_thinking = th.min(out);
+                    found_content = out.saturating_sub(found_thinking);
+                }
+            } else {
+                found_thinking = 0;
+                found_content = out;
+            }
             break;
         }
     }
@@ -320,49 +361,83 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         if let (Some(out), Some(ca)) = (step.output_tokens, &step.created_at) {
             if out > 0 {
                 if let Some(sec) = parse_rfc3339_secs(ca) {
-                    steps_with_out.push((sec, out));
+                    let idx = step.step_index.map(|i| (i + 1) as u32).unwrap_or(0);
+                    steps_with_out.push((sec, out, idx));
                 }
             }
         }
     }
 
-    let mut tps_list = Vec::new();
+    let mut tps_tuples = Vec::new();
     let mut last_dur = 0.0f32;
     if steps_with_out.len() >= 2 {
         for w in steps_with_out.windows(2) {
             let t0 = w[0].0;
             let t1 = w[1].0;
             let out = w[1].1;
+            let idx = w[1].2;
             let dur = (t1 - t0).clamp(1, 60) as f32;
             let tps = out as f32 / dur;
-            tps_list.push(tps);
+            tps_tuples.push((tps, out, dur, idx));
             last_dur = dur;
         }
-    } else if let Some(&(_, out)) = steps_with_out.first() {
+    } else if let Some(&(_, out, idx)) = steps_with_out.first() {
         let dur = 2.0f32;
         let tps = out as f32 / dur;
-        tps_list.push(tps);
+        tps_tuples.push((tps, out, dur, idx));
         last_dur = dur;
     }
 
-    let round_tps = tps_list.last().copied().unwrap_or(0.0);
-    let mut recent_tps = [0.0f32; 8];
-    let take_n = tps_list.len().min(8);
-    let start_idx = 8 - take_n;
-    for (i, &val) in tps_list.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
-        recent_tps[start_idx + i] = val;
+    let round_tps = tps_tuples.last().map(|t| t.0).unwrap_or(0.0);
+    let mut recent_tps = [0.0f32; 16];
+    let mut recent_turn_tokens = [0u64; 16];
+    let mut recent_turn_durations = [0.0f32; 16];
+    let mut recent_turn_indices = [0u32; 16];
+
+    let take_n = tps_tuples.len().min(16);
+    let start_idx = 16 - take_n;
+    for (i, &(tps, out, dur, idx)) in tps_tuples.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
+        recent_tps[start_idx + i] = tps;
+        recent_turn_tokens[start_idx + i] = out;
+        recent_turn_durations[start_idx + i] = dur;
+        recent_turn_indices[start_idx + i] = idx;
     }
+
+    let mut peak_tps: f32 = 0.0;
+    let mut sum_tps: f32 = 0.0;
+    let mut count_tps: usize = 0;
+    for &val in &recent_tps {
+        if val > 0.0 {
+            if val > peak_tps {
+                peak_tps = val;
+            }
+            sum_tps += val;
+            count_tps += 1;
+        }
+    }
+    let avg_tps = if count_tps > 0 {
+        sum_tps / count_tps as f32
+    } else {
+        0.0
+    };
 
     TailMetrics {
         input_tokens: found_input,
         cache_read_tokens: found_cache,
         output_tokens: found_output,
+        thinking_tokens: found_thinking,
+        content_tokens: found_content,
         context_tokens: total_context,
         cache_rate,
         is_running,
         round_duration_secs: last_dur,
         round_tps,
+        peak_tps,
+        avg_tps,
         recent_tps,
+        recent_turn_tokens,
+        recent_turn_durations,
+        recent_turn_indices,
         file_step_count,
     }
 }
@@ -587,6 +662,8 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             input_tokens: tail.input_tokens,
             cache_read_tokens: tail.cache_read_tokens,
             output_tokens: tail.output_tokens,
+            thinking_tokens: tail.thinking_tokens,
+            content_tokens: tail.content_tokens,
             context_tokens: tail.context_tokens,
             cache_rate: tail.cache_rate,
             is_running,
@@ -597,7 +674,12 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             step_count,
             round_duration_secs: tail.round_duration_secs,
             round_tps: tail.round_tps,
+            peak_tps: tail.peak_tps,
+            avg_tps: tail.avg_tps,
             recent_tps: tail.recent_tps,
+            recent_turn_tokens: tail.recent_turn_tokens,
+            recent_turn_durations: tail.recent_turn_durations,
+            recent_turn_indices: tail.recent_turn_indices,
         });
     }
 

@@ -1,3 +1,87 @@
+component MetricBadge inherits Rectangle {
+    in property <color> dot_color;
+    in property <string> label_text;
+    in property <string> val_text;
+    in property <string> pct_text;
+    in property <bool> is_dark: true;
+
+    border-radius: 4px;
+    background: root.is_dark ? rgba(255, 255, 255, 0.03) : rgba(0, 0, 0, 0.02);
+    border-color: root.is_dark ? rgba(255, 255, 255, 0.05) : rgba(0, 0, 0, 0.04);
+    border-width: 1px;
+
+    VerticalLayout {
+        padding-left: 5px;
+        padding-right: 5px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 1px;
+
+        HorizontalLayout {
+            spacing: 3px;
+            alignment: start;
+            Rectangle {
+                width: 5px;
+                height: 5px;
+                border-radius: 2.5px;
+                background: root.dot_color;
+                y: (parent.height - 5px) / 2;
+            }
+            Text {
+                text: root.label_text;
+                font-size: 9px;
+                font-weight: 600;
+                color: root.is_dark ? #64748b : #94a3b8;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.val_text;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+            color: root.dot_color;
+        }
+        Text {
+            text: root.pct_text;
+            font-size: 9px;
+            font-family: "Cascadia Mono";
+            color: root.is_dark ? #64748b : #94a3b8;
+        }
+    }
+}
+
+component HistBarCol inherits Rectangle {
+    in property <float> bar_h: 3.0;
+    in property <bool> is_latest: false;
+    in property <bool> is_dark: true;
+    callback hovered();
+    callback unhovered();
+
+    horizontal-stretch: 1;
+    height: 32px;
+
+    bar := Rectangle {
+        y: parent.height - self.height;
+        width: 4.5px;
+        x: (parent.width - self.width) / 2;
+        height: Math.max(3.0, Math.min(32.0, root.bar_h)) * 1px;
+        border-radius: 1.5px;
+        background: ta.has-hover ? #38bdf8 : (root.is_latest ? #10b981 : (root.is_dark ? rgba(16, 185, 129, 0.38) : rgba(5, 150, 105, 0.42)));
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        changed has-hover => {
+            if (self.has-hover) {
+                root.hovered();
+            } else {
+                root.unhovered();
+            }
+        }
+    }
+}
+
 export component TelemetryCard inherits Rectangle {
     in property <bool> live_session_is_running: false;
     in property <string> live_session_target_text: "分身 1";
@@ -7,27 +91,51 @@ export component TelemetryCard inherits Rectangle {
     in property <string> live_session_title: "";
     in property <string> live_session_speed_text: "0.0";
     in property <string> live_session_speed_sub: "当前轮次 0 Tokens · 0.0s";
-    in property <float> live_bar0_h: 2.0;
-    in property <float> live_bar1_h: 2.0;
-    in property <float> live_bar2_h: 2.0;
-    in property <float> live_bar3_h: 2.0;
-    in property <float> live_bar4_h: 2.0;
-    in property <float> live_bar5_h: 2.0;
-    in property <float> live_bar6_h: 2.0;
-    in property <float> live_bar7_h: 2.0;
-    in property <string> live_session_context_text: "0 / 1.0M (0.0%)";
-    in property <float> live_prompt_pct: 0.0;
-    in property <float> live_cache_pct: 0.0;
-    in property <float> live_output_pct: 0.0;
-    in property <string> live_prompt_text: "输入 0";
-    in property <string> live_cache_legend: "缓存 0 (0.0%)";
-    in property <string> live_output_text: "输出 0";
-    in property <string> live_session_available_text: "可用 1.0M";
-    in property <string> live_session_optimization_text: "缓存节省 -- · 命中率 0.0%";
+    in property <string> live_hover_tag: "";
+    in property <bool> live_is_hovering_bar: false;
+    in property <string> live_peak_tps_text: "Pk 0.0";
+    in property <string> live_avg_tps_text: "Avg 0";
+    in property <float> live_avg_line_pct: 0.5;
+
+    in property <float> live_bar0_h: 3.0;
+    in property <float> live_bar1_h: 3.0;
+    in property <float> live_bar2_h: 3.0;
+    in property <float> live_bar3_h: 3.0;
+    in property <float> live_bar4_h: 3.0;
+    in property <float> live_bar5_h: 3.0;
+    in property <float> live_bar6_h: 3.0;
+    in property <float> live_bar7_h: 3.0;
+    in property <float> live_bar8_h: 3.0;
+    in property <float> live_bar9_h: 3.0;
+    in property <float> live_bar10_h: 3.0;
+    in property <float> live_bar11_h: 3.0;
+    in property <float> live_bar12_h: 3.0;
+    in property <float> live_bar13_h: 3.0;
+    in property <float> live_bar14_h: 3.0;
+    in property <float> live_bar15_h: 3.0;
+
+    in property <string> live_session_context_text: "0 / 256K (0.0%)";
+    in property <float> live_seg_cache_pct: 0.0;
+    in property <float> live_seg_prompt_pct: 0.0;
+    in property <float> live_seg_thinking_pct: 0.0;
+    in property <float> live_seg_output_pct: 0.0;
+
+    in property <string> live_cache_val: "0";
+    in property <string> live_cache_pct_text: "0.0%";
+    in property <string> live_prompt_val: "0";
+    in property <string> live_prompt_pct_text: "0.0%";
+    in property <string> live_thinking_val: "0";
+    in property <string> live_thinking_pct_text: "0.0%";
+    in property <string> live_output_val: "0";
+    in property <string> live_output_pct_text: "0.0%";
+
+    in property <string> live_session_optimization_text: "缓存命中率: 0.0% · 步数 #0";
     in property <bool> is_dark: true;
 
     callback switch_target(int);
     callback show_history(int);
+    callback bar_hover(int);
+    callback bar_leave();
 
     horizontal-stretch: 3;
     min-width: 0px;
@@ -66,7 +174,7 @@ export component TelemetryCard inherits Rectangle {
             Rectangle {
                 height: 22px;
                 border-radius: 4px;
-                background: target_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
+                background: target_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
                 border-color: root.is_dark ? #162032 : #cbd5e1;
                 border-width: 1px;
                 HorizontalLayout {
@@ -100,13 +208,13 @@ export component TelemetryCard inherits Rectangle {
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
             border-radius: 6px;
-            height: 44px;
+            height: 42px;
             VerticalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
                 padding-top: 4px;
                 padding-bottom: 4px;
-                spacing: 2px;
+                spacing: 1px;
                 HorizontalLayout {
                     alignment: space-between;
                     Text {
@@ -137,55 +245,152 @@ export component TelemetryCard inherits Rectangle {
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
             border-radius: 6px;
-            height: 62px;
+            height: 68px;
             HorizontalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
                 alignment: space-between;
+                spacing: 10px;
+
                 VerticalLayout {
                     alignment: center;
                     spacing: 2px;
-                    Text {
-                        text: "单轮 Token 吞吐";
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 11px;
+                    horizontal-stretch: 1;
+
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        Text {
+                            text: root.live_is_hovering_bar ? "历史轮次吞吐" : "单轮 Token 吞吐";
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                        if root.live_is_hovering_bar : Rectangle {
+                            border-radius: 3px;
+                            background: rgba(56, 189, 248, 0.15);
+                            HorizontalLayout {
+                                padding-left: 4px;
+                                padding-right: 4px;
+                                Text {
+                                    text: root.live_hover_tag;
+                                    color: #38bdf8;
+                                    font-size: 9px;
+                                    font-family: "Cascadia Mono";
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
                     }
+
                     HorizontalLayout {
                         spacing: 4px;
+                        alignment: start;
                         Text {
                             text: root.live_session_speed_text;
-                            color: #10b981;
-                            font-size: 18px;
+                            color: root.live_is_hovering_bar ? #38bdf8 : #10b981;
+                            font-size: 20px;
                             font-weight: 700;
                             font-family: "Cascadia Mono";
                         }
                         Text {
                             text: "Tokens/s";
                             color: root.is_dark ? #64748b : #94a3b8;
-                            font-size: 11px;
+                            font-size: 10px;
                             font-family: "Cascadia Mono";
                             vertical-alignment: bottom;
                         }
                     }
+
                     Text {
                         text: root.live_session_speed_sub;
-                        color: root.is_dark ? #64748b : #94a3b8;
+                        color: root.is_dark ? #94a3b8 : #64748b;
                         font-size: 10px;
                         font-family: "Cascadia Mono";
+                        overflow: elide;
                     }
                 }
 
-                HorizontalLayout {
-                    spacing: 3px;
-                    alignment: end;
-                    Rectangle { width: 4px; height: root.live_bar0_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.35); y: parent.height - (root.live_bar0_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar1_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.45); y: parent.height - (root.live_bar1_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar2_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.55); y: parent.height - (root.live_bar2_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar3_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.65); y: parent.height - (root.live_bar3_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar4_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.75); y: parent.height - (root.live_bar4_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar5_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.85); y: parent.height - (root.live_bar5_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar6_h * 1px; border-radius: 2px; background: rgba(16, 185, 129, 0.90); y: parent.height - (root.live_bar6_h * 1px) - 14px; }
-                    Rectangle { width: 4px; height: root.live_bar7_h * 1px; border-radius: 2px; background: #10b981; y: parent.height - (root.live_bar7_h * 1px) - 14px; }
+                Rectangle {
+                    width: 146px;
+                    height: 56px;
+
+                    VerticalLayout {
+                        alignment: space-between;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            height: 12px;
+                            Text {
+                                text: "TPS 趋势 (16轮)";
+                                color: root.is_dark ? #64748b : #94a3b8;
+                                font-size: 9px;
+                                font-family: "Cascadia Mono";
+                            }
+                            Text {
+                                text: root.live_peak_tps_text;
+                                color: #10b981;
+                                font-size: 9px;
+                                font-family: "Cascadia Mono";
+                                font-weight: 700;
+                            }
+                        }
+
+                        Rectangle {
+                            height: 32px;
+
+                            Rectangle {
+                                y: parent.height - 1px;
+                                height: 1px;
+                                background: root.is_dark ? rgba(255, 255, 255, 0.08) : rgba(0, 0, 0, 0.08);
+                            }
+
+                            Rectangle {
+                                y: (1.0 - Math.min(1.0, Math.max(0.0, root.live_avg_line_pct))) * (parent.height - 1px);
+                                height: 1px;
+                                background: rgba(16, 185, 129, 0.35);
+                            }
+
+                            Text {
+                                text: root.live_avg_tps_text;
+                                color: #10b981;
+                                font-size: 8px;
+                                font-family: "Cascadia Mono";
+                                x: parent.width - self.width;
+                                y: Math.max(0.0, (1.0 - Math.min(1.0, Math.max(0.0, root.live_avg_line_pct))) * (parent.height - 1px) - 9px);
+                            }
+
+                            HorizontalLayout {
+                                spacing: 2.5px;
+                                HistBarCol { bar_h: root.live_bar0_h; is_dark: root.is_dark; hovered => { root.bar_hover(0); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar1_h; is_dark: root.is_dark; hovered => { root.bar_hover(1); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar2_h; is_dark: root.is_dark; hovered => { root.bar_hover(2); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar3_h; is_dark: root.is_dark; hovered => { root.bar_hover(3); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar4_h; is_dark: root.is_dark; hovered => { root.bar_hover(4); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar5_h; is_dark: root.is_dark; hovered => { root.bar_hover(5); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar6_h; is_dark: root.is_dark; hovered => { root.bar_hover(6); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar7_h; is_dark: root.is_dark; hovered => { root.bar_hover(7); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar8_h; is_dark: root.is_dark; hovered => { root.bar_hover(8); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar9_h; is_dark: root.is_dark; hovered => { root.bar_hover(9); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar10_h; is_dark: root.is_dark; hovered => { root.bar_hover(10); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar11_h; is_dark: root.is_dark; hovered => { root.bar_hover(11); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar12_h; is_dark: root.is_dark; hovered => { root.bar_hover(12); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar13_h; is_dark: root.is_dark; hovered => { root.bar_hover(13); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar14_h; is_dark: root.is_dark; hovered => { root.bar_hover(14); } unhovered => { root.bar_leave(); } }
+                                HistBarCol { bar_h: root.live_bar15_h; is_latest: true; is_dark: root.is_dark; hovered => { root.bar_hover(15); } unhovered => { root.bar_leave(); } }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            height: 10px;
+                            Text { text: "-15"; font-size: 8px; font-family: "Cascadia Mono"; color: root.is_dark ? #64748b : #94a3b8; }
+                            Text { text: "-10"; font-size: 8px; font-family: "Cascadia Mono"; color: root.is_dark ? #64748b : #94a3b8; }
+                            Text { text: "-5"; font-size: 8px; font-family: "Cascadia Mono"; color: root.is_dark ? #64748b : #94a3b8; }
+                            Text { text: "现"; font-size: 8px; font-family: "Cascadia Mono"; font-weight: 700; color: #10b981; }
+                        }
+                    }
                 }
             }
         }
@@ -195,78 +400,90 @@ export component TelemetryCard inherits Rectangle {
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
             border-radius: 6px;
-            height: 56px;
             VerticalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
                 padding-top: 5px;
                 padding-bottom: 5px;
-                spacing: 3px;
+                spacing: 5px;
+
                 HorizontalLayout {
                     alignment: space-between;
                     Text {
-                        text: "上下文容量深度";
+                        text: "单轮上下文切片构成";
                         color: root.is_dark ? #64748b : #94a3b8;
                         font-size: 11px;
                     }
                     Text {
                         text: root.live_session_context_text;
                         color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 12px;
+                        font-size: 11px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                     }
                 }
+
                 bar_ctx := Rectangle {
-                    height: 6px;
-                    background: root.is_dark ? #141c2b : #e2e8f0;
-                    border-radius: 3px;
+                    height: 7px;
+                    background: root.is_dark ? #334155 : #cbd5e1;
+                    border-radius: 3.5px;
                     clip: true;
+
                     Rectangle {
                         x: 0;
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
-                        height: 6px;
-                        background: #38bdf8;
-                    }
-                    Rectangle {
-                        x: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_cache_pct));
-                        height: 6px;
+                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct));
+                        height: 7px;
                         background: #10b981;
                     }
                     Rectangle {
-                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_prompt_pct)) + Math.min(1.0, Math.max(0.0, root.live_cache_pct)));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_output_pct));
-                        height: 6px;
+                        x: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct));
+                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct));
+                        height: 7px;
+                        background: #38bdf8;
+                    }
+                    Rectangle {
+                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct)));
+                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_thinking_pct));
+                        height: 7px;
+                        background: #f59e0b;
+                    }
+                    Rectangle {
+                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_thinking_pct)));
+                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_output_pct));
+                        height: 7px;
                         background: #818cf8;
                     }
                 }
+
                 HorizontalLayout {
-                    alignment: space-between;
-                    Text {
-                        text: root.live_prompt_text;
-                        color: #38bdf8;
-                        font-size: 10px;
-                        font-family: "Cascadia Mono";
+                    spacing: 4px;
+                    MetricBadge {
+                        dot_color: #10b981;
+                        label_text: "缓存读取";
+                        val_text: root.live_cache_val;
+                        pct_text: root.live_cache_pct_text;
+                        is_dark: root.is_dark;
                     }
-                    Text {
-                        text: root.live_cache_legend;
-                        color: #10b981;
-                        font-size: 10px;
-                        font-family: "Cascadia Mono";
-                        font-weight: 600;
+                    MetricBadge {
+                        dot_color: #38bdf8;
+                        label_text: "新增输入";
+                        val_text: root.live_prompt_val;
+                        pct_text: root.live_prompt_pct_text;
+                        is_dark: root.is_dark;
                     }
-                    Text {
-                        text: root.live_output_text;
-                        color: #818cf8;
-                        font-size: 10px;
-                        font-family: "Cascadia Mono";
+                    MetricBadge {
+                        dot_color: #f59e0b;
+                        label_text: "思考耗费";
+                        val_text: root.live_thinking_val;
+                        pct_text: root.live_thinking_pct_text;
+                        is_dark: root.is_dark;
                     }
-                    Text {
-                        text: root.live_session_available_text;
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 10px;
-                        font-family: "Cascadia Mono";
+                    MetricBadge {
+                        dot_color: #818cf8;
+                        label_text: "正文/工具";
+                        val_text: root.live_output_val;
+                        pct_text: root.live_output_pct_text;
+                        is_dark: root.is_dark;
                     }
                 }
             }
@@ -274,21 +491,21 @@ export component TelemetryCard inherits Rectangle {
 
         HorizontalLayout {
             alignment: space-between;
-            height: 22px;
+            height: 20px;
             Text {
                 text: root.live_session_optimization_text;
                 color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 11px;
+                font-size: 10px;
                 font-family: "Cascadia Mono";
                 vertical-alignment: center;
             }
             Rectangle {
                 width: 100px;
-                height: 22px;
+                height: 20px;
                 Text {
                     text: "会话完整历史 >";
-                    color: hist_ta.has_hover ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 12px;
+                    color: hist_ta.has-hover ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
+                    font-size: 11px;
                     font-weight: 600;
                     vertical-alignment: center;
                     horizontal-alignment: right;
@@ -299,7 +516,5 @@ export component TelemetryCard inherits Rectangle {
                 }
             }
         }
-
-        Rectangle { vertical-stretch: 1; }
     }
 }

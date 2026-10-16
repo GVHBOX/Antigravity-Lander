@@ -376,6 +376,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
     let sessions_store = Arc::new(Mutex::new([InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default()]));
     let live_session_slot = Arc::new(Mutex::new(-1i32));
+    let active_live_session = Arc::new(Mutex::new(None::<crate::session::SessionItem>));
+    let hover_bar_state = Arc::new(Mutex::new(None::<usize>));
 
     let main_window = MainWindow::new()?;
     main_window.set_is_dark(true);
@@ -1222,6 +1224,52 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let active_hover = Arc::clone(&active_live_session);
+    let hover_state = Arc::clone(&hover_bar_state);
+    let ui_weak_hover = main_window.as_weak();
+    main_window.on_bar_hover(move |idx| {
+        let i = idx as usize;
+        *hover_state.lock().unwrap() = Some(i);
+        let Some(ui) = ui_weak_hover.upgrade() else { return; };
+        let sess = active_hover.lock().unwrap();
+        if let Some(ref s) = *sess {
+            if i < 16 && s.recent_turn_indices[i] > 0 {
+                ui.set_live_is_hovering_bar(true);
+                ui.set_live_hover_tag(format!("#{} 轮", s.recent_turn_indices[i]).into());
+                ui.set_live_session_speed_text(format!("{:.1}", s.recent_tps[i]).into());
+                ui.set_live_session_speed_sub(format!("该轮产出 {} · {:.1}s", format_tokens(s.recent_turn_tokens[i]), s.recent_turn_durations[i]).into());
+            }
+        }
+    });
+
+    let active_leave = Arc::clone(&active_live_session);
+    let hover_leave = Arc::clone(&hover_bar_state);
+    let ui_weak_leave = main_window.as_weak();
+    main_window.on_bar_leave(move || {
+        *hover_leave.lock().unwrap() = None;
+        let Some(ui) = ui_weak_leave.upgrade() else { return; };
+        ui.set_live_is_hovering_bar(false);
+        ui.set_live_hover_tag("".into());
+        let sess = active_leave.lock().unwrap();
+        if let Some(ref s) = *sess {
+            if s.is_running {
+                if s.round_tps > 0.0 {
+                    ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                } else {
+                    ui.set_live_session_speed_text("--".into());
+                    ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
+                }
+            } else {
+                ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+            }
+        } else {
+            ui.set_live_session_speed_text("0.0".into());
+            ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
+        }
+    });
+
     let ui_weak_cache = main_window.as_weak();
     std::thread::spawn(move || {
         let found = LauncherConfig::scan_sandbox_cache(&[false, false, false, false]);
@@ -1445,6 +1493,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let monitor_timer = Arc::clone(&monitor);
     let sessions_store_timer = Arc::clone(&sessions_store);
     let live_session_slot_timer = Arc::clone(&live_session_slot);
+    let active_live_timer = Arc::clone(&active_live_session);
+    let hover_bar_timer = Arc::clone(&hover_bar_state);
 
     let monitor_bg = Arc::clone(&monitor);
     let sub_pids_bg = Arc::clone(&sub_pids);
@@ -1925,7 +1975,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             .groups
                             .first()
                             .and_then(|g| g.sessions.first())
-                    });
+                    })
+                    .cloned();
+
+                *active_live_timer.lock().unwrap() = active.clone();
+                let is_hovering = hover_bar_timer.lock().unwrap().is_some();
 
                 if let Some(s) = active {
                     ui.set_live_session_is_running(s.is_running);
@@ -1933,17 +1987,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_project(s.project_name.as_str().into());
                     ui.set_live_session_title(s.title.as_str().into());
 
-                    if s.is_running {
-                        if s.round_tps > 0.0 {
-                            ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                            ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                    if !is_hovering {
+                        if s.is_running {
+                            if s.round_tps > 0.0 {
+                                ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                                ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                            } else {
+                                ui.set_live_session_speed_text("--".into());
+                                ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
+                            }
                         } else {
-                            ui.set_live_session_speed_text("--".into());
-                            ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
+                            ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
+                            ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
                         }
-                    } else {
-                        ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                        ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                        ui.set_live_is_hovering_bar(false);
+                        ui.set_live_hover_tag("".into());
                     }
 
                     let max_tps = s.recent_tps.iter().copied().fold(0.0f32, f32::max).max(10.0);
@@ -1951,7 +2009,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         if tps <= 0.0 {
                             3.0
                         } else {
-                            (3.0 + (tps / max_tps) * 35.0).clamp(3.0, 38.0)
+                            (3.0 + (tps / max_tps) * 29.0).clamp(3.0, 32.0)
                         }
                     };
                     ui.set_live_bar0_h(calc_h(s.recent_tps[0]));
@@ -1962,40 +2020,74 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_bar5_h(calc_h(s.recent_tps[5]));
                     ui.set_live_bar6_h(calc_h(s.recent_tps[6]));
                     ui.set_live_bar7_h(calc_h(s.recent_tps[7]));
+                    ui.set_live_bar8_h(calc_h(s.recent_tps[8]));
+                    ui.set_live_bar9_h(calc_h(s.recent_tps[9]));
+                    ui.set_live_bar10_h(calc_h(s.recent_tps[10]));
+                    ui.set_live_bar11_h(calc_h(s.recent_tps[11]));
+                    ui.set_live_bar12_h(calc_h(s.recent_tps[12]));
+                    ui.set_live_bar13_h(calc_h(s.recent_tps[13]));
+                    ui.set_live_bar14_h(calc_h(s.recent_tps[14]));
+                    ui.set_live_bar15_h(calc_h(s.recent_tps[15]));
 
-                    let max_tokens = 256_000u64;
+                    ui.set_live_peak_tps_text(format!("Pk {:.1}", s.peak_tps).into());
+                    ui.set_live_avg_tps_text(format!("Avg {:.0}", s.avg_tps).into());
+                    let avg_pct = if max_tps > 0.0 {
+                        (s.avg_tps / max_tps).clamp(0.05, 0.95)
+                    } else {
+                        0.5
+                    };
+                    ui.set_live_avg_line_pct(avg_pct);
+
                     let prompt_tokens = s.input_tokens;
                     let cache_tokens = s.cache_read_tokens;
-                    let output_tokens = s.output_tokens;
+                    let thinking_tokens = s.thinking_tokens;
+                    let content_tokens = s.content_tokens;
                     let total_tokens = s.context_tokens;
 
-                    let prompt_pct = (prompt_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    let cache_pct = (cache_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
-                    let output_pct = (output_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let seg_sum = (cache_tokens + prompt_tokens + thinking_tokens + content_tokens).max(1) as f32;
+                    let cache_pct = (cache_tokens as f32 / seg_sum).clamp(0.0, 1.0);
+                    let prompt_pct = (prompt_tokens as f32 / seg_sum).clamp(0.0, 1.0);
+                    let thinking_pct = (thinking_tokens as f32 / seg_sum).clamp(0.0, 1.0);
+                    let output_pct = (content_tokens as f32 / seg_sum).clamp(0.0, 1.0);
 
-                    ui.set_live_prompt_pct(prompt_pct);
-                    ui.set_live_cache_pct(cache_pct);
-                    ui.set_live_output_pct(output_pct);
+                    ui.set_live_seg_cache_pct(cache_pct);
+                    ui.set_live_seg_prompt_pct(prompt_pct);
+                    ui.set_live_seg_thinking_pct(thinking_pct);
+                    ui.set_live_seg_output_pct(output_pct);
 
-                    ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
-                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
-                    ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
+                    ui.set_live_cache_val(format_tokens(cache_tokens).into());
+                    ui.set_live_cache_pct_text(format!("{:.1}%", cache_pct * 100.0).into());
+                    ui.set_live_prompt_val(format_tokens(prompt_tokens).into());
+                    ui.set_live_prompt_pct_text(format!("{:.1}%", prompt_pct * 100.0).into());
+                    ui.set_live_thinking_val(format_tokens(thinking_tokens).into());
+                    ui.set_live_thinking_pct_text(format!("{:.1}%", thinking_pct * 100.0).into());
+                    ui.set_live_output_val(format_tokens(content_tokens).into());
+                    ui.set_live_output_pct_text(format!("{:.1}%", output_pct * 100.0).into());
 
+                    let max_tokens = 256_000u64;
                     let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
                     ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                     ui.set_live_session_context_pct(pct);
-                    ui.set_live_session_cache_text(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
-                    let avail = max_tokens.saturating_sub(total_tokens);
-                    ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
 
                     ui.set_live_session_optimization_text(format!("缓存命中率: {} · 步数 #{}", s.cache_rate_str, s.step_count).into());
                 } else {
-                    ui.set_live_prompt_pct(0.0);
-                    ui.set_live_cache_pct(0.0);
-                    ui.set_live_output_pct(0.0);
-                    ui.set_live_prompt_text("输入 0".into());
-                    ui.set_live_cache_legend("缓存 0 (0.0%)".into());
-                    ui.set_live_output_text("输出 0".into());
+                    ui.set_live_seg_cache_pct(0.0);
+                    ui.set_live_seg_prompt_pct(0.0);
+                    ui.set_live_seg_thinking_pct(0.0);
+                    ui.set_live_seg_output_pct(0.0);
+
+                    ui.set_live_cache_val("0".into());
+                    ui.set_live_cache_pct_text("0.0%".into());
+                    ui.set_live_prompt_val("0".into());
+                    ui.set_live_prompt_pct_text("0.0%".into());
+                    ui.set_live_thinking_val("0".into());
+                    ui.set_live_thinking_pct_text("0.0%".into());
+                    ui.set_live_output_val("0".into());
+                    ui.set_live_output_pct_text("0.0%".into());
+
+                    ui.set_live_peak_tps_text("Pk 0.0".into());
+                    ui.set_live_avg_tps_text("Avg 0".into());
+                    ui.set_live_avg_line_pct(0.5);
 
                     ui.set_live_bar0_h(3.0);
                     ui.set_live_bar1_h(3.0);
@@ -2005,6 +2097,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_bar5_h(3.0);
                     ui.set_live_bar6_h(3.0);
                     ui.set_live_bar7_h(3.0);
+                    ui.set_live_bar8_h(3.0);
+                    ui.set_live_bar9_h(3.0);
+                    ui.set_live_bar10_h(3.0);
+                    ui.set_live_bar11_h(3.0);
+                    ui.set_live_bar12_h(3.0);
+                    ui.set_live_bar13_h(3.0);
+                    ui.set_live_bar14_h(3.0);
+                    ui.set_live_bar15_h(3.0);
 
                     ui.set_live_session_is_running(false);
                     ui.set_live_session_status_text("待命中".into());
@@ -2014,9 +2114,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
                     ui.set_live_session_context_text("0 / 256K (0.0%)".into());
                     ui.set_live_session_context_pct(0.0);
-                    ui.set_live_session_cache_text("缓存 0 (0.0%)".into());
-                    ui.set_live_session_available_text("可用 256K".into());
                     ui.set_live_session_optimization_text("缓存命中率: 0.0% · 步数 #0".into());
+                    ui.set_live_is_hovering_bar(false);
+                    ui.set_live_hover_tag("".into());
                 }
             }
         }
