@@ -415,27 +415,32 @@ export component TelemetryCard inherits Rectangle {
                     border-radius: 3.5px;
                     clip: true;
 
+                    property <length> w_cache: root.live_seg_cache_pct > 0 ? Math.max(3px, bar_ctx.width * root.live_seg_cache_pct) : 0px;
+                    property <length> w_prompt: root.live_seg_prompt_pct > 0 ? Math.max(3px, bar_ctx.width * root.live_seg_prompt_pct) : 0px;
+                    property <length> w_thinking: root.live_seg_thinking_pct > 0 ? Math.max(3px, bar_ctx.width * root.live_seg_thinking_pct) : 0px;
+                    property <length> w_output: root.live_seg_output_pct > 0 ? Math.max(3px, bar_ctx.width * root.live_seg_output_pct) : 0px;
+
                     Rectangle {
                         x: 0;
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct));
+                        width: bar_ctx.w_cache;
                         height: 7px;
                         background: #10b981;
                     }
                     Rectangle {
-                        x: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct));
+                        x: bar_ctx.w_cache;
+                        width: bar_ctx.w_prompt;
                         height: 7px;
                         background: #38bdf8;
                     }
                     Rectangle {
-                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct)));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_thinking_pct));
+                        x: bar_ctx.w_cache + bar_ctx.w_prompt;
+                        width: bar_ctx.w_thinking;
                         height: 7px;
                         background: #f59e0b;
                     }
                     Rectangle {
-                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_seg_cache_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_prompt_pct)) + Math.min(1.0, Math.max(0.0, root.live_seg_thinking_pct)));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_seg_output_pct));
+                        x: bar_ctx.w_cache + bar_ctx.w_prompt + bar_ctx.w_thinking;
+                        width: bar_ctx.w_output;
                         height: 7px;
                         background: #818cf8;
                     }

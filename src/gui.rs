@@ -2044,28 +2044,40 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     let content_tokens = s.content_tokens;
                     let total_tokens = s.context_tokens;
 
-                    let seg_sum = (cache_tokens + prompt_tokens + thinking_tokens + content_tokens).max(1) as f32;
-                    let cache_pct = (cache_tokens as f32 / seg_sum).clamp(0.0, 1.0);
-                    let prompt_pct = (prompt_tokens as f32 / seg_sum).clamp(0.0, 1.0);
-                    let thinking_pct = (thinking_tokens as f32 / seg_sum).clamp(0.0, 1.0);
-                    let output_pct = (content_tokens as f32 / seg_sum).clamp(0.0, 1.0);
+                    let max_tokens = 256_000f32;
+                    let cache_pct = (cache_tokens as f32 / max_tokens).clamp(0.0, 1.0);
+                    let prompt_pct = (prompt_tokens as f32 / max_tokens).clamp(0.0, 1.0);
+                    let thinking_pct = (thinking_tokens as f32 / max_tokens).clamp(0.0, 1.0);
+                    let output_pct = (content_tokens as f32 / max_tokens).clamp(0.0, 1.0);
 
                     ui.set_live_seg_cache_pct(cache_pct);
                     ui.set_live_seg_prompt_pct(prompt_pct);
                     ui.set_live_seg_thinking_pct(thinking_pct);
                     ui.set_live_seg_output_pct(output_pct);
 
-                    ui.set_live_cache_val(format_tokens(cache_tokens).into());
-                    ui.set_live_cache_pct_text(format!("{:.1}%", cache_pct * 100.0).into());
-                    ui.set_live_prompt_val(format_tokens(prompt_tokens).into());
-                    ui.set_live_prompt_pct_text(format!("{:.1}%", prompt_pct * 100.0).into());
-                    ui.set_live_thinking_val(format_tokens(thinking_tokens).into());
-                    ui.set_live_thinking_pct_text(format!("{:.1}%", thinking_pct * 100.0).into());
-                    ui.set_live_output_val(format_tokens(content_tokens).into());
-                    ui.set_live_output_pct_text(format!("{:.1}%", output_pct * 100.0).into());
+                    let fmt_pct = |tokens: u64, pct: f32| -> String {
+                        if tokens == 0 {
+                            "0.0%".to_string()
+                        } else {
+                            let val = pct * 100.0;
+                            if val < 0.1 {
+                                "<0.1%".to_string()
+                            } else {
+                                format!("{:.1}%", val)
+                            }
+                        }
+                    };
 
-                    let max_tokens = 256_000u64;
-                    let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    ui.set_live_cache_val(format_tokens(cache_tokens).into());
+                    ui.set_live_cache_pct_text(fmt_pct(cache_tokens, cache_pct).into());
+                    ui.set_live_prompt_val(format_tokens(prompt_tokens).into());
+                    ui.set_live_prompt_pct_text(fmt_pct(prompt_tokens, prompt_pct).into());
+                    ui.set_live_thinking_val(format_tokens(thinking_tokens).into());
+                    ui.set_live_thinking_pct_text(fmt_pct(thinking_tokens, thinking_pct).into());
+                    ui.set_live_output_val(format_tokens(content_tokens).into());
+                    ui.set_live_output_pct_text(fmt_pct(content_tokens, output_pct).into());
+
+                    let pct = (total_tokens as f32 / max_tokens).clamp(0.0, 1.0);
                     ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                     ui.set_live_session_context_pct(pct);
 
