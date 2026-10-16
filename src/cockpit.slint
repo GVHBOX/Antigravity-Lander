@@ -222,19 +222,7 @@ export component MainWindow inherits Window {
 
     in property <string> live_session_context_text: "0 / 256K (0.0%)";
     in property <float> live_session_context_pct: 0.0;
-    in property <float> live_seg_cache_pct: 0.0;
-    in property <float> live_seg_prompt_pct: 0.0;
-    in property <float> live_seg_thinking_pct: 0.0;
-    in property <float> live_seg_output_pct: 0.0;
-
-    in property <string> live_cache_val: "0";
-    in property <string> live_cache_pct_text: "0.0%";
-    in property <string> live_prompt_val: "0";
-    in property <string> live_prompt_pct_text: "0.0%";
-    in property <string> live_thinking_val: "0";
-    in property <string> live_thinking_pct_text: "0.0%";
-    in property <string> live_output_val: "0";
-    in property <string> live_output_pct_text: "0.0%";
+    in property <string> live_session_available_text: "可用 256K";
 
     in property <string> live_session_optimization_text: "缓存命中率: 0.0% · 步数 #0";
     callback switch_live_session_target(int);
@@ -438,18 +426,13 @@ export component MainWindow inherits Window {
                         live_bar14_h: root.live_bar14_h;
                         live_bar15_h: root.live_bar15_h;
                         live_session_context_text: root.live_session_context_text;
-                        live_seg_cache_pct: root.live_seg_cache_pct;
-                        live_seg_prompt_pct: root.live_seg_prompt_pct;
-                        live_seg_thinking_pct: root.live_seg_thinking_pct;
-                        live_seg_output_pct: root.live_seg_output_pct;
-                        live_cache_val: root.live_cache_val;
-                        live_cache_pct_text: root.live_cache_pct_text;
-                        live_prompt_val: root.live_prompt_val;
-                        live_prompt_pct_text: root.live_prompt_pct_text;
-                        live_thinking_val: root.live_thinking_val;
-                        live_thinking_pct_text: root.live_thinking_pct_text;
-                        live_output_val: root.live_output_val;
-                        live_output_pct_text: root.live_output_pct_text;
+                        live_prompt_pct: root.live_prompt_pct;
+                        live_cache_pct: root.live_cache_pct;
+                        live_output_pct: root.live_output_pct;
+                        live_prompt_text: root.live_prompt_text;
+                        live_cache_legend: root.live_cache_legend;
+                        live_output_text: root.live_output_text;
+                        live_session_available_text: root.live_session_available_text;
                         live_session_optimization_text: root.live_session_optimization_text;
                         is_dark: root.is_dark;
 

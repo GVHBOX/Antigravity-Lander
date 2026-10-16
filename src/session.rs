@@ -70,8 +70,6 @@ pub struct SessionItem {
     pub input_tokens: u64,
     pub cache_read_tokens: u64,
     pub output_tokens: u64,
-    pub thinking_tokens: u64,
-    pub content_tokens: u64,
     pub context_tokens: u64,
     pub cache_rate: f32,
     pub is_running: bool,
@@ -129,10 +127,6 @@ struct TailStep {
     cache_read_tokens: Option<u64>,
     #[serde(default)]
     output_tokens: Option<u64>,
-    #[serde(default)]
-    thinking: Option<String>,
-    #[serde(default)]
-    content: Option<String>,
 }
 
 #[derive(Default, Clone)]
@@ -140,8 +134,6 @@ struct TailMetrics {
     input_tokens: u64,
     cache_read_tokens: u64,
     output_tokens: u64,
-    thinking_tokens: u64,
-    content_tokens: u64,
     context_tokens: u64,
     cache_rate: f32,
     is_running: bool,
@@ -308,35 +300,12 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
     let mut found_input: u64 = 0;
     let mut found_cache: u64 = 0;
     let mut found_output: u64 = 0;
-    let mut found_thinking: u64 = 0;
-    let mut found_content: u64 = 0;
 
     for step in lines.iter().rev() {
         if step.input_tokens.is_some() || step.cache_read_tokens.is_some() || step.output_tokens.is_some() {
             found_input = step.input_tokens.unwrap_or(0);
             found_cache = step.cache_read_tokens.unwrap_or(0);
-            let out = step.output_tokens.unwrap_or(0);
-            found_output = out;
-
-            let thinking_len = step.thinking.as_ref().map(|s| s.len()).unwrap_or(0);
-            let content_len = step.content.as_ref().map(|s| s.len()).unwrap_or(0);
-            let total_chars = thinking_len + content_len;
-            if total_chars > 0 && out > 0 {
-                if content_len == 0 {
-                    found_thinking = out;
-                    found_content = 0;
-                } else if thinking_len == 0 {
-                    found_thinking = 0;
-                    found_content = out;
-                } else {
-                    let th = ((out as f64 * thinking_len as f64) / total_chars as f64).round() as u64;
-                    found_thinking = th.min(out);
-                    found_content = out.saturating_sub(found_thinking);
-                }
-            } else {
-                found_thinking = 0;
-                found_content = out;
-            }
+            found_output = step.output_tokens.unwrap_or(0);
             break;
         }
     }
@@ -425,8 +394,6 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         input_tokens: found_input,
         cache_read_tokens: found_cache,
         output_tokens: found_output,
-        thinking_tokens: found_thinking,
-        content_tokens: found_content,
         context_tokens: total_context,
         cache_rate,
         is_running,
@@ -662,8 +629,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             input_tokens: tail.input_tokens,
             cache_read_tokens: tail.cache_read_tokens,
             output_tokens: tail.output_tokens,
-            thinking_tokens: tail.thinking_tokens,
-            content_tokens: tail.content_tokens,
             context_tokens: tail.context_tokens,
             cache_rate: tail.cache_rate,
             is_running,

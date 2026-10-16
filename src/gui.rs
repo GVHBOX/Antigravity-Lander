@@ -122,7 +122,7 @@ fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, 
         (
             s.project_name.clone(),
             s.title.clone(),
-            format!("{} ({})", s.context_str, s.cache_rate_str),
+            format!("{} · 缓存 {}", s.context_str, s.cache_rate_str),
             format!("最近更新: {}", s.time_ago_str),
         )
     } else {
@@ -2038,64 +2038,38 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     };
                     ui.set_live_avg_line_pct(avg_pct);
 
+                    let max_tokens = 256_000u64;
                     let prompt_tokens = s.input_tokens;
                     let cache_tokens = s.cache_read_tokens;
-                    let thinking_tokens = s.thinking_tokens;
-                    let content_tokens = s.content_tokens;
+                    let output_tokens = s.output_tokens;
                     let total_tokens = s.context_tokens;
 
-                    let max_tokens = 256_000f32;
-                    let cache_pct = (cache_tokens as f32 / max_tokens).clamp(0.0, 1.0);
-                    let prompt_pct = (prompt_tokens as f32 / max_tokens).clamp(0.0, 1.0);
-                    let thinking_pct = (thinking_tokens as f32 / max_tokens).clamp(0.0, 1.0);
-                    let output_pct = (content_tokens as f32 / max_tokens).clamp(0.0, 1.0);
+                    let prompt_pct = (prompt_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let cache_pct = (cache_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
+                    let output_pct = (output_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
 
-                    ui.set_live_seg_cache_pct(cache_pct);
-                    ui.set_live_seg_prompt_pct(prompt_pct);
-                    ui.set_live_seg_thinking_pct(thinking_pct);
-                    ui.set_live_seg_output_pct(output_pct);
+                    ui.set_live_prompt_pct(prompt_pct);
+                    ui.set_live_cache_pct(cache_pct);
+                    ui.set_live_output_pct(output_pct);
 
-                    let fmt_pct = |tokens: u64, pct: f32| -> String {
-                        if tokens == 0 {
-                            "0.0%".to_string()
-                        } else {
-                            let val = pct * 100.0;
-                            if val < 0.1 {
-                                "<0.1%".to_string()
-                            } else {
-                                format!("{:.1}%", val)
-                            }
-                        }
-                    };
+                    ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
+                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
+                    ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
 
-                    ui.set_live_cache_val(format_tokens(cache_tokens).into());
-                    ui.set_live_cache_pct_text(fmt_pct(cache_tokens, cache_pct).into());
-                    ui.set_live_prompt_val(format_tokens(prompt_tokens).into());
-                    ui.set_live_prompt_pct_text(fmt_pct(prompt_tokens, prompt_pct).into());
-                    ui.set_live_thinking_val(format_tokens(thinking_tokens).into());
-                    ui.set_live_thinking_pct_text(fmt_pct(thinking_tokens, thinking_pct).into());
-                    ui.set_live_output_val(format_tokens(content_tokens).into());
-                    ui.set_live_output_pct_text(fmt_pct(content_tokens, output_pct).into());
-
-                    let pct = (total_tokens as f32 / max_tokens).clamp(0.0, 1.0);
+                    let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
                     ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                     ui.set_live_session_context_pct(pct);
+                    let avail = max_tokens.saturating_sub(total_tokens);
+                    ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
 
                     ui.set_live_session_optimization_text(format!("缓存命中率: {} · 步数 #{}", s.cache_rate_str, s.step_count).into());
                 } else {
-                    ui.set_live_seg_cache_pct(0.0);
-                    ui.set_live_seg_prompt_pct(0.0);
-                    ui.set_live_seg_thinking_pct(0.0);
-                    ui.set_live_seg_output_pct(0.0);
-
-                    ui.set_live_cache_val("0".into());
-                    ui.set_live_cache_pct_text("0.0%".into());
-                    ui.set_live_prompt_val("0".into());
-                    ui.set_live_prompt_pct_text("0.0%".into());
-                    ui.set_live_thinking_val("0".into());
-                    ui.set_live_thinking_pct_text("0.0%".into());
-                    ui.set_live_output_val("0".into());
-                    ui.set_live_output_pct_text("0.0%".into());
+                    ui.set_live_prompt_pct(0.0);
+                    ui.set_live_cache_pct(0.0);
+                    ui.set_live_output_pct(0.0);
+                    ui.set_live_prompt_text("输入 0".into());
+                    ui.set_live_cache_legend("缓存 0 (0.0%)".into());
+                    ui.set_live_output_text("输出 0".into());
 
                     ui.set_live_peak_tps_text("Pk 0.0".into());
                     ui.set_live_avg_tps_text("Avg 0".into());
@@ -2126,6 +2100,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
                     ui.set_live_session_context_text("0 / 256K (0.0%)".into());
                     ui.set_live_session_context_pct(0.0);
+                    ui.set_live_session_available_text("可用 256K".into());
                     ui.set_live_session_optimization_text("缓存命中率: 0.0% · 步数 #0".into());
                     ui.set_live_is_hovering_bar(false);
                     ui.set_live_hover_tag("".into());
