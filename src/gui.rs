@@ -212,10 +212,104 @@ fn get_floating_widget_hwnd() -> windows_sys::Win32::Foundation::HWND {
 }
 
 #[cfg(target_os = "windows")]
-fn setup_floating_widget_window(hwnd: windows_sys::Win32::Foundation::HWND, pos_x: i32, pos_y: i32) {
+fn apply_widget_round_region(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    width: i32,
+    height: i32,
+    corner_radius: i32,
+) {
+    use windows_sys::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
+    if hwnd.is_null() || width <= 0 || height <= 0 {
+        return;
+    }
+    unsafe {
+        let hrgn = CreateRoundRectRgn(0, 0, width, height, corner_radius * 2, corner_radius * 2);
+        if !hrgn.is_null() {
+            SetWindowRgn(hwnd, hrgn, 1);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn update_widget_geometry(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    is_expanded: bool,
+    scale: f32,
+    config: &mut crate::widget_state::WidgetConfig,
+) {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, GetWindowRect, SetWindowPos, HWND_TOPMOST,
+        SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOZORDER,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+
+    unsafe {
+        let screen_w = GetSystemMetrics(SM_CXSCREEN);
+        let screen_h = GetSystemMetrics(SM_CYSCREEN);
+
+        let (logical_w, logical_h, corner_r) = if is_expanded {
+            (260.0f32, 202.0f32, (10.0 * scale).round() as i32)
+        } else {
+            (140.0f32, 34.0f32, ((34.0 * scale) / 2.0).round() as i32)
+        };
+
+        let phys_w = (logical_w * scale).round() as i32;
+        let phys_h = (logical_h * scale).round() as i32;
+
+        let mut rect: RECT = std::mem::zeroed();
+        let mut cur_x = config.pos_x;
+        let mut cur_y = config.pos_y;
+        if GetWindowRect(hwnd, &mut rect) != 0 {
+            cur_x = rect.left;
+            cur_y = rect.top;
+        }
+
+        if is_expanded {
+            if cur_x + phys_w > screen_w - 10 {
+                cur_x = (screen_w - phys_w - 12).max(10);
+            }
+            if cur_y + phys_h > screen_h - 10 {
+                cur_y = (screen_h - phys_h - 12).max(10);
+            }
+        } else {
+            cur_x = config.pos_x;
+            cur_y = config.pos_y;
+            let snap_margin = 40;
+            if cur_x < snap_margin {
+                cur_x = 12;
+            } else if cur_x + phys_w > screen_w - snap_margin {
+                cur_x = screen_w - phys_w - 12;
+            }
+        }
+
+        SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            cur_x,
+            cur_y,
+            phys_w,
+            phys_h,
+            SWP_NOACTIVATE | SWP_NOZORDER,
+        );
+
+        apply_widget_round_region(hwnd, phys_w, phys_h, corner_r);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn setup_floating_widget_window(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    pos_x: i32,
+    pos_y: i32,
+    scale: f32,
+) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
         WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
     };
 
@@ -227,15 +321,19 @@ fn setup_floating_widget_window(hwnd: windows_sys::Win32::Foundation::HWND, pos_
         let new_ex = ex_style | (WS_EX_TOPMOST as i32) | (WS_EX_TOOLWINDOW as i32);
         SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
 
+        let phys_w = (140.0 * scale).round() as i32;
+        let phys_h = (34.0 * scale).round() as i32;
+        let corner_r = (phys_h / 2).max(1);
+
         if pos_x >= 0 && pos_y >= 0 {
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
                 pos_x,
                 pos_y,
-                0,
-                0,
-                SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                phys_w,
+                phys_h,
+                SWP_NOACTIVATE | SWP_FRAMECHANGED,
             );
         } else {
             SetWindowPos(
@@ -243,11 +341,13 @@ fn setup_floating_widget_window(hwnd: windows_sys::Win32::Foundation::HWND, pos_
                 HWND_TOPMOST,
                 0,
                 0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+                phys_w,
+                phys_h,
+                SWP_NOMOVE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             );
         }
+
+        apply_widget_round_region(hwnd, phys_w, phys_h, corner_r);
     }
 }
 
@@ -582,14 +682,47 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let active_slot_tracker = Arc::new(Mutex::new(1u8));
     floating_widget.set_is_dark(true);
     let widget_cfg_drag = Arc::clone(&widget_config);
+    let widget_weak_drag = floating_widget.as_weak();
+    let mon_drag = Arc::clone(&monitor);
+    let slot_tracker_drag = Arc::clone(&active_slot_tracker);
     floating_widget.on_drag_requested(move || {
         #[cfg(target_os = "windows")]
         {
+            use windows_sys::Win32::Foundation::RECT;
+            use windows_sys::Win32::UI::WindowsAndMessaging::GetWindowRect;
+
             let hwnd = get_floating_widget_hwnd();
             if !hwnd.is_null() {
+                let mut rect_before: RECT = unsafe { std::mem::zeroed() };
+                let has_before = unsafe { GetWindowRect(hwnd, &mut rect_before) != 0 };
+
                 trigger_native_drag(hwnd);
+
+                let mut rect_after: RECT = unsafe { std::mem::zeroed() };
+                let has_after = unsafe { GetWindowRect(hwnd, &mut rect_after) != 0 };
+
                 let mut cfg = widget_cfg_drag.lock().unwrap();
-                snap_and_save_widget_position(hwnd, &mut cfg);
+                if has_before && has_after {
+                    let dx = (rect_after.left - rect_before.left).abs();
+                    let dy = (rect_after.top - rect_before.top).abs();
+                    if dx <= 3 && dy <= 3 {
+                        if let Some(w) = widget_weak_drag.upgrade() {
+                            if w.get_is_finished() {
+                                let slot = *slot_tracker_drag.lock().unwrap();
+                                activate_instance_window(slot, &mon_drag);
+                            } else {
+                                let next_expanded = !w.get_expanded();
+                                w.set_expanded(next_expanded);
+                                let scale = w.window().scale_factor();
+                                update_widget_geometry(hwnd, next_expanded, scale, &mut cfg);
+                            }
+                        }
+                    } else {
+                        snap_and_save_widget_position(hwnd, &mut cfg);
+                    }
+                } else {
+                    snap_and_save_widget_position(hwnd, &mut cfg);
+                }
             }
         }
     });
@@ -2618,7 +2751,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         #[cfg(target_os = "windows")]
         {
             let w_hwnd = get_floating_widget_hwnd();
-            setup_floating_widget_window(w_hwnd, widget_cfg_init.pos_x, widget_cfg_init.pos_y);
+            let scale = floating_widget.window().scale_factor();
+            setup_floating_widget_window(w_hwnd, widget_cfg_init.pos_x, widget_cfg_init.pos_y, scale);
         }
     }
 
