@@ -177,6 +177,203 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
 }
 
 #[cfg(target_os = "windows")]
+fn get_floating_widget_hwnd() -> windows_sys::Win32::Foundation::HWND {
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::System::Threading::GetCurrentProcessId;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowTextW, GetWindowThreadProcessId,
+    };
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
+        unsafe {
+            let mut proc_id = 0u32;
+            GetWindowThreadProcessId(hwnd, &mut proc_id);
+            if proc_id == GetCurrentProcessId() {
+                let mut title_buf = [0u16; 128];
+                let len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+                if len > 0 {
+                    let title = String::from_utf16_lossy(&title_buf[..len as usize]);
+                    if title == "Antigravity Lander Floating Widget" {
+                        let out_ptr = lparam as *mut HWND;
+                        *out_ptr = hwnd;
+                        return 0;
+                    }
+                }
+            }
+            1
+        }
+    }
+
+    let mut found_hwnd: HWND = std::ptr::null_mut();
+    unsafe {
+        EnumWindows(Some(enum_proc), &mut found_hwnd as *mut _ as LPARAM);
+    }
+    found_hwnd
+}
+
+#[cfg(target_os = "windows")]
+fn setup_floating_widget_window(hwnd: windows_sys::Win32::Foundation::HWND, pos_x: i32, pos_y: i32) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
+        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+    unsafe {
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        let new_ex = ex_style | (WS_EX_TOPMOST as i32) | (WS_EX_TOOLWINDOW as i32);
+        SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
+
+        if pos_x >= 0 && pos_y >= 0 {
+            SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                pos_x,
+                pos_y,
+                0,
+                0,
+                SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            );
+        } else {
+            SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+            );
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn trigger_native_drag(hwnd: windows_sys::Win32::Foundation::HWND) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SendMessageW, HTCAPTION, WM_NCLBUTTONDOWN,
+    };
+    unsafe extern "system" {
+        fn ReleaseCapture() -> i32;
+    }
+    if hwnd.is_null() {
+        return;
+    }
+    unsafe {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION as usize, 0);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn snap_and_save_widget_position(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    config: &mut crate::widget_state::WidgetConfig,
+) {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, GetWindowRect, SetWindowPos, HWND_TOPMOST,
+        SM_CXSCREEN, SWP_NOACTIVATE, SWP_NOSIZE,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+    unsafe {
+        let mut rect: RECT = std::mem::zeroed();
+        if GetWindowRect(hwnd, &mut rect) != 0 {
+            let screen_w = GetSystemMetrics(SM_CXSCREEN);
+            let mut left = rect.left;
+            let top = rect.top;
+            let width = rect.right - rect.left;
+
+            if config.edge_snap {
+                let snap_margin = 40;
+                if left < snap_margin {
+                    left = 12;
+                } else if left + width > screen_w - snap_margin {
+                    left = screen_w - width - 12;
+                }
+            }
+
+            SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                left,
+                top,
+                0,
+                0,
+                SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+
+            config.pos_x = left;
+            config.pos_y = top;
+            let _ = config.save();
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn show_desktop_notification(title: &str, message: &str) {
+    use windows_sys::Win32::UI::Shell::{
+        Shell_NotifyIconW, NOTIFYICONDATAW, NIF_INFO, NIM_ADD, NIM_MODIFY, NIIF_INFO,
+    };
+
+    let hwnd = get_cockpit_hwnd();
+    if hwnd.is_null() {
+        return;
+    }
+
+    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+    nid.hWnd = hwnd;
+    nid.uID = 10086;
+    nid.uFlags = NIF_INFO;
+    nid.dwInfoFlags = NIIF_INFO;
+
+    let title_utf16: Vec<u16> = title.encode_utf16().take(63).collect();
+    for (i, &ch) in title_utf16.iter().enumerate() {
+        nid.szInfoTitle[i] = ch;
+    }
+
+    let msg_utf16: Vec<u16> = message.encode_utf16().take(255).collect();
+    for (i, &ch) in msg_utf16.iter().enumerate() {
+        nid.szInfo[i] = ch;
+    }
+
+    unsafe {
+        if Shell_NotifyIconW(NIM_MODIFY, &nid) == 0 {
+            Shell_NotifyIconW(NIM_ADD, &nid);
+            Shell_NotifyIconW(NIM_MODIFY, &nid);
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn show_desktop_notification(_title: &str, _message: &str) {}
+
+fn activate_instance_window(slot: u8, monitor: &Arc<Mutex<TelemetryMonitor>>) {
+    let mon = monitor.lock().unwrap();
+    if slot == 0 {
+        if let Some(pid) = mon.host.electron_pid {
+            if let Ok(conf) = LauncherConfig::new() {
+                conf.bring_to_front(pid);
+            }
+        }
+    } else if (1..=4).contains(&slot) {
+        let idx = (slot - 1) as usize;
+        if let Some(pid) = mon.subs[idx].electron_pid {
+            if let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
+                conf.bring_to_front(pid);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
 struct BrushHandle(windows_sys::Win32::Graphics::Gdi::HBRUSH);
 #[cfg(target_os = "windows")]
 unsafe impl Send for BrushHandle {}
@@ -380,6 +577,31 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let hover_bar_state = Arc::new(Mutex::new(None::<usize>));
 
     let main_window = MainWindow::new()?;
+    let floating_widget = FloatingWidgetWindow::new()?;
+    let widget_config = Arc::new(Mutex::new(crate::widget_state::WidgetConfig::load_or_default()));
+    let active_slot_tracker = Arc::new(Mutex::new(1u8));
+    floating_widget.set_is_dark(true);
+    let widget_cfg_drag = Arc::clone(&widget_config);
+    floating_widget.on_drag_requested(move || {
+        #[cfg(target_os = "windows")]
+        {
+            let hwnd = get_floating_widget_hwnd();
+            if !hwnd.is_null() {
+                trigger_native_drag(hwnd);
+                let mut cfg = widget_cfg_drag.lock().unwrap();
+                snap_and_save_widget_position(hwnd, &mut cfg);
+            }
+        }
+    });
+    let mon_act = Arc::clone(&monitor);
+    let slot_tracker_act = Arc::clone(&active_slot_tracker);
+    floating_widget.on_activate_target(move || {
+        let slot = *slot_tracker_act.lock().unwrap();
+        activate_instance_window(slot, &mon_act);
+    });
+    floating_widget.on_toggle_expanded(move || {});
+    floating_widget.on_clicked(move || {});
+
     main_window.set_is_dark(true);
     main_window.set_live_session_target_slot(-1);
     main_window.set_live_session_target_text("自动跟随".into());
@@ -393,6 +615,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         main_window.set_sub4_scale_text(format!("{}%", scales.get_sub_scale(4)).into());
     }
 
+    let initial_mode_text = {
+        let cfg = widget_config.lock().unwrap();
+        if !cfg.enabled {
+            "悬浮球: 关闭"
+        } else {
+            match cfg.mode {
+                crate::widget_state::WidgetMode::Smart => "悬浮球: 智能",
+                crate::widget_state::WidgetMode::Always => "悬浮球: 常驻",
+            }
+        }
+    };
+    main_window.set_widget_mode_text(initial_mode_text.into());
+
     const ICON_RGBA: &[u8] = include_bytes!("../assets/icon_32.rgba");
     let tray_menu = tray_icon::menu::Menu::new();
     let item_show = tray_icon::menu::MenuItem::new("显示窗口", true, None);
@@ -401,6 +636,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let item_sub3 = tray_icon::menu::MenuItem::new("启动/打开分身 3", true, None);
     let item_sub4 = tray_icon::menu::MenuItem::new("启动/打开分身 4", true, None);
     let sep = tray_icon::menu::PredefinedMenuItem::separator();
+
+    let widget_submenu = tray_icon::menu::Submenu::new("桌面悬浮球", true);
+    let item_widget_smart = tray_icon::menu::MenuItem::new("智能感知", true, None);
+    let item_widget_always = tray_icon::menu::MenuItem::new("常驻显示", true, None);
+    let item_widget_close = tray_icon::menu::MenuItem::new("停用关闭", true, None);
+    let sep_sub = tray_icon::menu::PredefinedMenuItem::separator();
+    let item_widget_notify = tray_icon::menu::MenuItem::new("切换完成通知", true, None);
+
+    let widget_smart_id = item_widget_smart.id().clone();
+    let widget_always_id = item_widget_always.id().clone();
+    let widget_close_id = item_widget_close.id().clone();
+    let widget_notify_id = item_widget_notify.id().clone();
+
+    widget_submenu.append_items(&[
+        &item_widget_smart,
+        &item_widget_always,
+        &item_widget_close,
+        &sep_sub,
+        &item_widget_notify,
+    ])?;
+
+    let sep_widget = tray_icon::menu::PredefinedMenuItem::separator();
     let item_quit = tray_icon::menu::MenuItem::new("退出", true, None);
 
     let show_id = item_show.id().clone();
@@ -417,6 +674,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         &item_sub3,
         &item_sub4,
         &sep,
+        &widget_submenu,
+        &sep_widget,
         &item_quit,
     ])?;
     let tray_icon_img = tray_icon::Icon::from_rgba(ICON_RGBA.to_vec(), 32, 32)?;
@@ -430,6 +689,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let sub_pids_tray = Arc::clone(&sub_pids);
     let ui_weak_tray = main_window.as_weak();
     let mon_tray = Arc::clone(&monitor);
+    let widget_cfg_tray = Arc::clone(&widget_config);
+    let widget_weak_tray = floating_widget.as_weak();
 
     tray_icon::TrayIconEvent::set_event_handler(Some({
         let ui_weak = ui_weak_tray.clone();
@@ -454,12 +715,81 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let pid_lock = sub_pids_tray;
         let ui_weak = ui_weak_tray.clone();
         let mon_arc = mon_tray;
+        let widget_cfg_menu = widget_cfg_tray;
+        let widget_weak_menu = widget_weak_tray;
         move |event: tray_icon::menu::MenuEvent| {
             if event.id == show_id {
                 #[cfg(target_os = "windows")]
                 show_cockpit_from_tray(&ui_weak);
             } else if event.id == quit_id {
                 std::process::exit(0);
+            } else if event.id == widget_smart_id {
+                {
+                    let mut cfg = widget_cfg_menu.lock().unwrap();
+                    cfg.enabled = true;
+                    cfg.mode = crate::widget_state::WidgetMode::Smart;
+                    let _ = cfg.save();
+                }
+                let ui_w = ui_weak.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode_text("悬浮球: 智能".into());
+                        ui.set_toast_message("悬浮球模式: 智能感知".into());
+                    }
+                });
+            } else if event.id == widget_always_id {
+                {
+                    let mut cfg = widget_cfg_menu.lock().unwrap();
+                    cfg.enabled = true;
+                    cfg.mode = crate::widget_state::WidgetMode::Always;
+                    let _ = cfg.save();
+                }
+                let ui_w = ui_weak.clone();
+                let w_w = widget_weak_menu.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode_text("悬浮球: 常驻".into());
+                        ui.set_toast_message("悬浮球模式: 常驻显示".into());
+                    }
+                    if let Some(w) = w_w.upgrade() {
+                        let _ = w.window().show();
+                    }
+                });
+            } else if event.id == widget_close_id {
+                {
+                    let mut cfg = widget_cfg_menu.lock().unwrap();
+                    cfg.enabled = false;
+                    let _ = cfg.save();
+                }
+                let ui_w = ui_weak.clone();
+                let w_w = widget_weak_menu.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode_text("悬浮球: 关闭".into());
+                        ui.set_toast_message("悬浮球已停用".into());
+                    }
+                    if let Some(w) = w_w.upgrade() {
+                        let _ = w.window().hide();
+                    }
+                });
+            } else if event.id == widget_notify_id {
+                let is_on = {
+                    let mut cfg = widget_cfg_menu.lock().unwrap();
+                    cfg.notify_on_done = !cfg.notify_on_done;
+                    let _ = cfg.save();
+                    cfg.notify_on_done
+                };
+                let ui_w = ui_weak.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        let msg = if is_on {
+                            "悬浮球完成通知已开启"
+                        } else {
+                            "悬浮球完成通知已关闭"
+                        };
+                        ui.set_toast_message(msg.into());
+                    }
+                });
             } else {
                 let target_slot = if event.id == sub1_id {
                     Some(1usize)
@@ -496,6 +826,48 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             }
         }
     }));
+
+    let widget_cfg_toggle = Arc::clone(&widget_config);
+    let main_weak_toggle = main_window.as_weak();
+    let widget_weak_toggle = floating_widget.as_weak();
+    main_window.on_toggle_widget_mode(move || {
+        let (btn_txt, enabled, mode) = {
+            let mut cfg = widget_cfg_toggle.lock().unwrap();
+            if !cfg.enabled {
+                cfg.enabled = true;
+                cfg.mode = crate::widget_state::WidgetMode::Smart;
+            } else {
+                match cfg.mode {
+                    crate::widget_state::WidgetMode::Smart => {
+                        cfg.mode = crate::widget_state::WidgetMode::Always;
+                    }
+                    crate::widget_state::WidgetMode::Always => {
+                        cfg.enabled = false;
+                    }
+                }
+            }
+            let _ = cfg.save();
+            let b = if !cfg.enabled {
+                "悬浮球: 关闭"
+            } else {
+                match cfg.mode {
+                    crate::widget_state::WidgetMode::Smart => "悬浮球: 智能",
+                    crate::widget_state::WidgetMode::Always => "悬浮球: 常驻",
+                }
+            };
+            (b, cfg.enabled, cfg.mode)
+        };
+        if let Some(ui) = main_weak_toggle.upgrade() {
+            ui.set_widget_mode_text(btn_txt.into());
+        }
+        if let Some(w) = widget_weak_toggle.upgrade() {
+            if !enabled {
+                let _ = w.window().hide();
+            } else if mode == crate::widget_state::WidgetMode::Always {
+                let _ = w.window().show();
+            }
+        }
+    });
 
     main_window.window().on_close_requested({
         let ui_weak = main_window.as_weak();
@@ -1495,6 +1867,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let live_session_slot_timer = Arc::clone(&live_session_slot);
     let active_live_timer = Arc::clone(&active_live_session);
     let hover_bar_timer = Arc::clone(&hover_bar_state);
+    let widget_weak_timer = floating_widget.as_weak();
+    let widget_config_timer = Arc::clone(&widget_config);
+    let widget_detector = Arc::new(Mutex::new(crate::widget_state::StateTransitionDetector::new()));
+    let finish_info: Arc<Mutex<Option<(std::time::Instant, String)>>> = Arc::new(Mutex::new(None));
+    let slot_tracker_timer = Arc::clone(&active_slot_tracker);
 
     let monitor_bg = Arc::clone(&monitor);
     let sub_pids_bg = Arc::clone(&sub_pids);
@@ -2112,6 +2489,118 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_hover_tag("".into());
                 }
             }
+
+            if let Some(w) = widget_weak_timer.upgrade() {
+                let cfg = widget_config_timer.lock().unwrap().clone();
+                if !cfg.enabled {
+                    let _ = w.window().hide();
+                } else {
+                    let store = sessions_store_timer.lock().unwrap();
+                    let mut slot_inputs = Vec::new();
+                    for slot in 0..=4 {
+                        let running = store[slot].has_running;
+                        let tokens: u64 = store[slot].groups.iter().flat_map(|g| &g.sessions).map(|s| s.output_tokens).sum();
+                        let tps = store[slot].groups.iter().flat_map(|g| &g.sessions).map(|s| s.round_tps).fold(0.0f32, f32::max);
+                        slot_inputs.push((slot as u8, running, tokens, tps));
+                    }
+
+                    let mut detector = widget_detector.lock().unwrap();
+                    let transitions = detector.update(&slot_inputs);
+                    let now = std::time::Instant::now();
+                    for tr in transitions {
+                        if let crate::widget_state::SessionTransition::Finished { slot, duration_secs, total_tokens, avg_tps } = tr {
+                            let badge = if slot == 0 { "主" } else { ["S1", "S2", "S3", "S4"][(slot - 1) as usize] };
+                            let slot_title = if slot == 0 { "主机实例" } else { ["分身 1", "分身 2", "分身 3", "分身 4"][(slot - 1) as usize] };
+                            let summary = format!("{} OK {} · {:.1}s · {:.0} T/s", badge, format_tokens(total_tokens), duration_secs, avg_tps);
+                            let until = now + std::time::Duration::from_secs(4);
+                            let mut fin = finish_info.lock().unwrap();
+                            *fin = Some((until, summary));
+
+                            if cfg.notify_on_done {
+                                let title = format!("Antigravity [{}]", slot_title);
+                                let msg = format!("已完成 · {} Tokens · {:.1}s · {:.0} T/s", format_tokens(total_tokens), duration_secs, avg_tps);
+                                #[cfg(target_os = "windows")]
+                                show_desktop_notification(&title, &msg);
+                            }
+                        }
+                    }
+
+                    let mut is_finished_active = false;
+                    let mut finished_msg = String::new();
+                    {
+                        let mut fin = finish_info.lock().unwrap();
+                        if let Some((until, ref msg)) = *fin {
+                            if now < until {
+                                is_finished_active = true;
+                                finished_msg = msg.clone();
+                            } else {
+                                *fin = None;
+                            }
+                        }
+                    }
+
+                    let any_running = detector.has_any_running();
+                    if cfg.mode == crate::widget_state::WidgetMode::Smart {
+                        if any_running || is_finished_active {
+                            let _ = w.window().show();
+                        } else {
+                            let _ = w.window().hide();
+                        }
+                    } else {
+                        let _ = w.window().show();
+                    }
+
+                    let active_slot: usize = if let Some((slot, _, _, _)) = slot_inputs.iter().find(|&&(_, r, _, _)| r) {
+                        *slot as usize
+                    } else {
+                        1
+                    };
+                    *slot_tracker_timer.lock().unwrap() = active_slot as u8;
+
+                    let badge = if active_slot == 0 { "主" } else { ["S1", "S2", "S3", "S4"][active_slot - 1] };
+                    let slot_name = if active_slot == 0 { "主机实例" } else { ["分身 1", "分身 2", "分身 3", "分身 4"][active_slot - 1] };
+
+                    let qs = qs_timer.lock().unwrap();
+                    let q_5h = if active_slot < qs.len() && qs[active_slot].is_available && !qs[active_slot].five_h.pct_text.is_empty() {
+                        qs[active_slot].five_h.pct_text.as_str()
+                    } else {
+                        "--"
+                    };
+                    let q_weekly = if active_slot < qs.len() && qs[active_slot].is_available && !qs[active_slot].weekly.pct_text.is_empty() {
+                        qs[active_slot].weekly.pct_text.as_str()
+                    } else {
+                        "--"
+                    };
+
+                    let active_session = store[active_slot].groups.iter().flat_map(|g| &g.sessions).find(|s| s.is_running).or_else(|| {
+                        store[active_slot].groups.iter().flat_map(|g| &g.sessions).next()
+                    });
+
+                    w.set_is_running(any_running);
+                    w.set_slot_badge(badge.into());
+                    w.set_slot_name(slot_name.into());
+                    w.set_quota_5h_text(q_5h.into());
+                    w.set_quota_weekly_text(q_weekly.into());
+                    w.set_is_finished(is_finished_active);
+                    w.set_finished_text(finished_msg.into());
+
+                    if let Some(s) = active_session {
+                        w.set_project_name(s.project_name.as_str().into());
+                        w.set_tps_text(format!("{:.1}", s.round_tps).into());
+                        w.set_tokens_text(format_tokens(s.output_tokens).into());
+                        w.set_duration_text(format!("{:.1}s", s.round_duration_secs).into());
+                        w.set_cache_rate_text(s.cache_rate_str.as_str().into());
+                        w.set_context_text(format_tokens(s.context_tokens).into());
+                    } else {
+                        w.set_project_name("Antigravity".into());
+                        w.set_tps_text("0.0".into());
+                        w.set_tokens_text("0".into());
+                        w.set_duration_text("0.0s".into());
+                        w.set_cache_rate_text("0%".into());
+                        w.set_context_text("0".into());
+                    }
+                }
+            }
         }
     });
 
@@ -2122,6 +2611,18 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         apply_dark_window_attributes(hwnd);
         center_and_scale_cockpit_window(hwnd);
     }
+
+    let widget_cfg_init = widget_config.lock().unwrap().clone();
+    if widget_cfg_init.enabled {
+        floating_widget.show()?;
+        #[cfg(target_os = "windows")]
+        {
+            let w_hwnd = get_floating_widget_hwnd();
+            setup_floating_widget_window(w_hwnd, widget_cfg_init.pos_x, widget_cfg_init.pos_y);
+        }
+    }
+
+    let _keep_floating_widget = floating_widget;
     let _ = slint::run_event_loop_until_quit();
     Ok(())
 }

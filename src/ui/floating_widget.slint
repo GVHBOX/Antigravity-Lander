@@ -1,0 +1,388 @@
+export component FloatingCapsule inherits Rectangle {
+    in property <bool> is_dark: true;
+    in property <bool> is_running: false;
+    in property <string> slot_badge: "S1";
+    in property <string> tps_text: "0.0";
+    in property <string> cache_text: "0%";
+    in property <bool> is_finished: false;
+    in property <string> finished_text: "";
+    callback clicked();
+    callback drag_requested();
+
+    width: 140px;
+    height: 34px;
+    background: root.is_dark ? #0b1120.darker(0.1) : #ffffff;
+    border-color: root.is_running ? #10b981 : (root.is_dark ? rgba(255, 255, 255, 0.12) : #cbd5e1);
+    border-width: 1.5px;
+    border-radius: 17px;
+    clip: true;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
+        alignment: center;
+
+        Rectangle {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: root.is_running ? #10b981 : (root.is_finished ? #38bdf8 : #64748b);
+        }
+
+        Rectangle {
+            width: 24px;
+            height: 18px;
+            border-radius: 9px;
+            background: root.is_running ? rgba(16, 185, 129, 0.2) : (root.is_dark ? rgba(255, 255, 255, 0.08) : #e2e8f0);
+
+            Text {
+                text: root.slot_badge;
+                color: root.is_running ? #10b981 : (root.is_dark ? #cbd5e1 : #334155);
+                font-size: 10px;
+                font-weight: 700;
+                font-family: "Cascadia Mono";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        if !root.is_finished: Text {
+            text: root.is_running ? (root.tps_text + " T/s") : "IDLE";
+            color: root.is_running ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #64748b : #94a3b8);
+            font-size: 11px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+            vertical-alignment: center;
+        }
+
+        if root.is_finished: Text {
+            text: root.finished_text;
+            color: #10b981;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: "Cascadia Mono";
+            vertical-alignment: center;
+        }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.drag_requested();
+            }
+        }
+    }
+}
+
+export component FloatingDetailCard inherits Rectangle {
+    in property <bool> is_dark: true;
+    in property <string> slot_name: "分身 1";
+    in property <string> project_name: "Antigravity";
+    in property <string> tps_text: "85.4";
+    in property <string> tokens_text: "1,820";
+    in property <string> duration_text: "12.4s";
+    in property <string> cache_rate_text: "94.2%";
+    in property <string> context_text: "48.5K";
+    in property <string> quota_5h_text: "84%";
+    in property <string> quota_weekly_text: "92%";
+    in property <bool> is_running: false;
+    callback activate_requested();
+
+    width: 260px;
+    height: 160px;
+    background: root.is_dark ? #0b1120 : #ffffff;
+    border-color: root.is_dark ? rgba(255, 255, 255, 0.14) : #cbd5e1;
+    border-width: 1px;
+    border-radius: 10px;
+    clip: true;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            alignment: space-between;
+
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+
+                Rectangle {
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 3.5px;
+                    background: root.is_running ? #10b981 : #64748b;
+                    y: (parent.height - self.height) / 2;
+                }
+
+                Text {
+                    text: root.slot_name;
+                    color: root.is_dark ? #f8fafc : #0f172a;
+                    font-size: 12px;
+                    font-weight: 700;
+                }
+
+                Text {
+                    text: "· " + root.project_name;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 11px;
+                    overflow: elide;
+                    max-width: 120px;
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.activate_requested(); }
+                }
+            }
+
+            Text {
+                text: root.is_running ? "RUNNING" : "IDLE";
+                color: root.is_running ? #10b981 : #64748b;
+                font-size: 10px;
+                font-weight: 700;
+                font-family: "Cascadia Mono";
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 40px;
+                background: root.is_dark ? #070d19 : #f8fafc;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: "TPS";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 9px;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.tps_text;
+                        color: root.is_running ? #10b981 : (root.is_dark ? #f8fafc : #0f172a);
+                        font-size: 13px;
+                        font-weight: 700;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 40px;
+                background: root.is_dark ? #070d19 : #f8fafc;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: "CACHE";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 9px;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.cache_rate_text;
+                        color: #38bdf8;
+                        font-size: 13px;
+                        font-weight: 700;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 40px;
+                background: root.is_dark ? #070d19 : #f8fafc;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: "CONTEXT";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 9px;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.context_text;
+                        color: #a855f7;
+                        font-size: 13px;
+                        font-weight: 700;
+                        font-family: "Cascadia Mono";
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 6px;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 34px;
+                background: root.is_dark ? #070d19 : #f8fafc;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    alignment: space-between;
+                    Text {
+                        text: "5H 额度";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.quota_5h_text;
+                        color: #10b981;
+                        font-size: 11px;
+                        font-weight: 700;
+                        font-family: "Cascadia Mono";
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 34px;
+                background: root.is_dark ? #070d19 : #f8fafc;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    alignment: space-between;
+                    Text {
+                        text: "周额度";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.quota_weekly_text;
+                        color: #10b981;
+                        font-size: 11px;
+                        font-weight: 700;
+                        font-family: "Cascadia Mono";
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            Text {
+                text: "轮次耗时 " + root.duration_text;
+                color: root.is_dark ? #475569 : #94a3b8;
+                font-size: 10px;
+                font-family: "Cascadia Mono";
+            }
+            Text {
+                text: "产出 " + root.tokens_text + " Tokens";
+                color: root.is_dark ? #475569 : #94a3b8;
+                font-size: 10px;
+                font-family: "Cascadia Mono";
+            }
+        }
+    }
+}
+
+export component FloatingWidgetWindow inherits Window {
+    in property <bool> is_dark: true;
+    in property <bool> is_running: false;
+    in property <string> slot_badge: "S1";
+    in property <string> slot_name: "分身 1";
+    in property <string> project_name: "Antigravity";
+    in property <string> tps_text: "85.4";
+    in property <string> tokens_text: "1,820";
+    in property <string> duration_text: "12.4s";
+    in property <string> cache_rate_text: "94.2%";
+    in property <string> context_text: "48.5K";
+    in property <string> quota_5h_text: "84%";
+    in property <string> quota_weekly_text: "92%";
+    in property <bool> is_finished: false;
+    in property <string> finished_text: "OK 1.8K";
+    in-out property <bool> expanded: false;
+
+    callback toggle_expanded();
+    callback drag_requested();
+    callback clicked();
+    callback activate_target();
+
+    title: "Antigravity Lander Floating Widget";
+    no-frame: true;
+    background: transparent;
+    preferred-width: root.expanded ? 260px : 140px;
+    preferred-height: root.expanded ? 202px : 34px;
+
+    VerticalLayout {
+        spacing: 6px;
+        alignment: start;
+
+        FloatingCapsule {
+            is_dark: root.is_dark;
+            is_running: root.is_running;
+            slot_badge: root.slot_badge;
+            tps_text: root.tps_text;
+            cache_text: root.cache_rate_text;
+            is_finished: root.is_finished;
+            finished_text: root.finished_text;
+            clicked => {
+                if root.is_finished {
+                    root.activate_target();
+                } else {
+                    root.expanded = !root.expanded;
+                    root.toggle_expanded();
+                }
+            }
+            drag_requested => { root.drag_requested(); }
+        }
+
+        if root.expanded: FloatingDetailCard {
+            is_dark: root.is_dark;
+            slot_name: root.slot_name;
+            project_name: root.project_name;
+            tps_text: root.tps_text;
+            tokens_text: root.tokens_text;
+            duration_text: root.duration_text;
+            cache_rate_text: root.cache_rate_text;
+            context_text: root.context_text;
+            quota_5h_text: root.quota_5h_text;
+            quota_weekly_text: root.quota_weekly_text;
+            is_running: root.is_running;
+            activate_requested => { root.activate_target(); }
+        }
+    }
+}

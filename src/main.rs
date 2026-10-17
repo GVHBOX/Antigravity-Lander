@@ -9,6 +9,7 @@ mod proxy;
 mod quota;
 mod ui;
 mod session;
+pub mod widget_state;
 
 use anyhow::{anyhow, Result};
 use app::App;

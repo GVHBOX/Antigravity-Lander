@@ -8,6 +8,8 @@ import { TelemetryCard } from "ui/telemetry_card.slint";
 import { SubInstanceCard } from "ui/instance_card.slint";
 import { StatusToolbar } from "ui/toolbar.slint";
 import { ConfirmModal, CleanCacheModal, PatchModal, SessionListModal } from "ui/modals.slint";
+import { FloatingWidgetWindow } from "ui/floating_widget.slint";
+export { FloatingWidgetWindow }
 
 export component MainWindow inherits Window {
     title: "Antigravity Lander v1.0.2";
@@ -258,6 +260,8 @@ export component MainWindow inherits Window {
     callback action_stop_all();
     callback action_refresh_telemetry();
     callback action_open_clean_modal();
+    in property <string> widget_mode_text: "悬浮球: 智能";
+    callback toggle_widget_mode();
 
     in property <string> host_uptime_text: "--";
     callback action_stop_host();
@@ -763,9 +767,11 @@ export component MainWindow inherits Window {
                 uptime_text: root.host_uptime_text;
                 summary_text: root.global_summary_text;
                 proxy_text: root.proxy_badge_text;
+                widget_mode_text: root.widget_mode_text;
                 launch_all => { root.action_launch_all(); }
                 stop_all => { root.action_stop_all(); }
                 refresh_telemetry => { root.action_refresh_telemetry(); }
+                toggle_widget_mode => { root.toggle_widget_mode(); }
             }
         }
     }

@@ -6,10 +6,12 @@ export component StatusToolbar inherits Rectangle {
     in property <string> uptime_text: "--";
     in property <string> summary_text: "";
     in property <string> proxy_text: "";
+    in property <string> widget_mode_text: "悬浮球: 智能";
 
     callback launch_all();
     callback stop_all();
     callback refresh_telemetry();
+    callback toggle_widget_mode();
 
     height: 36px;
     background: root.is_dark ? #090e1c : #f8fafc;
@@ -48,6 +50,14 @@ export component StatusToolbar inherits Rectangle {
                 text: "刷新";
                 is_dark: root.is_dark;
                 clicked => { root.refresh_telemetry(); }
+            }
+
+            OutlineButton {
+                width: 96px;
+                btn_height: 26px;
+                text: root.widget_mode_text;
+                is_dark: root.is_dark;
+                clicked => { root.toggle_widget_mode(); }
             }
 
             Rectangle {
