@@ -748,18 +748,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         main_window.set_sub4_scale_text(format!("{}%", scales.get_sub_scale(4)).into());
     }
 
-    let initial_mode_text = {
+    let (initial_mode_text, initial_mode_key) = {
         let cfg = widget_config.lock().unwrap();
         if !cfg.enabled {
-            "悬浮球: 关闭"
+            ("悬浮球: 关闭", "hidden")
         } else {
             match cfg.mode {
-                crate::widget_state::WidgetMode::Smart => "悬浮球: 智能",
-                crate::widget_state::WidgetMode::Always => "悬浮球: 常驻",
+                crate::widget_state::WidgetMode::Smart => ("悬浮球: 智能", "smart"),
+                crate::widget_state::WidgetMode::Always => ("悬浮球: 常驻", "always"),
             }
         }
     };
     main_window.set_widget_mode_text(initial_mode_text.into());
+    main_window.set_widget_mode(initial_mode_key.into());
 
     const ICON_RGBA: &[u8] = include_bytes!("../assets/icon_32.rgba");
     let tray_menu = tray_icon::menu::Menu::new();
@@ -866,6 +867,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let ui_w = ui_weak.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode("smart".into());
                         ui.set_widget_mode_text("悬浮球: 智能".into());
                         ui.set_toast_message("悬浮球模式: 智能感知".into());
                     }
@@ -881,6 +883,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let w_w = widget_weak_menu.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode("always".into());
                         ui.set_widget_mode_text("悬浮球: 常驻".into());
                         ui.set_toast_message("悬浮球模式: 常驻显示".into());
                     }
@@ -898,6 +901,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let w_w = widget_weak_menu.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
+                        ui.set_widget_mode("hidden".into());
                         ui.set_widget_mode_text("悬浮球: 关闭".into());
                         ui.set_toast_message("悬浮球已停用".into());
                     }
@@ -964,7 +968,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let main_weak_toggle = main_window.as_weak();
     let widget_weak_toggle = floating_widget.as_weak();
     main_window.on_toggle_widget_mode(move || {
-        let (btn_txt, enabled, mode) = {
+        let (btn_txt, mode_key, enabled, mode) = {
             let mut cfg = widget_cfg_toggle.lock().unwrap();
             if !cfg.enabled {
                 cfg.enabled = true;
@@ -980,24 +984,76 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
             }
             let _ = cfg.save();
-            let b = if !cfg.enabled {
-                "悬浮球: 关闭"
+            let (b, k) = if !cfg.enabled {
+                ("悬浮球: 关闭", "hidden")
             } else {
                 match cfg.mode {
-                    crate::widget_state::WidgetMode::Smart => "悬浮球: 智能",
-                    crate::widget_state::WidgetMode::Always => "悬浮球: 常驻",
+                    crate::widget_state::WidgetMode::Smart => ("悬浮球: 智能", "smart"),
+                    crate::widget_state::WidgetMode::Always => ("悬浮球: 常驻", "always"),
                 }
             };
-            (b, cfg.enabled, cfg.mode)
+            (b, k, cfg.enabled, cfg.mode)
         };
         if let Some(ui) = main_weak_toggle.upgrade() {
             ui.set_widget_mode_text(btn_txt.into());
+            ui.set_widget_mode(mode_key.into());
         }
         if let Some(w) = widget_weak_toggle.upgrade() {
             if !enabled {
                 let _ = w.window().hide();
             } else if mode == crate::widget_state::WidgetMode::Always {
                 let _ = w.window().show();
+            }
+        }
+    });
+
+    let widget_cfg_set = Arc::clone(&widget_config);
+    let main_weak_set = main_window.as_weak();
+    let widget_weak_set = floating_widget.as_weak();
+    main_window.on_set_widget_mode(move |mode_str| {
+        let mode_key = mode_str.as_str();
+        let (btn_txt, toast_msg, enabled, mode) = {
+            let mut cfg = widget_cfg_set.lock().unwrap();
+            match mode_key {
+                "smart" => {
+                    cfg.enabled = true;
+                    cfg.mode = crate::widget_state::WidgetMode::Smart;
+                    let _ = cfg.save();
+                    ("悬浮球: 智能", "悬浮窗模式: 干活时显示", true, cfg.mode)
+                }
+                "always" => {
+                    cfg.enabled = true;
+                    cfg.mode = crate::widget_state::WidgetMode::Always;
+                    let _ = cfg.save();
+                    ("悬浮球: 常驻", "悬浮窗模式: 常驻显示", true, cfg.mode)
+                }
+                _ => {
+                    cfg.enabled = false;
+                    let _ = cfg.save();
+                    ("悬浮球: 关闭", "悬浮窗已停用", false, cfg.mode)
+                }
+            }
+        };
+
+        if let Some(ui) = main_weak_set.upgrade() {
+            ui.set_widget_mode(mode_key.into());
+            ui.set_widget_mode_text(btn_txt.into());
+            ui.set_toast_message(toast_msg.into());
+        }
+
+        if let Some(w) = widget_weak_set.upgrade() {
+            if !enabled {
+                let _ = w.window().hide();
+            } else if mode == crate::widget_state::WidgetMode::Always {
+                let _ = w.window().show();
+                #[cfg(target_os = "windows")]
+                {
+                    let hwnd = get_floating_widget_hwnd();
+                    let scale = w.window().scale_factor();
+                    let is_expanded = w.get_expanded();
+                    let mut cfg = widget_cfg_set.lock().unwrap();
+                    update_widget_geometry(hwnd, is_expanded, scale, &mut cfg);
+                }
             }
         }
     });

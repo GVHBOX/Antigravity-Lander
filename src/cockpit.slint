@@ -261,7 +261,9 @@ export component MainWindow inherits Window {
     callback action_refresh_telemetry();
     callback action_open_clean_modal();
     in property <string> widget_mode_text: "悬浮球: 智能";
+    in property <string> widget_mode: "smart";
     callback toggle_widget_mode();
+    callback set_widget_mode(string);
 
     in property <string> host_uptime_text: "--";
     callback action_stop_host();
@@ -439,8 +441,10 @@ export component MainWindow inherits Window {
                         live_session_available_text: root.live_session_available_text;
                         live_session_optimization_text: root.live_session_optimization_text;
                         is_dark: root.is_dark;
+                        widget_mode: root.widget_mode;
 
                         switch_target(target) => { root.switch_live_session_target(target); }
+                        set_widget_mode(m) => { root.set_widget_mode(m); }
                         show_history(slot) => {
                             root.session_modal_slot = slot;
                             root.session_modal_visible = true;
