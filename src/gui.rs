@@ -223,10 +223,49 @@ fn apply_widget_round_region(
         return;
     }
     unsafe {
-        let hrgn = CreateRoundRectRgn(0, 0, width, height, corner_radius * 2, corner_radius * 2);
+        let hrgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, corner_radius * 2, corner_radius * 2);
         if !hrgn.is_null() {
             SetWindowRgn(hwnd, hrgn, 1);
         }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+        WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+        WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+
+    unsafe {
+        let style = GetWindowLongW(hwnd, GWL_STYLE);
+        let border_mask = (WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU | WS_BORDER | WS_DLGFRAME) as i32;
+        let new_style = (style & !border_mask) | (WS_POPUP as i32);
+        if new_style != style {
+            SetWindowLongW(hwnd, GWL_STYLE, new_style);
+        }
+
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        let new_ex = (ex_style | (WS_EX_TOPMOST as i32) | (WS_EX_TOOLWINDOW as i32)) & !(WS_EX_APPWINDOW as i32);
+        if new_ex != ex_style {
+            SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
+        }
+
+        SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
     }
 }
 
@@ -240,12 +279,14 @@ fn update_widget_geometry(
     use windows_sys::Win32::Foundation::RECT;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GetSystemMetrics, GetWindowRect, SetWindowPos, HWND_TOPMOST,
-        SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOZORDER,
+        SM_CXSCREEN, SM_CYSCREEN, SWP_FRAMECHANGED, SWP_NOACTIVATE,
     };
 
     if hwnd.is_null() {
         return;
     }
+
+    ensure_floating_widget_style(hwnd);
 
     unsafe {
         let screen_w = GetSystemMetrics(SM_CXSCREEN);
@@ -293,7 +334,7 @@ fn update_widget_geometry(
             cur_y,
             phys_w,
             phys_h,
-            SWP_NOACTIVATE | SWP_NOZORDER,
+            SWP_NOACTIVATE | SWP_FRAMECHANGED,
         );
 
         apply_widget_round_region(hwnd, phys_w, phys_h, corner_r);
@@ -308,19 +349,16 @@ fn setup_floating_widget_window(
     scale: f32,
 ) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-        HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
-        WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+        SetWindowPos, HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
     };
 
     if hwnd.is_null() {
         return;
     }
-    unsafe {
-        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
-        let new_ex = ex_style | (WS_EX_TOPMOST as i32) | (WS_EX_TOOLWINDOW as i32);
-        SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex);
 
+    ensure_floating_widget_style(hwnd);
+
+    unsafe {
         let phys_w = (140.0 * scale).round() as i32;
         let phys_h = (34.0 * scale).round() as i32;
         let corner_r = (phys_h / 2).max(1);
@@ -1003,6 +1041,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let _ = w.window().hide();
             } else if mode == crate::widget_state::WidgetMode::Always {
                 let _ = w.window().show();
+                #[cfg(target_os = "windows")]
+                {
+                    let hwnd = get_floating_widget_hwnd();
+                    let scale = w.window().scale_factor();
+                    let is_expanded = w.get_expanded();
+                    let mut cfg = widget_cfg_toggle.lock().unwrap();
+                    update_widget_geometry(hwnd, is_expanded, scale, &mut cfg);
+                }
             }
         }
     });
@@ -2162,6 +2208,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let mut widget_was_shown = false;
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
             let mon = monitor_timer.lock().unwrap();
@@ -2683,6 +2730,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let cfg = widget_config_timer.lock().unwrap().clone();
                 if !cfg.enabled {
                     let _ = w.window().hide();
+                    widget_was_shown = false;
                 } else {
                     let store = sessions_store_timer.lock().unwrap();
                     let mut slot_inputs = Vec::new();
@@ -2729,14 +2777,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
 
                     let any_running = detector.has_any_running();
-                    if cfg.mode == crate::widget_state::WidgetMode::Smart {
-                        if any_running || is_finished_active {
-                            let _ = w.window().show();
-                        } else {
-                            let _ = w.window().hide();
+                    let should_show = if cfg.mode == crate::widget_state::WidgetMode::Smart {
+                        any_running || is_finished_active
+                    } else {
+                        true
+                    };
+
+                    if should_show {
+                        let _ = w.window().show();
+                        if !widget_was_shown {
+                            widget_was_shown = true;
+                            #[cfg(target_os = "windows")]
+                            {
+                                let hwnd = get_floating_widget_hwnd();
+                                let scale = w.window().scale_factor();
+                                let is_expanded = w.get_expanded();
+                                let mut c = widget_config_timer.lock().unwrap();
+                                update_widget_geometry(hwnd, is_expanded, scale, &mut c);
+                            }
                         }
                     } else {
-                        let _ = w.window().show();
+                        let _ = w.window().hide();
+                        widget_was_shown = false;
                     }
 
                     let active_slot: usize = if let Some((slot, _, _, _)) = slot_inputs.iter().find(|&&(_, r, _, _)| r) {
