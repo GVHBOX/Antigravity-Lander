@@ -351,13 +351,11 @@ export component FloatingWidgetWindow inherits Window {
     callback clicked();
     callback activate_target();
 
-    title: "Antigravity Lander Floating Widget";
+    title: "";
     no-frame: true;
     background: transparent;
     preferred-width: root.expanded ? 260px : 140px;
     preferred-height: root.expanded ? 202px : 34px;
-    width: root.expanded ? 260px : 140px;
-    height: root.expanded ? 202px : 34px;
 
     VerticalLayout {
         spacing: 6px;
@@ -375,9 +373,6 @@ export component FloatingWidgetWindow inherits Window {
             clicked => {
                 if root.is_finished {
                     root.activate_target();
-                } else {
-                    root.expanded = !root.expanded;
-                    root.toggle_expanded();
                 }
             }
             drag_requested => { root.drag_requested(); }

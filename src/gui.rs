@@ -146,7 +146,7 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
     use windows_sys::Win32::Foundation::{HWND, LPARAM};
     use windows_sys::Win32::System::Threading::GetCurrentProcessId;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetClassNameW, GetWindowThreadProcessId,
+        EnumWindows, GetClassNameW, GetWindowTextW, GetWindowThreadProcessId,
     };
 
     unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
@@ -159,9 +159,14 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
                 if len > 0 {
                     let class_name = String::from_utf16_lossy(&class_buf[..len as usize]);
                     if class_name == "Window Class" {
-                        let out_ptr = lparam as *mut HWND;
-                        *out_ptr = hwnd;
-                        return 0;
+                        let mut title_buf = [0u16; 64];
+                        let tlen = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+                        let title = String::from_utf16_lossy(&title_buf[..tlen as usize]);
+                        if title.contains("Lander") {
+                            let out_ptr = lparam as *mut HWND;
+                            *out_ptr = hwnd;
+                            return 0;
+                        }
                     }
                 }
             }
@@ -177,26 +182,47 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
 }
 
 #[cfg(target_os = "windows")]
+static CACHED_FLOATING_WIDGET_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+#[cfg(target_os = "windows")]
 fn get_floating_widget_hwnd() -> windows_sys::Win32::Foundation::HWND {
-    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
     use windows_sys::Win32::System::Threading::GetCurrentProcessId;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetWindowTextW, GetWindowThreadProcessId,
+        EnumWindows, GetClassNameW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsWindow, SetWindowTextW,
     };
+
+    let cached = CACHED_FLOATING_WIDGET_HWND.load(std::sync::atomic::Ordering::Relaxed);
+    if cached != 0 {
+        let hwnd = cached as HWND;
+        if unsafe { IsWindow(hwnd) } != 0 {
+            return hwnd;
+        }
+    }
 
     unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
         unsafe {
             let mut proc_id = 0u32;
             GetWindowThreadProcessId(hwnd, &mut proc_id);
             if proc_id == GetCurrentProcessId() {
-                let mut title_buf = [0u16; 128];
-                let len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+                let mut class_buf = [0u16; 64];
+                let len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32);
                 if len > 0 {
-                    let title = String::from_utf16_lossy(&title_buf[..len as usize]);
-                    if title == "Antigravity Lander Floating Widget" {
-                        let out_ptr = lparam as *mut HWND;
-                        *out_ptr = hwnd;
-                        return 0;
+                    let class_name = String::from_utf16_lossy(&class_buf[..len as usize]);
+                    if class_name == "Window Class" {
+                        let mut title_buf = [0u16; 64];
+                        let tlen = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+                        let title = String::from_utf16_lossy(&title_buf[..tlen as usize]);
+                        if !title.contains("Lander") {
+                            let mut rect: RECT = std::mem::zeroed();
+                            GetWindowRect(hwnd, &mut rect);
+                            let width = rect.right - rect.left;
+                            if width < 800 {
+                                let out_ptr = lparam as *mut HWND;
+                                *out_ptr = hwnd;
+                                return 0;
+                            }
+                        }
                     }
                 }
             }
@@ -207,6 +233,11 @@ fn get_floating_widget_hwnd() -> windows_sys::Win32::Foundation::HWND {
     let mut found_hwnd: HWND = std::ptr::null_mut();
     unsafe {
         EnumWindows(Some(enum_proc), &mut found_hwnd as *mut _ as LPARAM);
+        if !found_hwnd.is_null() {
+            CACHED_FLOATING_WIDGET_HWND.store(found_hwnd as isize, std::sync::atomic::Ordering::Relaxed);
+            let empty_title = [0u16];
+            SetWindowTextW(found_hwnd, empty_title.as_ptr());
+        }
     }
     found_hwnd
 }
@@ -233,7 +264,7 @@ fn apply_widget_round_region(
 #[cfg(target_os = "windows")]
 fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+        GetWindowLongW, SetWindowLongW, SetWindowPos, SetWindowTextW, GWL_EXSTYLE, GWL_STYLE,
         HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
         WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
         WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
@@ -244,6 +275,9 @@ fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
     }
 
     unsafe {
+        let empty_title = [0u16];
+        SetWindowTextW(hwnd, empty_title.as_ptr());
+
         let style = GetWindowLongW(hwnd, GWL_STYLE);
         let border_mask = (WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU | WS_BORDER | WS_DLGFRAME) as i32;
         let new_style = (style & !border_mask) | (WS_POPUP as i32);
@@ -271,11 +305,7 @@ fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
 
 #[cfg(target_os = "windows")]
 fn get_widget_effective_scale(window_scale: f32) -> f32 {
-    let env_scale = std::env::var("SLINT_SCALE_FACTOR")
-        .ok()
-        .and_then(|s| s.parse::<f32>().ok())
-        .unwrap_or(1.0);
-    window_scale * env_scale
+    window_scale.max(1.0)
 }
 
 #[cfg(target_os = "windows")]
