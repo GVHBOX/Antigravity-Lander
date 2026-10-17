@@ -262,7 +262,40 @@ fn apply_widget_round_region(
 }
 
 #[cfg(target_os = "windows")]
+static SUBCLASSED_FLOATING_WIDGET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn floating_widget_subclass_proc(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows_sys::Win32::Foundation::WPARAM,
+    lparam: windows_sys::Win32::Foundation::LPARAM,
+    _uid_subclass: usize,
+    _ref_data: usize,
+) -> windows_sys::Win32::Foundation::LRESULT {
+    use windows_sys::Win32::UI::Shell::DefSubclassProc;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        WM_ERASEBKGND, WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCPAINT,
+    };
+
+    match msg {
+        WM_NCPAINT => 0,
+        WM_NCACTIVATE => 1,
+        WM_NCCALCSIZE => {
+            if wparam != 0 {
+                0
+            } else {
+                unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) }
+            }
+        }
+        WM_ERASEBKGND => 1,
+        _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
+    use windows_sys::Win32::UI::Shell::SetWindowSubclass;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, SetWindowLongW, SetWindowPos, SetWindowTextW, GWL_EXSTYLE, GWL_STYLE,
         HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
@@ -275,6 +308,10 @@ fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
     }
 
     unsafe {
+        if !SUBCLASSED_FLOATING_WIDGET.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            SetWindowSubclass(hwnd, Some(floating_widget_subclass_proc), 1001, 0);
+        }
+
         let empty_title = [0u16];
         SetWindowTextW(hwnd, empty_title.as_ptr());
 
