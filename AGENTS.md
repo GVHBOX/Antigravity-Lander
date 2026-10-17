@@ -1,171 +1,99 @@
 # Antigravity Lander 作业规程
 
-`D:\Development_Environment\AI_Vibe_Coding_Workspace\Antigravity-Lander`：Rust + Slint 1.18 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
-两种运行形态：默认 Slint GUI（带系统托盘），`--tui` / `-t` 走 Ratatui 终端仪表盘。
-本文件只讲规矩，功能介绍在 `README.md`。
+`D:\Development_Environment\AI_Vibe_Coding_Workspace\Antigravity-Lander`：Rust + Slint 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
+运行形态：默认 Slint GUI（带系统托盘），支持 `--tui` / `-t` Ratatui 终端仪表盘。
+本文件定义工程规范与纪律，功能说明见 `README.md`。
 
-## 4 条铁律
+## 5 条铁律
 
 ### 1. 代码零注释
 
-核心源码 = `src/`（Rust 与 Slint）：不写注释，名字起清楚就行。
-Rust 的 `///` / `//!` 也算注释，一样禁止；Slint 的 `//` 与 `/* */` 同样禁止。
-
-`tools/` 不算核心源码，那里的 docstring / 注释照常写，别去清理。
-例外只有：被运行时真正读取的字符串（URL、命令行参数、环境变量值）。
-`#[derive]` / `#[allow(...)]` 之类的属性不算注释。
-整理存量代码时，已有注释是清除对象（只清 `src/` 里的）。
-
-**机器强制**：`tools/scan_comment.py`（`--selfcheck` 走校准件反向注入）。
-校准件在 `tools/fixture-comments/`：`clean.rs` 里的 URL、raw string、字符字面量、生命周期都不得误报，
-`dirty.rs` 必须命中。
-
-```bash
-python tools/scan_comment.py
-python tools/scan_comment.py --selfcheck
-```
+- **核心源码范围**：`src/`（Rust 与 Slint）。禁止编写任何注释，通过清晰命名自解释。
+- **违规定义**：Rust 的 `///`、`//!`，Slint 的 `//` 与 `/* */` 均属禁止范围。属性宏（如 `#[derive]`、`#[allow(...)]`）除外。
+- **字符串例外**：仅限运行时实际读取的值（URL、命令行参数、环境变量名等）。
+- **非核心范围**：`tools/` 目录保留必要 docstring 与说明，不在清理范围。
 
 ### 2. 克制白描，说人话（界面、文档与日志）
 
-核心哲学：**客观、克制、白描**。只陈述事实与结果，不加戏、不教导、不向上汇报，坚决摒弃技术装腔。
-本条适用于所有给人看的文字：UI 界面、命令行提示、Toast/弹窗、文档 README、诊断日志。
+- **客观白描**：只陈述事实与结果，坚决摒弃营销级修饰词（如“极致”、“彻底”、“神级”、“企业级”）与虚假技术概念。
+- **结果导向**：界面与提示仅向用户呈现最终操作结果或具体阻断原因，禁止汇报内部实现路径或附带免责废话。
+- **动词规范**：实例未运行时为【启动】；运行中为【打开】（激活置顶已有窗口）与【停止】（终止进程）。严禁使用“置顶”、“唤醒”、“回收”等代称。
+- **诊断日志价值**：仅记录事后排查所需的确定性事实（时间、对象、PID、端口、路径、状态码、耗时、错误原文），禁止打印无信息增益的冗余日志。
+- **界面零说明字（Zero UI Noise）**：界面仅允许呈现字段名、必填标记 `*`、出错具体原因、禁用原因与空状态占位提示，禁止教学引导与操作解释。
+- **高信息密度支持**：在遵循零说明字前提下，鼓励以紧凑指标盒、分段度量条、存储占用统计等纯客观数据切片呈现高密度遥测，充分利用 1080P 与 2K 视口。
 
-1. **拒绝概念通胀，禁止大词包装**：
-   - 严禁堆砌营销级与绝对化修饰词（如“极致”、“彻底”、“神级”、“企业级”、“物理级”）。
-   - 讲机制不讲噱头：写真实机制，不造玄学大词；用最平实的工程事实陈述，自信源于代码本身，不靠形容词壮胆。
-2. **结果导向，禁止报备与邀功**：
-   - 界面、回执与 Toast 只告诉用户「最终结果」，不向上级汇报内部执行路径（严禁写“已调用底层接口触发…”、“服务正自动拉起…”）。
-   - 报错只讲具体阻断原因，严禁掺杂自我安抚与免责式废话（如“操作已中止，核心系统未受任何影响”）。
-   - 动词与短语一律用白话通识（“启动/停止/打开/退出”），禁止生造冷门借代词（如把“唤醒置顶”写成“置顶”，把“重启”写成“回收”，把“后台独立运行”写成“脱机运行”）。
-3. **日志具备诊断价值，拒绝表演式输出**：
-   - 诊断日志的唯一意义是**事后排查与故障定位**，只记录确定性事实：时间、对象、PID/端口/路径、状态码、关键耗时、错误原文。
-   - 严禁打印毫无信息增益的赛博表演日志（如一连串“XX 模块就绪”、“通道已启用”、“守护逻辑已载入”）。
-4. **界面零说明字（Zero UI Noise）**：
-   - 界面只写「它是什么（字段/状态）」和「出了什么问题（错误具体原因）」，坚决不写「怎么用（引导/解释/教导）」。
-   - 全界面严格仅允许五类文案：字段名 · 必填标记 `*` · 出错的具体原因 · 禁用态的原因 · 空状态占位提示。
-   - 严禁在界面放置技术自嗨标签（如“Slint 1.18 软件光栅”）。
-   - **高信息密度 ≠ 界面噪音（Dense Telemetry is NOT Noise）**：零说明字禁止的是教学引导与废话，严格鼓励多维工程事实与数据切片（如 3 列指标盒、多色分段 Prompt/Cache/Output 度量条、分身独立磁盘缓存统计等纯客观数据），充分利用 2K（2560×1440）与 1080P 视口空间。
+### 3. `.scratch/` —— 执行方案、实机截图与临时收容
 
-**机器强制**：`python tools/check_front_hygiene.py`。
-注意它是**关键词黑名单**，只挡已知说法；中英文都要过一遍（英文文案扫不到），
-新增文案仍要人工判断，别因为扫描绿了就放行。
+- **子目录规约**：
+  - `plans/`：多模块改造或架构调整时，**强制先在实体 `.md` 落盘方案**，作为用户确认基线与防长上下文截断锚点。
+  - `shots/`：`slint-viewer` 导出的 1080P/2K 原画验证截图，作为界面验收硬证据。
+  - `archive/`：废弃代码、旧探针与临时产物归档。
+  - `scripts/`：临时诊断与验证单次脚本。
+- **根目录严格白名单**：源码（`src/`）、资源（`assets/`）、工具（`tools/`）、构建缓存（`target/`）、数据（`data/`）、配置文件与元文件（`Cargo.toml`、`Cargo.lock`、`build.rs`、`README.md`、`AGENTS.md`、`LICENSE`、`.gitignore`）以及发布产物（`Antigravity-Lander.exe`）。
+- **资源保护**：`assets/icon.png` 为 Slint 唯一引用的图片资产（`.gitignore` 显式保留，禁止排除）；`assets/icon.ico` 为应用原生图标。
+- **路径与跨会话约束**：Windows 路径采用原生格式 `D:\...`。禁止向 `.workbuddy/` 写入或重建该目录；不创建跨会话的记忆文件。
 
-### 3. 非源码一律进 `.scratch/`
+### 4. 先方案后动手，步步为营（防注意力稀释）
 
-报告、备份、脚本、截图、临时中间物全进 `.scratch/`（整体不进版本库）。
-根目录只允许：源码（`src/`）、资源（`assets/`）、仓库元文件
-（`README.md`、`AGENTS.md`、`Cargo.toml`、`Cargo.lock`、`build.rs`、`.gitignore`、
-`tools/`）、`target/`、`data/`、`Antigravity-Lander.exe`
-（发布产物，`*.exe` 已被 `.gitignore` 排除，是手工复制出来的，不是构建输出）。
+- **严禁大包揽**：多模块或跨语言联动任务，必须在方案中细化拆解为轻量、自闭环的独立小步（Step 1, Step 2...）。一次只做一件事，严禁一次性全量铺开修改导致上下文混乱、丢三落四。
+- **单步闭环验证**：Slint 界面改完即刻 `slint-viewer` 确认；Rust 逻辑改完即刻 `cargo check --offline` 验证零警告。单步实测通过后再推进下一步，杜绝并发改动导致的问题失控与定位困难。
+- **禁止盲动**：修改核心源码或数据结构前，必须在 `.scratch/plans/` 落盘方案并得到用户明确确认后再行实施。
 
-`assets/icon.png` 是 Slint 唯一引用的图片，**不能让 `.gitignore` 的 `*.png` 把它排除掉**
-（`!assets/icon.png` 这条例外就是为此存在的，别删）。
-`assets/icon.ico` 是用户自己设计的图标，只装容器，不重画不缩放。
+### 5. 网络与代理
 
-- 交付路径用原生 Windows 路径 `D:\...`，不用 `/d/...`。
-- **不往 `.workbuddy/` 写东西，也不重建它。**
-- **不写跨会话的记忆 / 日志文件。** 权威在 `AGENTS.md` 与 `README.md`。
+- **出口模式**：本机运行系统代理（`http://127.0.0.1:7890`），非 TUN 模式。Cargo 拉包时按需使用 `HTTP_PROXY` / `HTTPS_PROXY`。
+- **故障排查原则**：单次实测获取错误原文，附带实际出口与浏览器连通性反馈用户确认，禁止盲目试探、重复重装运行时或将网络问题归咎于代码。
 
-### 4. 网络与代理
+## 核心红线资产清单（严禁误删 / 破坏）
 
-本机是**系统代理**（`http://127.0.0.1:7890`），不是 TUN。
-`cargo` 拉包需要时走 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量。
+| 资产 / 路径 | 关联系统 | 破坏性后果与防护边界 |
+|---|---|---|
+| `data/instance_*/home/.gemini/` | 官方 OAuth Token | **严禁触碰或删除**；分身关闭后仅可清理 `Cache` / `Code Cache` / `GPUCache` |
+| `data/instance_*/home/AppData/` | NTFS Junction 宿主映射 | 包含宿主 `Roaming/Microsoft` 与 `LocalLow` 映射，**严禁递归整目录删除** |
+| `data/scale_settings.json` | 界面调节持久化配置 | 缩放比例存储文件，由前端回调安全读写，禁止破坏数据结构 |
+| `assets/icon.png` / `icon.ico` | Slint 唯一图资 / 原生图标 | `.gitignore` 显式保留，严禁从版本库中移除或误排除 |
 
-**排查网络问题前先问用户，不要自己反复试。** 原因跨好几层（目标站点 / 代理工具 /
-TUN 还是系统代理 / PAC / 安全软件 / 地区封锁），只有用户知道。
-顺序：一次实测拿错误原文 → 连「程序实际用的什么出口 + 浏览器能不能开」一起告诉用户 → 等确认。
-禁止：反复试探、反复重装 Runtime、把环境问题当成代码问题改代码。
+## 项目纪律与架构边界
 
-## 项目纪律
+- **槽位与沙箱目录 1:1 对齐**：分身 1~4 严格对应 `data/instance_1` ~ `instance_4`，禁止槽位编号错位。
+- **界面缩放调节**：缩放控制统一标识为【界面调节】，支持 80%~200%（步长 10%）及重置，启动时通过 `--force-device-scale-factor` 注入。
+- **视口与窗口特性**：
+  - 基准尺寸：宽 1500px、高 870px（最小 1200×870），适配 1080P 并深度兼容 2K 高分屏。
+  - 窗口置顶：置顶图钉（📌）与 Win32 `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST)` 物理状态联动。
+  - 窗口可见性必须调用 Slint 的 `window.hide()` 与 `window.show()`，严禁直接调用 Win32 `ShowWindow`，避免绕过脏矩形增量重绘导致透明黑屏。
+  - 主循环必须使用 `slint::run_event_loop_until_quit()`，避免托盘隐藏时生命周期异常终止。
+  - 托盘回调运行于独立线程，操作 UI 或窗口前必须经由 `slint::invoke_from_event_loop` 派发。
+  - 进程识别：通过进程名匹配时必须排除 `lander` 自身；运行状态以系统实际扫描结果为准，不可信赖历史 PID。
+  - 最小化至托盘时保留 `trim_working_set()` 调用。
+- **原型保真度**：当指令要求按设计原型实现时，必须以原型为视觉与功能基准，对齐信息密度与组件排布，禁止防御性删减数据切片。Slint 缺乏对应高级控件时使用基础图元组合实现。
+- **架构边界**：核心职能仅限调度与监控（派生、隔离、遥测、缓存清理、界面缩放、汉化与代理注入）。不碰主机实例凭证，不接管分身内部账号体系，不外发遥测数据。
 
-- **槽位与沙箱目录 1:1 对齐**：
-  分身 1 对应 `data/instance_1`，分身 2 对应 `data/instance_2`，分身 3 对应 `data/instance_3`，分身 4 对应 `data/instance_4`。
-  禁止槽位编号与底层目录序号错位。
-- **保护已登录凭证文件**：
-  **不要动 `data/instance_1/home/.gemini/` 和 `data/instance_2/home/.gemini/`**：里面有真实的 OAuth token。
-  `data/` 下能安全清理的只有分身关闭后的 `Cache` / `Code Cache` / `GPUCache`。
-- **界面动词与直觉**：
-  - 未运行时动词为【启动】；运行中动词为【打开】（激活置顶已有窗口）与【停止】（终止进程）。小白用户看到【打开】才符合直觉，严禁写成【置顶】或【唤醒】。
-  - 缩放控制统一写【界面调节】，支持 80%~200%（±10%）及点击数值快速重置，持久化到 `data/scale_settings.json`，启动时通过 `--force-device-scale-factor` 注入。
-- **UI 布局与窗口设计**：
-  - 基准尺寸：宽 1500px、高 870px（最小 1200×870），兼顾 1080P 并深度适配 2K（2560×1440）高分屏。自适应弹性拉伸，大分辨率下卡片保持紧凑实体，留白由外层视口自然吸收。
-  - 上半区 3 列卡片布局：
-    - 卡片 1【主机实例】：主账号控制、进程启停、界面缩放、目录直达。
-    - 卡片 2【内置组件】：系统代理补丁与汉化补丁状态、一键应用与环境注入。
-    - 卡片 3【会话遥测中枢】：TPS、上下文 Token 用量三色分段条、延迟分布、沙箱存储占用。
-  - 下半区【分身管理】：4 个分身平铺卡片，右上角设置深浅主题切换（☀/🌙）与窗口置顶图钉（📌）。
-  - 工具带与标题栏边界：移除纯装饰性大字 Banner；允许并推荐保留高度 ≤ 36px 的紧凑功能工具带（全局一键启动/停止、刷新、系统状态摘要）。
-  - 窗口标题栏与版本标识：原生标题栏显示名称与版本号（如 `Antigravity Lander v1.0.1`）。
-- **窗口置顶联动**：
-  - 置顶图钉（📌）与 Win32 `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST)` 真实物理状态联动，支持点击切换并在高亮态表明置顶激活。
-- **原型驱动与防降级减配（Prototype Fidelity）**：
-  - 当存在设计原型（如 `.scratch/ui_prototype.html`）且指令为执行时，实现必须以原型为唯一视觉和功能基准，1:1 对齐信息密度与组件排布。
-  - 严禁以“白描”、“零噪音”为由防御性删减原型中的数据切片、多列指标盒或状态条。
-  - Slint 缺少对应高级控件时，使用 `Rectangle`、`HorizontalLayout`、`Path` 等基础图元组合实现，不得通过减配或退化结构规避布局难度。
-- **窗口可见性必须走 Slint**：隐藏用 `window.hide()`、恢复用 `window.show()`，
-  **不许直接用 Win32 的 `ShowWindow(SW_HIDE/SW_SHOW)`**。
-  窗口是 `with_transparent(true)` 建的，软件渲染器按 dirty region 增量呈现；
-  绕过 Slint 就跳过了它 `set_visibility` 里的整窗 `mark_dirty_region`，恢复后大面积不绘制 = 透明窗口。
-- **主循环必须是 `slint::run_event_loop_until_quit()`**：`hide()` 会 release 一个 keepalive，
-  用 `run_event_loop()` 的话最小化到托盘会直接把进程结束掉。
-- **托盘回调在 tray-icon 自己的线程**：动 Slint 或窗口前必须 `slint::invoke_from_event_loop`。
-- **进程判定要排除自己**：发布 exe 叫 `Antigravity-Lander.exe`，
-  任何按进程名 `contains("antigravity")` 的匹配都要排除 `lander`，避免把自己算成主机实例。
-- **状态只信扫描结果**：分身的「是否运行」以是否真扫到进程为准，
-  不要把「上次 spawn 记下的 PID」当成运行状态的依据。
-- **不要动 `trim_working_set()` 在缩托盘时的那次调用**。
-- **交付真实性与热更新进程接管授权（防假交付）**：
-  核心原则：**「代码写完」不等于「生效交付」**。必须以**目标路径的二进制产物完成原位物理覆盖、且加载运行最新代码**为交付闭环。严禁新建别名副本（如 `_new.exe`）或仅将产物留在构建目录（如 `target/release/`）。
-  1. **严格区分「源码编辑」与「运行态生效」**：严禁将“代码已修改”等同于“已生效完成”。
-  2. **热更新进程接管授权（主动解除文件锁与端口占用）**：
-     - **正式接管授权**：在覆盖根目录/目标路径二进制（如 `Antigravity-Lander.exe`）或启动测试实例时，若遭遇旧实例正在运行引发的文件锁（Windows `WinError 32` / `Device or resource busy`）或单实例互斥锁占用，**AI 获得正式授权主动接管并精准终止旧版管理器进程**（`taskkill /PID <pid> /F`）。
-     - **原位物理覆盖**：解除占用后，必须立即完成根目录 `Antigravity-Lander.exe` 的覆盖写入，确保用户调起即为最新版。
-     - **严格限定接管边界**：仅限终止由本项目自身构建运行的旧版进程，绝不触碰用户宿主环境或其他系统关键进程。
-  3. **验收凭证原则（拒绝幽灵验证）**：自测必须有新产物生效的确定性证据（UI 改动使用 `slint-viewer` 截存或由用户视觉验收；后台/进程改动以真实 PID 与回执存证，严禁为了强行截屏在后台自编脚本折腾）。
+## 交付规范与进程接管
 
-## 测试与检查
+- **原位物理覆盖**：编译完成后，必须将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`，禁止创建别名文件（如 `_new.exe`）或仅滞留在构建目录。
+- **旧进程接管授权**：若覆盖或测试时遭遇文件锁（WinError 32）或单实例互斥锁占用，授权调用 `taskkill /PID <pid> /F` 精准终止本项目历史构建的旧管理器进程，解除占用后立即完成物理覆盖。
+- **验收凭证原则**：UI 变更验证使用 `slint-viewer` 截取原生渲染图（严禁使用脚本调用 Win32 API 强制缩放窗口）；后台逻辑与进程启停以真实 PID 与系统回执为准。
 
-```bash
-cargo check --offline                       # 零警告才算过
-cargo build --release --offline             # 产物 target/release/antigravity-lander.exe
-python tools/scan_comment.py                # 铁律 1
-python tools/scan_comment.py --selfcheck
-python tools/check_front_hygiene.py         # 铁律 2
-```
+## 环境事实与检查指令
 
-- 项目没有单元测试。验收靠两步：`cargo check` 零警告 + 真实产物覆盖验证。
-- **UI 布局与排版验证优先使用 `slint-viewer`**（官方原生引擎、免全量编译、0.1 秒热重载、无损原画直出）：
+- **环境参数**：
+  - Rust 1.98.1 + MSVC。若在沙箱终端内执行且 `USERPROFILE` 被重定向，指定 `$env:CARGO_HOME = "C:\Users\GVH\.cargo"`。
+  - 默认渲染后端：软件光栅（未设 `SLINT_BACKEND` 时强制 `winit-software`），界面文案禁止宣称硬件加速/GPU。
+  - Slint 语法：变亮 `color.brighter(factor)`，变暗 `color.darker(factor)`，不存在 `color.lighter`。
+  - 单实例互斥量与事件：`Local\AntigravityCockpit.SingleInstance` 与 `Local\AntigravityCockpit.Activate`。
+  - `target/` 目录保留，不随意清理。
+- **校验指令集**：
+  ```bash
+  # 1. 静态检查与离线构建
+  cargo check --offline                       # 语法与类型检查（零警告通过）
+  cargo build --release --offline             # 离线发布构建
 
-```bash
-# 实时热重载（拖拽窗口边缘可自由拉伸测试 2K/1080P，修改存盘即刷）
-slint-viewer --auto-reload src/cockpit.slint -I assets
+  # 2. 纪律与卫生检查
+  python tools/scan_comment.py                # 铁律 1 代码注释检查
+  python tools/scan_comment.py --selfcheck    # 注释检查器校准
+  python tools/check_front_hygiene.py         # 铁律 2 界面文案白描检查
 
-# 2K / 1080P 无损原画截图（直接由渲染引擎生成，替代易失真的 GDI 探针）
-slint-viewer --screenshot .scratch/preview_2k.png --size 2560x1440 src/cockpit.slint -I assets
-slint-viewer --screenshot .scratch/preview_default.png src/cockpit.slint -I assets
-```
-
-- **严禁使用脚本强行捏造窗口假尺寸（如私自调用 SetWindowPos 篡改宽高）进行掩耳盗铃式测试**。
-- 改动涉及进程拉起、系统托盘、互斥锁时，使用真实 exe 验证。
-- **发布产物原位覆盖**：`cargo build --release --offline` 编译完成后，将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`。
-
-## 环境与语法事实
-
-- Rust 1.98.1 + MSVC（`~/.cargo/bin`）。
-- **Bash 工具的 PATH 被破坏**，每条命令前要
-  `export PATH="/c/Users/GVH/.workbuddy/binaries/PortableGit/versions/1.2.0/usr/bin:$PATH"`，
-  cargo 要 `~/.cargo/bin/cargo`。
-- **默认渲染后端是软件光栅**：`main.rs` 里没设 `SLINT_BACKEND` 时强制 `winit-software`。
-  界面文案别写「硬件加速 / GPU」，与事实不符。
-- **`target/` 5.2 GB 不动**：D 盘空间充足，清掉会延长全量重编时间。
-- **Slint 1.18 颜色调节语法**：变亮为 `color.brighter(factor)`，变暗为 `color.darker(factor)`，**不存在 `color.lighter`**。
-- **单实例互斥锁与激活事件**：基于 `Local\AntigravityCockpit.SingleInstance` 与 `Local\AntigravityCockpit.Activate`。启动新实例若检测到已有实例运行，会自动激活旧窗口并静默退出（退出码 0）。测试前需确保旧实例已清理。
-- **沙箱终端执行环境**：若在分身沙箱启动的终端内执行，`USERPROFILE` 会指向 `data/instance_*/home`。若离线编译时 `cargo` 找不到 crates 缓存，请显式指定 `$env:CARGO_HOME = "C:\Users\GVH\.cargo"`。
-- **沙箱目录 Junction 隔离保护**：分身 `home/` 下不仅个人文件夹是 Junction，`AppData` 内部亦包含指向宿主 `C:\Users\GVH\AppData\Roaming\Microsoft` 与 `LocalLow` 的 NTFS Junction，严禁直接递归删除沙箱 `AppData`。
-- Bash 里不能出现 "PowerShell" 字样（会被安全策略拦），要跑就用 PowerShell 工具。
-
-## 边界
-
-只做「调度与监控」：派生、隔离、遥测、凭据清理、界面调节、汉化与代理注入。
-**不碰主机实例的凭据**（`clear_token` 只删分身沙箱里对应那一份），不接管分身内部的账号体系，
-不上传任何遥测数据。
+  # 3. 实机原画取证（输出至 .scratch/shots/）
+  slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
+  slint-viewer --screenshot .scratch/shots/preview_2k.png --size 2560x1440 src/cockpit.slint -I assets
+  ```
