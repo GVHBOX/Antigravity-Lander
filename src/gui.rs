@@ -270,6 +270,15 @@ fn ensure_floating_widget_style(hwnd: windows_sys::Win32::Foundation::HWND) {
 }
 
 #[cfg(target_os = "windows")]
+fn get_widget_effective_scale(window_scale: f32) -> f32 {
+    let env_scale = std::env::var("SLINT_SCALE_FACTOR")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+        .unwrap_or(1.0);
+    window_scale * env_scale
+}
+
+#[cfg(target_os = "windows")]
 fn update_widget_geometry(
     hwnd: windows_sys::Win32::Foundation::HWND,
     is_expanded: bool,
@@ -292,14 +301,16 @@ fn update_widget_geometry(
         let screen_w = GetSystemMetrics(SM_CXSCREEN);
         let screen_h = GetSystemMetrics(SM_CYSCREEN);
 
+        let eff_scale = get_widget_effective_scale(scale);
+
         let (logical_w, logical_h, corner_r) = if is_expanded {
-            (260.0f32, 202.0f32, (10.0 * scale).round() as i32)
+            (260.0f32, 202.0f32, (10.0 * eff_scale).round() as i32)
         } else {
-            (140.0f32, 34.0f32, ((34.0 * scale) / 2.0).round() as i32)
+            (140.0f32, 34.0f32, ((34.0 * eff_scale) / 2.0).round() as i32)
         };
 
-        let phys_w = (logical_w * scale).round() as i32;
-        let phys_h = (logical_h * scale).round() as i32;
+        let phys_w = (logical_w * eff_scale).round() as i32;
+        let phys_h = (logical_h * eff_scale).round() as i32;
 
         let mut rect: RECT = std::mem::zeroed();
         let mut cur_x = config.pos_x;
@@ -359,8 +370,9 @@ fn setup_floating_widget_window(
     ensure_floating_widget_style(hwnd);
 
     unsafe {
-        let phys_w = (140.0 * scale).round() as i32;
-        let phys_h = (34.0 * scale).round() as i32;
+        let eff_scale = get_widget_effective_scale(scale);
+        let phys_w = (140.0 * eff_scale).round() as i32;
+        let phys_h = (34.0 * eff_scale).round() as i32;
         let corner_r = (phys_h / 2).max(1);
 
         if pos_x >= 0 && pos_y >= 0 {
@@ -390,19 +402,79 @@ fn setup_floating_widget_window(
 }
 
 #[cfg(target_os = "windows")]
-fn trigger_native_drag(hwnd: windows_sys::Win32::Foundation::HWND) {
+fn track_floating_widget_gesture(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    config: &mut crate::widget_state::WidgetConfig,
+) -> bool {
+    use windows_sys::Win32::Foundation::{POINT, RECT};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SendMessageW, HTCAPTION, WM_NCLBUTTONDOWN,
+        GetCursorPos, GetWindowRect, SetWindowPos, HWND_TOPMOST,
+        SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
     };
+
     unsafe extern "system" {
-        fn ReleaseCapture() -> i32;
+        fn GetAsyncKeyState(vkey: i32) -> i16;
     }
+    const VK_LBUTTON: i32 = 0x01;
+
     if hwnd.is_null() {
-        return;
+        return false;
     }
+
     unsafe {
-        ReleaseCapture();
-        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION as usize, 0);
+        let mut start_cursor: POINT = std::mem::zeroed();
+        if GetCursorPos(&mut start_cursor) == 0 {
+            return false;
+        }
+
+        let mut start_rect: RECT = std::mem::zeroed();
+        if GetWindowRect(hwnd, &mut start_rect) == 0 {
+            return false;
+        }
+
+        let start_x = start_rect.left;
+        let start_y = start_rect.top;
+        let mut cur_cursor: POINT = std::mem::zeroed();
+        let mut last_win_x = start_x;
+        let mut last_win_y = start_y;
+        let mut max_dist_sq = 0i32;
+
+        while (GetAsyncKeyState(VK_LBUTTON) as u16 & 0x8000) != 0 {
+            if GetCursorPos(&mut cur_cursor) != 0 {
+                let dx = cur_cursor.x - start_cursor.x;
+                let dy = cur_cursor.y - start_cursor.y;
+                let dist_sq = dx * dx + dy * dy;
+                if dist_sq > max_dist_sq {
+                    max_dist_sq = dist_sq;
+                }
+
+                if dist_sq >= 36 {
+                    let new_x = start_x + dx;
+                    let new_y = start_y + dy;
+                    if new_x != last_win_x || new_y != last_win_y {
+                        SetWindowPos(
+                            hwnd,
+                            HWND_TOPMOST,
+                            new_x,
+                            new_y,
+                            0,
+                            0,
+                            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                        );
+                        last_win_x = new_x;
+                        last_win_y = new_y;
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(8));
+        }
+
+        if max_dist_sq < 36 {
+            true
+        } else {
+            snap_and_save_widget_position(hwnd, config);
+            false
+        }
     }
 }
 
@@ -726,40 +798,22 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     floating_widget.on_drag_requested(move || {
         #[cfg(target_os = "windows")]
         {
-            use windows_sys::Win32::Foundation::RECT;
-            use windows_sys::Win32::UI::WindowsAndMessaging::GetWindowRect;
-
             let hwnd = get_floating_widget_hwnd();
             if !hwnd.is_null() {
-                let mut rect_before: RECT = unsafe { std::mem::zeroed() };
-                let has_before = unsafe { GetWindowRect(hwnd, &mut rect_before) != 0 };
-
-                trigger_native_drag(hwnd);
-
-                let mut rect_after: RECT = unsafe { std::mem::zeroed() };
-                let has_after = unsafe { GetWindowRect(hwnd, &mut rect_after) != 0 };
-
                 let mut cfg = widget_cfg_drag.lock().unwrap();
-                if has_before && has_after {
-                    let dx = (rect_after.left - rect_before.left).abs();
-                    let dy = (rect_after.top - rect_before.top).abs();
-                    if dx <= 3 && dy <= 3 {
-                        if let Some(w) = widget_weak_drag.upgrade() {
-                            if w.get_is_finished() {
-                                let slot = *slot_tracker_drag.lock().unwrap();
-                                activate_instance_window(slot, &mon_drag);
-                            } else {
-                                let next_expanded = !w.get_expanded();
-                                w.set_expanded(next_expanded);
-                                let scale = w.window().scale_factor();
-                                update_widget_geometry(hwnd, next_expanded, scale, &mut cfg);
-                            }
+                let is_click = track_floating_widget_gesture(hwnd, &mut cfg);
+                if is_click {
+                    if let Some(w) = widget_weak_drag.upgrade() {
+                        if w.get_is_finished() {
+                            let slot = *slot_tracker_drag.lock().unwrap();
+                            activate_instance_window(slot, &mon_drag);
+                        } else {
+                            let next_expanded = !w.get_expanded();
+                            w.set_expanded(next_expanded);
+                            let scale = w.window().scale_factor();
+                            update_widget_geometry(hwnd, next_expanded, scale, &mut cfg);
                         }
-                    } else {
-                        snap_and_save_widget_position(hwnd, &mut cfg);
                     }
-                } else {
-                    snap_and_save_widget_position(hwnd, &mut cfg);
                 }
             }
         }

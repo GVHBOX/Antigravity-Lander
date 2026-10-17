@@ -4,17 +4,18 @@ export component FloatingCapsule inherits Rectangle {
     in property <string> slot_badge: "S1";
     in property <string> tps_text: "0.0";
     in property <string> cache_text: "0%";
+    in property <bool> expanded: false;
     in property <bool> is_finished: false;
     in property <string> finished_text: "";
     callback clicked();
     callback drag_requested();
 
-    width: 140px;
+    width: root.expanded ? 260px : 140px;
     height: 34px;
     background: root.is_dark ? #0b1120.darker(0.1) : #ffffff;
     border-color: root.is_running ? #10b981 : (root.is_dark ? rgba(255, 255, 255, 0.12) : #cbd5e1);
     border-width: 1.5px;
-    border-radius: 17px;
+    border-radius: root.expanded ? 10px : 17px;
     clip: true;
 
     HorizontalLayout {
@@ -365,6 +366,7 @@ export component FloatingWidgetWindow inherits Window {
         FloatingCapsule {
             is_dark: root.is_dark;
             is_running: root.is_running;
+            expanded: root.expanded;
             slot_badge: root.slot_badge;
             tps_text: root.tps_text;
             cache_text: root.cache_rate_text;
