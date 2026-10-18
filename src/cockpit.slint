@@ -267,6 +267,7 @@ export component MainWindow inherits Window {
 
     in property <string> host_uptime_text: "--";
     callback action_stop_host();
+    callback preview_sound();
 
     in property <float> mem_host_pct: 0.08;
     in property <float> mem_subs_pct: 0.12;
@@ -776,6 +777,7 @@ export component MainWindow inherits Window {
                 stop_all => { root.action_stop_all(); }
                 refresh_telemetry => { root.action_refresh_telemetry(); }
                 toggle_widget_mode => { root.toggle_widget_mode(); }
+                preview_sound => { root.preview_sound(); }
             }
         }
     }

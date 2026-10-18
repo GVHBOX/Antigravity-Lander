@@ -632,6 +632,18 @@ fn show_desktop_notification(title: &str, message: &str) {
 #[cfg(not(target_os = "windows"))]
 fn show_desktop_notification(_title: &str, _message: &str) {}
 
+fn play_done_or_builtin(cfg: &crate::widget_state::WidgetConfig) -> Option<String> {
+    if let Some(ref path_str) = cfg.sound_file {
+        let path = std::path::Path::new(path_str);
+        if path.exists() {
+            crate::sound::play_done_sound(path);
+            return Some(crate::sound::file_stem_of(path));
+        }
+    }
+    crate::sound::play_builtin_sound();
+    None
+}
+
 fn activate_instance_window(slot: u8, monitor: &Arc<Mutex<TelemetryMonitor>>) {
     let mon = monitor.lock().unwrap();
     if slot == 0 {
@@ -936,11 +948,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let item_widget_close = tray_icon::menu::MenuItem::new("停用关闭", true, None);
     let sep_sub = tray_icon::menu::PredefinedMenuItem::separator();
     let item_widget_notify = tray_icon::menu::MenuItem::new("切换完成通知", true, None);
+    let item_widget_sound = tray_icon::menu::MenuItem::new("切换完成音效", true, None);
+    let item_widget_sound_pick = tray_icon::menu::MenuItem::new("选择完成音效文件", true, None);
 
     let widget_smart_id = item_widget_smart.id().clone();
     let widget_always_id = item_widget_always.id().clone();
     let widget_close_id = item_widget_close.id().clone();
     let widget_notify_id = item_widget_notify.id().clone();
+    let widget_sound_id = item_widget_sound.id().clone();
+    let widget_sound_pick_id = item_widget_sound_pick.id().clone();
 
     widget_submenu.append_items(&[
         &item_widget_smart,
@@ -967,6 +983,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         &item_sub3,
         &item_sub4,
         &sep,
+        &item_widget_sound,
+        &item_widget_sound_pick,
         &widget_submenu,
         &sep_widget,
         &item_quit,
@@ -1086,6 +1104,49 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         ui.set_toast_message(msg.into());
                     }
                 });
+            } else if event.id == widget_sound_id {
+                let is_on = {
+                    let mut cfg = widget_cfg_menu.lock().unwrap();
+                    cfg.sound_on_done = !cfg.sound_on_done;
+                    let _ = cfg.save();
+                    cfg.sound_on_done
+                };
+                let ui_w = ui_weak.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        let msg = if is_on {
+                            "完成音效已开启"
+                        } else {
+                            "完成音效已关闭"
+                        };
+                        ui.set_toast_message(msg.into());
+                    }
+                });
+            } else if event.id == widget_sound_pick_id {
+                #[cfg(target_os = "windows")]
+                {
+                    crate::sound::log_diag("menu pick clicked");
+                    let owner_hwnd = get_cockpit_hwnd() as isize;
+                    let cfg_arc = Arc::clone(&widget_cfg_menu);
+                    let ui_w = ui_weak.clone();
+                    std::thread::spawn(move || {
+                        let Some(picked) = crate::sound::pick_sound_file(owner_hwnd) else {
+                            return;
+                        };
+                        let name = crate::sound::file_stem_of(&picked);
+                        {
+                            let mut cfg = cfg_arc.lock().unwrap();
+                            cfg.sound_file = Some(picked.to_string_lossy().to_string());
+                            let _ = cfg.save();
+                        }
+                        crate::sound::play_done_sound(&picked);
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_w.upgrade() {
+                                ui.set_toast_message(format!("完成音效: {}", name).into());
+                            }
+                        });
+                    });
+                }
             } else {
                 let target_slot = if event.id == sub1_id {
                     Some(1usize)
@@ -1102,26 +1163,40 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 if let Some(slot) = target_slot {
                     let pid_lock = pid_lock.clone();
                     let mon_arc = Arc::clone(&mon_arc);
-                    let _ = slint::invoke_from_event_loop(move || {
+                    std::thread::spawn(move || {
                         let idx = slot - 1;
                         let running_pid = {
                             let mon = mon_arc.lock().unwrap();
                             let pids = pid_lock.lock().unwrap();
                             mon.subs[idx].electron_pid.or(pids[idx])
                         };
-                        if let Ok(c) = LauncherConfig::for_slot(slot) {
-                            if let Some(pid) = running_pid {
-                                c.bring_to_front(pid);
-                            } else if let Ok(new_pid) = c.spawn_detached() {
-                                let mut pids = pid_lock.lock().unwrap();
-                                pids[idx] = Some(new_pid);
-                            }
+                        let Ok(c) = LauncherConfig::for_slot(slot) else {
+                            return;
+                        };
+                        if let Some(pid) = running_pid {
+                            let _ = c.bring_to_front(pid);
+                        } else if let Ok(new_pid) = c.spawn_detached() {
+                            let mut pids = pid_lock.lock().unwrap();
+                            pids[idx] = Some(new_pid);
                         }
                     });
                 }
             }
         }
     }));
+
+    let widget_cfg_preview = Arc::clone(&widget_config);
+    let main_weak_preview = main_window.as_weak();
+    main_window.on_preview_sound(move || {
+        let cfg = widget_cfg_preview.lock().unwrap().clone();
+        let msg: String = match play_done_or_builtin(&cfg) {
+            Some(name) => format!("完成音效: {}", name),
+            None => "完成音效: 内置提示音".to_string(),
+        };
+        if let Some(ui) = main_weak_preview.upgrade() {
+            ui.set_toast_message(msg.into());
+        }
+    });
 
     let widget_cfg_toggle = Arc::clone(&widget_config);
     let main_weak_toggle = main_window.as_weak();
@@ -1272,24 +1347,33 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
-                if let Some(pid) = pid_opt {
-                    if let Ok(conf) = LauncherConfig::for_slot(1) {
-                        if conf.bring_to_front(pid) {
-                            ui.set_toast_message(format!("主账号已打开 (PID: {})", pid).into());
-                        } else {
-                            ui.set_toast_message(format!("主账号正在运行 (PID: {})", pid).into());
+            let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
+            if let Some(pid) = pid_opt {
+                let ui_w = ui_weak.clone();
+                std::thread::spawn(move || {
+                    let opened = LauncherConfig::for_slot(1)
+                        .map(|conf| conf.bring_to_front(pid))
+                        .unwrap_or(false);
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_w.upgrade() {
+                            ui.set_toast_message(
+                                if opened {
+                                    format!("主账号已打开 (PID: {})", pid)
+                                } else {
+                                    format!("主账号正在运行 (PID: {})", pid)
+                                }
+                                .into(),
+                            );
                         }
+                    });
+                });
+            } else if let Some(ui) = ui_weak.upgrade() {
+                match LauncherConfig::spawn_host_native() {
+                    Ok(new_pid) => {
+                        ui.set_toast_message(format!("主账号已启动 (PID: {})", new_pid).into());
                     }
-                } else {
-                    match LauncherConfig::spawn_host_native() {
-                        Ok(new_pid) => {
-                            ui.set_toast_message(format!("主账号已启动 (PID: {})", new_pid).into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("启动主账号失败: {}", e).into());
-                        }
+                    Err(e) => {
+                        ui.set_toast_message(format!("启动主账号失败: {}", e).into());
                     }
                 }
             }
@@ -1389,7 +1473,25 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let is_stopping_thread = Arc::clone(&is_stopping);
 
             std::thread::spawn(move || {
-                let _ = LauncherConfig::kill_all_antigravity();
+                let known_pids = {
+                    let mut collected: Vec<u32> = Vec::new();
+                    let mon = mon_arc.lock().unwrap();
+                    if let Some(pid) = mon.host.electron_pid {
+                        collected.push(pid);
+                    }
+                    for s in mon.subs.iter() {
+                        if let Some(pid) = s.electron_pid {
+                            collected.push(pid);
+                        }
+                    }
+                    drop(mon);
+                    let pids = sub_pids.lock().unwrap();
+                    for p in pids.iter().flatten() {
+                        collected.push(*p);
+                    }
+                    collected
+                };
+                let _ = LauncherConfig::kill_managed_instances(&known_pids);
                 {
                     let mut pids = sub_pids.lock().unwrap();
                     for p in pids.iter_mut() {
@@ -1497,11 +1599,24 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 };
 
                 if let Some(pid) = running_pid {
-                    if conf.bring_to_front(pid) {
-                        ui.set_toast_message(format!("分身 {} 已打开 (PID: {})", slot, pid).into());
-                    } else {
-                        ui.set_toast_message(format!("分身 {} 正在运行 (PID: {})", slot, pid).into());
-                    }
+                    let ui_w = ui_weak.clone();
+                    std::thread::spawn(move || {
+                        let opened = LauncherConfig::for_slot(slot as usize)
+                            .map(|c| c.bring_to_front(pid))
+                            .unwrap_or(false);
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_w.upgrade() {
+                                ui.set_toast_message(
+                                    if opened {
+                                        format!("分身 {} 已打开 (PID: {})", slot, pid)
+                                    } else {
+                                        format!("分身 {} 正在运行 (PID: {})", slot, pid)
+                                    }
+                                    .into(),
+                                );
+                            }
+                        });
+                    });
                 } else {
                     match conf.spawn_detached() {
                         Ok(new_pid) => {
@@ -1560,11 +1675,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_clear_token({
         let ui_weak = main_window.as_weak();
+        let mon_arc = Arc::clone(&monitor);
         move |slot| {
             if slot < 0 || slot > 4 {
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
+                let running = {
+                    let mon = mon_arc.lock().unwrap();
+                    if slot == 0 {
+                        mon.host.is_running
+                    } else {
+                        mon.subs[(slot - 1) as usize].is_running
+                    }
+                };
+                if running {
+                    if slot == 0 {
+                        ui.set_toast_message("主账号正在运行，无法清理凭据".into());
+                    } else {
+                        ui.set_toast_message(format!("分身 {} 正在运行，无法清理凭据", slot).into());
+                    }
+                    return;
+                }
                 if slot == 0 {
                     match LauncherConfig::clear_host_token() {
                         Ok(true) => {
@@ -1775,9 +1907,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let action = pending_confirm.lock().unwrap().take();
-                let _ = LauncherConfig::kill_all_antigravity();
                 match action {
                     Some(PendingPatchAction::TogglePatchAg2) => {
+                        let _ = LauncherConfig::kill_all_antigravity();
                         match LauncherConfig::toggle_ag2_patch() {
                             Ok(state) => {
                                 ui.set_patch_ag2_installed(state);
@@ -1792,6 +1924,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         }
                     }
                     Some(PendingPatchAction::ToggleProxy) => {
+                        let _ = LauncherConfig::kill_all_antigravity();
                         let status = ProxyManager::check_status();
                         if status.is_fully_deployed() {
                             match ProxyManager::remove_all() {
@@ -2852,8 +2985,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 if !cfg.enabled {
                     let _ = w.window().hide();
                     widget_was_shown = false;
-                } else {
-                    let store = sessions_store_timer.lock().unwrap();
+                }
+
+                let store = sessions_store_timer.lock().unwrap();
                     let mut slot_inputs = Vec::new();
                     for slot in 0..=4 {
                         let running = store[slot].has_running;
@@ -2874,11 +3008,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             let mut fin = finish_info.lock().unwrap();
                             *fin = Some((until, summary));
 
-                            if cfg.notify_on_done {
+                            if cfg.enabled && cfg.notify_on_done {
                                 let title = format!("Antigravity [{}]", slot_title);
                                 let msg = format!("已完成 · {} Tokens · {:.1}s · {:.0} T/s", format_tokens(total_tokens), duration_secs, avg_tps);
                                 #[cfg(target_os = "windows")]
                                 show_desktop_notification(&title, &msg);
+                            }
+
+                            if cfg.sound_on_done {
+                                let _ = play_done_or_builtin(&cfg);
                             }
                         }
                     }
@@ -2897,6 +3035,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         }
                     }
 
+                if cfg.enabled {
                     let any_running = detector.has_any_running();
                     let should_show = if cfg.mode == crate::widget_state::WidgetMode::Smart {
                         any_running || is_finished_active

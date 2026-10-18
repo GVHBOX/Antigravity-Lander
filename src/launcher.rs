@@ -7,6 +7,34 @@ use std::process::Command;
 
 const WIN32_DETACHED_FLAGS: u32 = 0x01000208;
 
+fn run_taskkill_pid(pid: u32) -> Result<()> {
+    if pid == 0 {
+        return Ok(());
+    }
+    let output = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .creation_flags(WIN32_DETACHED_FLAGS)
+        .output()
+        .with_context(|| format!("Failed to execute taskkill for PID {}", pid))?;
+
+    if output.status.success() || output.status.code() == Some(128) {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{} {}", stderr, stdout);
+
+    if combined.contains("not found")
+        || combined.contains("找不到")
+        || combined.contains("没有找到")
+    {
+        return Ok(());
+    }
+
+    anyhow::bail!("终止进程失败 (PID: {}): {}", pid, stderr.trim())
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ScaleSettings {
     pub host: u32,
@@ -493,35 +521,55 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn kill_sub_instance_by_pid(&self, pid: u32) -> Result<()> {
-        if pid == 0 {
-            return Ok(());
+        run_taskkill_pid(pid)
+    }
+
+    pub fn kill_managed_instances(known_pids: &[u32]) -> Result<usize> {
+        let mut sys = sysinfo::System::new();
+        let refresh_kind = sysinfo::ProcessRefreshKind::nothing()
+            .with_cmd(sysinfo::UpdateKind::OnlyIfNotSet);
+        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
+
+        let self_pid = std::process::id();
+        let mut targets: Vec<u32> = Vec::new();
+
+        for (pid, proc) in sys.processes() {
+            let pid_u32 = pid.as_u32();
+            if pid_u32 == self_pid {
+                continue;
+            }
+            let name = proc.name().to_string_lossy().to_lowercase();
+            if name != "antigravity.exe" && name != "antigravity" {
+                continue;
+            }
+            if name.contains("lander") || name.contains("cockpit") {
+                continue;
+            }
+            let cmd_line = proc
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if (0..4).any(|slot| crate::monitor::matches_instance_slot(&cmd_line, slot)) {
+                targets.push(pid_u32);
+            }
         }
-        let output = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .creation_flags(WIN32_DETACHED_FLAGS)
-            .output()
-            .with_context(|| format!("Failed to execute taskkill for PID {}", pid))?;
 
-        if output.status.success() || output.status.code() == Some(128) {
-            return Ok(());
+        for pid in known_pids {
+            if *pid != 0 && !targets.contains(pid) {
+                targets.push(*pid);
+            }
         }
 
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let combined = format!("{} {}", stderr, stdout);
-
-        if combined.contains("not found")
-            || combined.contains("找不到")
-            || combined.contains("没有找到")
-        {
-            return Ok(());
+        let mut killed = 0usize;
+        for pid in targets {
+            if run_taskkill_pid(pid).is_ok() {
+                killed += 1;
+            }
         }
 
-        anyhow::bail!(
-            "终止进程失败 (PID: {}): {}",
-            pid,
-            stderr.trim()
-        )
+        Ok(killed)
     }
 
     pub fn kill_all_antigravity() -> Result<()> {
@@ -684,10 +732,27 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             }
             let conf = Self::for_slot(slot)?;
             for dir in Self::cache_dirs(&conf) {
-                if dir.exists() {
-                    if fs::remove_dir_all(&dir).is_err() {
-                        has_locked_files = true;
-                    }
+                if !dir.exists() {
+                    continue;
+                }
+                let Some(parent) = dir.parent() else {
+                    continue;
+                };
+                let trash_name = format!(
+                    "{}.lander_trash",
+                    dir.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default()
+                );
+                let trash = parent.join(trash_name);
+                let _ = fs::remove_dir_all(&trash);
+
+                if fs::rename(&dir, &trash).is_err() {
+                    has_locked_files = true;
+                    continue;
+                }
+                if fs::remove_dir_all(&trash).is_err() {
+                    has_locked_files = true;
                 }
             }
         }

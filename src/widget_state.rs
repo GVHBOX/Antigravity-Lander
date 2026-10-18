@@ -20,9 +20,17 @@ pub struct WidgetConfig {
     pub enabled: bool,
     pub mode: WidgetMode,
     pub notify_on_done: bool,
+    #[serde(default = "default_sound_on_done")]
+    pub sound_on_done: bool,
+    #[serde(default)]
+    pub sound_file: Option<String>,
     pub pos_x: i32,
     pub pos_y: i32,
     pub edge_snap: bool,
+}
+
+fn default_sound_on_done() -> bool {
+    true
 }
 
 impl Default for WidgetConfig {
@@ -31,6 +39,8 @@ impl Default for WidgetConfig {
             enabled: true,
             mode: WidgetMode::Smart,
             notify_on_done: true,
+            sound_on_done: true,
+            sound_file: None,
             pos_x: 1680,
             pos_y: 300,
             edge_snap: true,
@@ -196,10 +206,22 @@ mod tests {
         assert!(config.enabled);
         assert_eq!(config.mode, WidgetMode::Smart);
         assert!(config.notify_on_done);
+        assert!(config.sound_on_done);
+        assert!(config.sound_file.is_none());
 
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: WidgetConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(config, deserialized);
+    }
+
+    #[test]
+    fn test_widget_config_backward_compatible() {
+        let legacy = r#"{"enabled":true,"mode":"Always","notify_on_done":false,"pos_x":100,"pos_y":200,"edge_snap":false}"#;
+        let parsed: WidgetConfig = serde_json::from_str(legacy).unwrap();
+        assert!(parsed.sound_on_done);
+        assert!(parsed.sound_file.is_none());
+        assert!(!parsed.notify_on_done);
+        assert_eq!(parsed.pos_x, 100);
     }
 
     #[test]

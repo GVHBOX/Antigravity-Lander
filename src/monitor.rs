@@ -78,7 +78,7 @@ fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32
     false
 }
 
-fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
+pub(crate) fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
     let tag = format!("instance_{}", slot + 1);
     let win_data = format!("data\\{}", tag);
     let unix_data = format!("data/{}", tag);

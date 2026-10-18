@@ -12,6 +12,7 @@ export component StatusToolbar inherits Rectangle {
     callback stop_all();
     callback refresh_telemetry();
     callback toggle_widget_mode();
+    callback preview_sound();
 
     height: 36px;
     background: root.is_dark ? #090e1c : #f8fafc;
@@ -50,6 +51,14 @@ export component StatusToolbar inherits Rectangle {
                 text: "刷新";
                 is_dark: root.is_dark;
                 clicked => { root.refresh_telemetry(); }
+            }
+
+            OutlineButton {
+                width: 56px;
+                btn_height: 26px;
+                text: "试听";
+                is_dark: root.is_dark;
+                clicked => { root.preview_sound(); }
             }
 
             OutlineButton {

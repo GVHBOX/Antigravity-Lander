@@ -7,8 +7,9 @@ mod launcher;
 mod monitor;
 mod proxy;
 mod quota;
-mod ui;
 mod session;
+mod sound;
+mod ui;
 pub mod widget_state;
 
 use anyhow::{anyhow, Result};
