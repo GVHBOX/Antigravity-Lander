@@ -492,8 +492,50 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(child.id())
     }
 
+    pub fn kill_slot_processes(&self) -> Result<()> {
+        let mut sys = sysinfo::System::new();
+        let refresh_kind = sysinfo::ProcessRefreshKind::nothing()
+            .with_cmd(sysinfo::UpdateKind::OnlyIfNotSet);
+        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
+
+        let self_pid = std::process::id();
+        let mut targets: Vec<u32> = Vec::new();
+        let slot_idx = self.slot.saturating_sub(1);
+
+        for (pid, proc) in sys.processes() {
+            let pid_u32 = pid.as_u32();
+            if pid_u32 == self_pid {
+                continue;
+            }
+            let name = proc.name().to_string_lossy().to_lowercase();
+            let is_proc = (name == "antigravity.exe" || name == "antigravity" || name == "language_server.exe" || name == "language_server")
+                && !name.contains("lander")
+                && !name.contains("cockpit");
+            if !is_proc {
+                continue;
+            }
+            let cmd_line = proc
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if crate::monitor::matches_instance_slot(&cmd_line, slot_idx) {
+                targets.push(pid_u32);
+            }
+        }
+
+        for pid in targets {
+            let _ = run_taskkill_pid(pid);
+        }
+
+        Ok(())
+    }
+
     pub fn kill_sub_instance_by_pid(&self, pid: u32) -> Result<()> {
-        run_taskkill_pid(pid)
+        let res = run_taskkill_pid(pid);
+        let _ = self.kill_slot_processes();
+        res
     }
 
     pub fn kill_managed_instances(known_pids: &[u32]) -> Result<usize> {
@@ -511,10 +553,10 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                 continue;
             }
             let name = proc.name().to_string_lossy().to_lowercase();
-            if name != "antigravity.exe" && name != "antigravity" {
-                continue;
-            }
-            if name.contains("lander") || name.contains("cockpit") {
+            let is_proc = (name == "antigravity.exe" || name == "antigravity" || name == "language_server.exe" || name == "language_server")
+                && !name.contains("lander")
+                && !name.contains("cockpit");
+            if !is_proc {
                 continue;
             }
             let cmd_line = proc
@@ -543,6 +585,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
 
         Ok(killed)
     }
+
 
     pub fn kill_all_antigravity() -> Result<()> {
         let _ = Command::new("taskkill")

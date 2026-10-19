@@ -75,6 +75,21 @@ fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32
     false
 }
 
+pub(crate) fn is_sidecar_or_node_process(cmd_line: &str) -> bool {
+    cmd_line.contains("--import=")
+        || cmd_line.contains("register_loader.js")
+        || cmd_line.contains("main.mjs")
+        || cmd_line.contains("ELECTRON_RUN_AS_NODE")
+        || cmd_line.contains(".mjs")
+        || cmd_line.contains("sidecar_sdk")
+        || cmd_line.contains("agy-node")
+}
+
+pub(crate) fn matches_instance_user_data_dir(cmd_line: &str, slot: usize) -> bool {
+    let tag = format!("instance_{}", slot + 1);
+    cmd_line.contains("--user-data-dir=") && cmd_line.contains(&tag)
+}
+
 pub(crate) fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
     let tag = format!("instance_{}", slot + 1);
     let win_data = format!("data\\{}", tag);
@@ -83,6 +98,7 @@ pub(crate) fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
         || cmd_line.contains(&win_data)
         || cmd_line.contains(&unix_data)
 }
+
 
 impl TelemetryMonitor {
     pub fn new() -> Self {
@@ -159,11 +175,14 @@ impl TelemetryMonitor {
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            let is_main_electron = !cmd_line.contains("--type=");
+            let is_sidecar = is_sidecar_or_node_process(&cmd_line);
+            let is_main_electron = !cmd_line.contains("--type=") && !is_sidecar;
 
             let mut matched_slot = None;
             for (slot, &known_pid) in known_sub_pids.iter().enumerate() {
-                if matches_instance_slot(&cmd_line, slot) || (known_pid == Some(pid_u32) && is_main_electron) {
+                if matches_instance_user_data_dir(&cmd_line, slot)
+                    || (known_pid == Some(pid_u32) && is_main_electron && cmd_line.contains("--user-data-dir="))
+                {
                     matched_slot = Some(slot);
                     break;
                 }
@@ -175,11 +194,13 @@ impl TelemetryMonitor {
                 }
             } else if is_main_electron && host_electron_pid.is_none() {
                 let has_any_sub_tag = (0..4).any(|s| matches_instance_slot(&cmd_line, s));
+                let has_user_data_dir = cmd_line.contains("--user-data-dir=");
                 let is_any_known_sub = known_sub_pids.contains(&Some(pid_u32));
-                if !has_any_sub_tag && !is_any_known_sub {
+                if !has_any_sub_tag && !has_user_data_dir && !is_any_known_sub {
                     host_electron_pid = Some(pid_u32);
                 }
             }
+
         }
 
         let active_sub_pids = sub_main_pids;
@@ -220,16 +241,17 @@ impl TelemetryMonitor {
 
             let mut matched_slot = None;
             for (slot, &active_pid) in active_sub_pids.iter().enumerate() {
-                let is_slot_tag = matches_instance_slot(&cmd_line, slot);
                 let is_slot_main = active_pid == Some(pid_u32);
                 let is_slot_descendant = active_pid
                     .map(|main_pid| is_descendant_of(&self.sys, *pid, main_pid))
                     .unwrap_or(false);
+                let is_slot_tag = active_pid.is_some() && matches_instance_slot(&cmd_line, slot);
 
-                if is_slot_tag || is_slot_main || is_slot_descendant {
+                if is_slot_main || is_slot_descendant || is_slot_tag {
                     matched_slot = Some(slot);
                     break;
                 }
+
             }
 
             if let Some(slot) = matched_slot {

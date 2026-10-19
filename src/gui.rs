@@ -1554,9 +1554,20 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 is_stopping_thread.store(false, std::sync::atomic::Ordering::SeqCst);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak_thread.upgrade() {
+                        ui.set_host_running(false);
+                        ui.set_host_pid("--".into());
+                        ui.set_sub1_running(false);
+                        ui.set_sub1_pid("--".into());
+                        ui.set_sub2_running(false);
+                        ui.set_sub2_pid("--".into());
+                        ui.set_sub3_running(false);
+                        ui.set_sub3_pid("--".into());
+                        ui.set_sub4_running(false);
+                        ui.set_sub4_pid("--".into());
                         ui.set_toast_message("已停止全部运行中实例".into());
                     }
                 });
+
             });
         }
     });
@@ -1704,8 +1715,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             let mut mon = mon_arc.lock().unwrap();
                             mon.subs[idx].is_running = false;
                             mon.subs[idx].electron_pid = None;
+                            match slot {
+                                1 => {
+                                    ui.set_sub1_running(false);
+                                    ui.set_sub1_pid("--".into());
+                                }
+                                2 => {
+                                    ui.set_sub2_running(false);
+                                    ui.set_sub2_pid("--".into());
+                                }
+                                3 => {
+                                    ui.set_sub3_running(false);
+                                    ui.set_sub3_pid("--".into());
+                                }
+                                4 => {
+                                    ui.set_sub4_running(false);
+                                    ui.set_sub4_pid("--".into());
+                                }
+                                _ => {}
+                            }
                             ui.set_toast_message(format!("分身 {} 已停止 (PID: {})", slot, pid).into());
                         }
+
                         Err(e) => {
                             ui.set_toast_message(format!("停止分身 {} 失败: {}", slot, e).into());
                         }
