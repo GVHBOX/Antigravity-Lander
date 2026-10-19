@@ -738,6 +738,19 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                 if !dir.exists() {
                     continue;
                 }
+                let is_trash = dir
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.ends_with(".lander_trash"))
+                    .unwrap_or(false);
+
+                if is_trash {
+                    if fs::remove_dir_all(&dir).is_err() {
+                        has_locked_files = true;
+                    }
+                    continue;
+                }
+
                 let Some(parent) = dir.parent() else {
                     continue;
                 };
@@ -797,23 +810,37 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
 
     fn cache_dirs(&self) -> Vec<PathBuf> {
         let user_data = self.roaming_dir.join("Antigravity");
-        CACHE_TARGETS
-            .iter()
-            .filter_map(|name| {
-                let dir = user_data.join(name);
-                let inside = dir.parent().map(|p| p == user_data).unwrap_or(false);
-                let allowed = dir
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| CACHE_TARGETS.contains(&n))
-                    .unwrap_or(false);
-                let plain_dir = fs::symlink_metadata(&dir)
-                    .map(|m| m.is_dir())
-                    .unwrap_or(false);
-                let stays_inside = is_within(&dir, &user_data);
-                (inside && allowed && plain_dir && stays_inside).then_some(dir)
-            })
-            .collect()
+        let mut trash_dirs = Vec::new();
+        let mut real_dirs = Vec::new();
+        for name in CACHE_TARGETS {
+            let trash_name = format!("{name}.lander_trash");
+            let trash_dir = user_data.join(&trash_name);
+            let trash_inside = trash_dir.parent().map(|p| p == user_data).unwrap_or(false);
+            let trash_plain_dir = fs::symlink_metadata(&trash_dir)
+                .map(|m| m.is_dir())
+                .unwrap_or(false);
+            let trash_stays_inside = is_within(&trash_dir, &user_data);
+            if trash_inside && trash_plain_dir && trash_stays_inside {
+                trash_dirs.push(trash_dir);
+            }
+
+            let dir = user_data.join(name);
+            let inside = dir.parent().map(|p| p == user_data).unwrap_or(false);
+            let allowed = dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| CACHE_TARGETS.contains(&n))
+                .unwrap_or(false);
+            let plain_dir = fs::symlink_metadata(&dir)
+                .map(|m| m.is_dir())
+                .unwrap_or(false);
+            let stays_inside = is_within(&dir, &user_data);
+            if inside && allowed && plain_dir && stays_inside {
+                real_dirs.push(dir);
+            }
+        }
+        trash_dirs.extend(real_dirs);
+        trash_dirs
     }
 
     pub fn check_ag2_patch_status() -> (bool, String) {
@@ -1205,5 +1232,36 @@ mod tests {
         let (p2, v2) = LauncherConfig::check_ag2_patch_status();
         assert_eq!(p1, p2);
         assert_eq!(v1, v2);
+    }
+
+    #[test]
+    fn test_cache_dirs_and_trash_cleanup() {
+        let temp = std::env::temp_dir().join("lander_test_cache_dirs");
+        let user_data = temp.join("Antigravity");
+        let _ = fs::create_dir_all(&user_data);
+
+        let cache_dir = user_data.join("Cache");
+        let _ = fs::create_dir_all(&cache_dir);
+        let _ = fs::write(cache_dir.join("data.bin"), b"12345");
+
+        let trash_dir = user_data.join("GPUCache.lander_trash");
+        let _ = fs::create_dir_all(&trash_dir);
+        let _ = fs::write(trash_dir.join("trash.bin"), b"abcdef");
+
+        let conf = LauncherConfig {
+            slot: 1,
+            executable_path: temp.join("antigravity.exe"),
+            sandbox_root: temp.clone(),
+            home_dir: temp.clone(),
+            roaming_dir: temp.clone(),
+            token_path: temp.join("token"),
+        };
+
+        let dirs = conf.cache_dirs();
+        assert!(dirs.iter().any(|d| d.ends_with("GPUCache.lander_trash")));
+        assert!(dirs.iter().any(|d| d.ends_with("Cache")));
+        assert!(dirs[0].to_string_lossy().ends_with(".lander_trash"));
+
+        let _ = fs::remove_dir_all(&temp);
     }
 }

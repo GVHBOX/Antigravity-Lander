@@ -334,11 +334,62 @@ Connection: close\r\n\
 
     stream.write_all(req.as_bytes()).ok()?;
     let mut resp = Vec::with_capacity(32768);
-    let _ = stream.read_to_end(&mut resp);
+    let mut chunk = [0u8; 4096];
+    let mut content_length: Option<usize> = None;
+    let mut header_len: Option<usize> = None;
+
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => {
+                resp.extend_from_slice(&chunk[..n]);
+                if header_len.is_none() {
+                    if let Some(pos) = resp.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let h_len = pos + 4;
+                        header_len = Some(h_len);
+                        if let Ok(header_str) = std::str::from_utf8(&resp[..pos]) {
+                            for line in header_str.lines() {
+                                if let Some((k, v)) = line.split_once(':') {
+                                    if k.trim().eq_ignore_ascii_case("content-length") {
+                                        if let Ok(cl) = v.trim().parse::<usize>() {
+                                            content_length = Some(cl);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let (Some(hlen), Some(clen)) = (header_len, content_length) {
+                    if resp.len() >= hlen + clen {
+                        break;
+                    }
+                } else if let Some(hlen) = header_len {
+                    let body = &resp[hlen..];
+                    if let Some(start) = body.iter().position(|&b| b == b'{') {
+                        if let Some(end) = body.iter().rposition(|&b| b == b'}') {
+                            if end >= start {
+                                if serde_json::from_slice::<serde_json::Value>(&body[start..=end]).is_ok() {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => break,
+        }
+    }
 
     let text = String::from_utf8_lossy(&resp);
     let body_start = text.find("\r\n\r\n")?;
-    let raw_body = &text[body_start + 4..];
+    let raw_body = if let Some(clen) = content_length {
+        let end = (body_start + 4 + clen).min(text.len());
+        &text[body_start + 4..end]
+    } else {
+        &text[body_start + 4..]
+    };
     let json_start = raw_body.find('{')?;
     let json_end = raw_body.rfind('}')?;
     if json_end >= json_start {
@@ -650,4 +701,68 @@ pub fn fetch_offline_quota_headless(slot: usize) -> Option<InstanceQuotaState> {
     }
 
     quota_state
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    #[test]
+    fn test_rpc_post_content_length() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut req_buf = [0u8; 1024];
+            let _ = stream.read(&mut req_buf);
+            let body = "{\"userStatus\":{\"email\":\"test@example.com\"}}";
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).unwrap();
+            std::thread::sleep(Duration::from_millis(500));
+        });
+
+        let start = std::time::Instant::now();
+        let result = rpc_post(port, "GetUserStatus", "csrf123");
+        let elapsed = start.elapsed();
+
+        assert!(elapsed < Duration::from_millis(300));
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), "{\"userStatus\":{\"email\":\"test@example.com\"}}");
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn test_rpc_post_without_content_length() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut req_buf = [0u8; 1024];
+            let _ = stream.read(&mut req_buf);
+            let body = "{\"userStatus\":{\"email\":\"chunked@example.com\"}}";
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{}",
+                body
+            );
+            stream.write_all(resp.as_bytes()).unwrap();
+            std::thread::sleep(Duration::from_millis(500));
+        });
+
+        let start = std::time::Instant::now();
+        let result = rpc_post(port, "GetUserStatus", "csrf123");
+        let elapsed = start.elapsed();
+
+        assert!(elapsed < Duration::from_millis(300));
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), "{\"userStatus\":{\"email\":\"chunked@example.com\"}}");
+        handle.join().unwrap();
+    }
 }

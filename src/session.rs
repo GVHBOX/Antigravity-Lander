@@ -151,16 +151,27 @@ struct TailMetrics {
 static TAIL_CACHE: Mutex<Option<HashMap<String, (u64, SystemTime, TailMetrics)>>> = Mutex::new(None);
 
 fn get_or_parse_tail_metrics(uuid: &str, log_path: &Path, len: u64, mtime: SystemTime) -> TailMetrics {
-    let mut cache_guard = TAIL_CACHE.lock().unwrap();
-    let cache = cache_guard.get_or_insert_with(HashMap::new);
-    if let Some((c_len, c_mtime, metrics)) = cache.get(uuid) {
-        if *c_len == len && *c_mtime == mtime {
-            return metrics.clone();
+    {
+        let mut cache_guard = TAIL_CACHE.lock().unwrap();
+        let cache = cache_guard.get_or_insert_with(HashMap::new);
+        if let Some((c_len, c_mtime, metrics)) = cache.get(uuid) {
+            if *c_len == len && *c_mtime == mtime {
+                return metrics.clone();
+            }
         }
     }
     let metrics = parse_tail_metrics(log_path, len);
-    if cache.len() > 512 {
-        cache.clear();
+    let mut cache_guard = TAIL_CACHE.lock().unwrap();
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+    if cache.len() >= 1024 {
+        let mut entries: Vec<(String, SystemTime)> = cache
+            .iter()
+            .map(|(k, (_, m, _))| (k.clone(), *m))
+            .collect();
+        entries.sort_by_key(|(_, m)| *m);
+        for (k, _) in entries.into_iter().take(256) {
+            cache.remove(&k);
+        }
     }
     cache.insert(uuid.to_string(), (len, mtime, metrics.clone()));
     metrics
@@ -279,6 +290,28 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         if !trimmed.is_empty() {
             if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
                 lines.push(step);
+            }
+        }
+    }
+
+    if lines.is_empty() && file_len > tail_bytes_to_read as u64 {
+        let retry_bytes = if file_len <= 1048576 {
+            file_len as usize
+        } else {
+            524288.min(file_len as usize)
+        };
+        if file.seek(SeekFrom::End(-(retry_bytes as i64))).is_ok() {
+            let mut retry_buf = vec![0u8; retry_bytes];
+            if file.read_exact(&mut retry_buf).is_ok() {
+                let retry_text = String::from_utf8_lossy(&retry_buf);
+                for line in retry_text.lines() {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
+                            lines.push(step);
+                        }
+                    }
+                }
             }
         }
     }
@@ -703,5 +736,64 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
         total_sessions,
         summary_text,
         has_running,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_tokens() {
+        assert_eq!(format_tokens(500), "500");
+        assert_eq!(format_tokens(1500), "1.5K");
+        assert_eq!(format_tokens(2_500_000), "2.50M");
+    }
+
+    #[test]
+    fn test_parse_tail_metrics_large_cut() {
+        let dir = std::env::temp_dir().join("lander_test_tail_cut");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("test.jsonl");
+        let mut content = String::with_capacity(200_000);
+        content.push_str("{\"step_index\": 0}\n");
+        content.push_str("{\"step_index\": 1, \"status\": \"RUNNING\", \"input_tokens\": 1200, \"cache_read_tokens\": 800, \"output_tokens\": 300, \"data\": \"");
+        for _ in 0..15000 {
+            content.push_str("0123456789");
+        }
+        content.push_str("\"}\n");
+        std::fs::write(&file_path, content.as_bytes()).unwrap();
+
+        let len = std::fs::metadata(&file_path).unwrap().len();
+        let metrics = parse_tail_metrics(&file_path, len);
+        assert_eq!(metrics.context_tokens, 2300);
+        assert_eq!(metrics.cache_rate, 0.4);
+        assert_eq!(metrics.file_step_count, 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_tail_cache_gradual_eviction() {
+        TAIL_CACHE.lock().unwrap().take();
+        let dir = std::env::temp_dir().join("lander_test_cache_evict");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("dummy.jsonl");
+        std::fs::write(&file_path, b"{\"step_index\": 0}\n").unwrap();
+        let now = SystemTime::now();
+
+        for i in 0..1050 {
+            let uuid = format!("uuid_{i}");
+            let past = now - std::time::Duration::from_secs(1050 - i);
+            get_or_parse_tail_metrics(&uuid, &file_path, 17, past);
+        }
+
+        let guard = TAIL_CACHE.lock().unwrap();
+        let cache = guard.as_ref().unwrap();
+        assert!(cache.len() < 1024);
+        assert!(cache.len() >= 768);
+        assert!(!cache.contains_key("uuid_0"));
+        assert!(cache.contains_key("uuid_1049"));
+        drop(guard);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -346,6 +346,26 @@ fn get_widget_effective_scale(window_scale: f32) -> f32 {
 }
 
 #[cfg(target_os = "windows")]
+fn get_window_monitor_work_area(hwnd: windows_sys::Win32::Foundation::HWND) -> (i32, i32, i32, i32) {
+    use windows_sys::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+
+    unsafe {
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if !monitor.is_null() {
+            let mut mi: MONITORINFO = std::mem::zeroed();
+            mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+            if GetMonitorInfoW(monitor, &mut mi) != 0 {
+                return (mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom);
+            }
+        }
+        (0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn update_widget_geometry(
     hwnd: windows_sys::Win32::Foundation::HWND,
     is_expanded: bool,
@@ -354,8 +374,7 @@ fn update_widget_geometry(
 ) {
     use windows_sys::Win32::Foundation::RECT;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetSystemMetrics, GetWindowRect, SetWindowPos, HWND_TOPMOST,
-        SM_CXSCREEN, SM_CYSCREEN, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+        GetWindowRect, SetWindowPos, HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE,
     };
 
     if hwnd.is_null() {
@@ -364,10 +383,9 @@ fn update_widget_geometry(
 
     ensure_floating_widget_style(hwnd);
 
-    unsafe {
-        let screen_w = GetSystemMetrics(SM_CXSCREEN);
-        let screen_h = GetSystemMetrics(SM_CYSCREEN);
+    let (work_left, work_top, work_right, work_bottom) = get_window_monitor_work_area(hwnd);
 
+    unsafe {
         let eff_scale = get_widget_effective_scale(scale);
 
         let (logical_w, logical_h, corner_r) = if is_expanded {
@@ -388,21 +406,31 @@ fn update_widget_geometry(
         }
 
         if is_expanded {
-            if cur_x + phys_w > screen_w - 10 {
-                cur_x = (screen_w - phys_w - 12).max(10);
+            if cur_x + phys_w > work_right - 10 {
+                cur_x = (work_right - phys_w - 12).max(work_left + 10);
             }
-            if cur_y + phys_h > screen_h - 10 {
-                cur_y = (screen_h - phys_h - 12).max(10);
+            if cur_x < work_left + 10 {
+                cur_x = work_left + 12;
+            }
+            if cur_y + phys_h > work_bottom - 10 {
+                cur_y = (work_bottom - phys_h - 12).max(work_top + 10);
+            }
+            if cur_y < work_top + 10 {
+                cur_y = work_top + 12;
             }
         } else {
             cur_x = config.pos_x;
             cur_y = config.pos_y;
-            let snap_margin = 40;
-            if cur_x < snap_margin {
-                cur_x = 12;
-            } else if cur_x + phys_w > screen_w - snap_margin {
-                cur_x = screen_w - phys_w - 12;
+            if config.edge_snap {
+                let snap_margin = 40;
+                if cur_x - work_left < snap_margin {
+                    cur_x = work_left + 12;
+                } else if work_right - (cur_x + phys_w) < snap_margin {
+                    cur_x = work_right - phys_w - 12;
+                }
             }
+            cur_x = cur_x.max(work_left).min(work_right - phys_w);
+            cur_y = cur_y.max(work_top).min(work_bottom - phys_h);
         }
 
         SetWindowPos(
@@ -427,7 +455,7 @@ fn setup_floating_widget_window(
     scale: f32,
 ) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
+        SetWindowPos, HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOACTIVATE,
     };
 
     if hwnd.is_null() {
@@ -442,25 +470,28 @@ fn setup_floating_widget_window(
         let phys_h = (34.0 * eff_scale).round() as i32;
         let corner_r = (phys_h / 2).max(1);
 
-        if pos_x >= 0 && pos_y >= 0 {
+        SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            pos_x,
+            pos_y,
+            phys_w,
+            phys_h,
+            SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+
+        let (work_left, work_top, work_right, work_bottom) = get_window_monitor_work_area(hwnd);
+        let safe_x = pos_x.max(work_left).min(work_right - phys_w);
+        let safe_y = pos_y.max(work_top).min(work_bottom - phys_h);
+        if safe_x != pos_x || safe_y != pos_y {
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
-                pos_x,
-                pos_y,
+                safe_x,
+                safe_y,
                 phys_w,
                 phys_h,
                 SWP_NOACTIVATE | SWP_FRAMECHANGED,
-            );
-        } else {
-            SetWindowPos(
-                hwnd,
-                HWND_TOPMOST,
-                0,
-                0,
-                phys_w,
-                phys_h,
-                SWP_NOMOVE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
             );
         }
 
@@ -573,29 +604,31 @@ fn snap_and_save_widget_position(
 ) {
     use windows_sys::Win32::Foundation::RECT;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetSystemMetrics, GetWindowRect, SetWindowPos, HWND_TOPMOST,
-        SM_CXSCREEN, SWP_NOACTIVATE, SWP_NOSIZE,
+        GetWindowRect, SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOSIZE,
     };
 
     if hwnd.is_null() {
         return;
     }
+    let (work_left, work_top, work_right, work_bottom) = get_window_monitor_work_area(hwnd);
     unsafe {
         let mut rect: RECT = std::mem::zeroed();
         if GetWindowRect(hwnd, &mut rect) != 0 {
-            let screen_w = GetSystemMetrics(SM_CXSCREEN);
             let mut left = rect.left;
-            let top = rect.top;
+            let mut top = rect.top;
             let width = rect.right - rect.left;
+            let height = rect.bottom - rect.top;
 
             if config.edge_snap {
                 let snap_margin = 40;
-                if left < snap_margin {
-                    left = 12;
-                } else if left + width > screen_w - snap_margin {
-                    left = screen_w - width - 12;
+                if left - work_left < snap_margin {
+                    left = work_left + 12;
+                } else if work_right - (left + width) < snap_margin {
+                    left = work_right - width - 12;
                 }
             }
+            left = left.max(work_left).min(work_right - width);
+            top = top.max(work_top).min(work_bottom - height);
 
             SetWindowPos(
                 hwnd,
@@ -766,41 +799,37 @@ fn apply_light_window_attributes(hwnd: windows_sys::Win32::Foundation::HWND) {
 }
 
 #[cfg(target_os = "windows")]
-fn center_and_scale_cockpit_window(hwnd: windows_sys::Win32::Foundation::HWND) {
-    use windows_sys::Win32::Foundation::RECT;
+fn center_and_scale_cockpit_window(hwnd: windows_sys::Win32::Foundation::HWND, scale: f32) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, SystemParametersInfoW, SPI_GETWORKAREA, SWP_FRAMECHANGED, SWP_NOZORDER,
+        SetWindowPos, SWP_FRAMECHANGED, SWP_NOZORDER,
     };
 
     if hwnd.is_null() {
         return;
     }
 
+    let (work_left, work_top, work_right, work_bottom) = get_window_monitor_work_area(hwnd);
+    let s = if scale > 0.0 { scale } else { 1.0 };
+    let work_w = work_right - work_left;
+    let work_h = work_bottom - work_top;
+    let ideal_w = (1500.0 * s).round() as i32;
+    let ideal_h = (870.0 * s).round() as i32;
+    let min_w = (1200.0 * s).round() as i32;
+    let min_h = (720.0 * s).round() as i32;
+    let target_w = (work_w - 20).min(ideal_w).max(min_w.min(work_w - 20));
+    let target_h = (work_h - 20).min(ideal_h).max(min_h.min(work_h - 20));
+    let x = work_left + ((work_w - target_w) / 2).max(0);
+    let y = work_top + ((work_h - target_h) / 2).max(0);
     unsafe {
-        let mut work_area: RECT = std::mem::zeroed();
-        let ok = SystemParametersInfoW(
-            SPI_GETWORKAREA,
-            0,
-            &mut work_area as *mut _ as *mut std::ffi::c_void,
-            0,
+        SetWindowPos(
+            hwnd,
+            std::ptr::null_mut(),
+            x,
+            y,
+            target_w,
+            target_h,
+            SWP_NOZORDER | SWP_FRAMECHANGED,
         );
-        if ok != 0 {
-            let work_w = work_area.right - work_area.left;
-            let work_h = work_area.bottom - work_area.top;
-            let target_w = 1500.min(work_w - 20).max(1200);
-            let target_h = 915.min(work_h - 20).max(870);
-            let x = work_area.left + (work_w - target_w) / 2;
-            let y = work_area.top + (work_h - target_h) / 2;
-            SetWindowPos(
-                hwnd,
-                std::ptr::null_mut(),
-                x,
-                y,
-                target_w,
-                target_h,
-                SWP_NOZORDER | SWP_FRAMECHANGED,
-            );
-        }
     }
 }
 
@@ -881,6 +910,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
     let pending_patch_action = Arc::new(Mutex::new(None::<PendingPatchAction>));
+    let is_patching = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let sessions_store = Arc::new(Mutex::new([InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default(), InstanceSessions::default()]));
     let live_session_slot = Arc::new(Mutex::new(-1i32));
     let active_live_session = Arc::new(Mutex::new(None::<crate::session::SessionItem>));
@@ -1864,9 +1894,16 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     });
 
     let pending_ag2 = Arc::clone(&pending_patch_action);
+    let is_patching_ag2 = Arc::clone(&is_patching);
     main_window.on_toggle_patch_ag2({
         let ui_weak = main_window.as_weak();
         move || {
+            if is_patching_ag2.load(std::sync::atomic::Ordering::SeqCst) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast_message("正在处理...".into());
+                }
+                return;
+            }
             if let Some(ui) = ui_weak.upgrade() {
                 if LauncherConfig::is_antigravity_running() {
                     *pending_ag2.lock().unwrap() = Some(PendingPatchAction::TogglePatchAg2);
@@ -1890,9 +1927,16 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     });
 
     let pending_proxy = Arc::clone(&pending_patch_action);
+    let is_patching_proxy = Arc::clone(&is_patching);
     main_window.on_toggle_proxy({
         let ui_weak = main_window.as_weak();
         move || {
+            if is_patching_proxy.load(std::sync::atomic::Ordering::SeqCst) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast_message("正在处理...".into());
+                }
+                return;
+            }
             if let Some(ui) = ui_weak.upgrade() {
                 if ProxyManager::is_antigravity_running() {
                     *pending_proxy.lock().unwrap() = Some(PendingPatchAction::ToggleProxy);
@@ -1933,59 +1977,88 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     });
 
     let pending_confirm = Arc::clone(&pending_patch_action);
+    let is_patching_confirm = Arc::clone(&is_patching);
     main_window.on_action_patch_modal_confirm({
         let ui_weak = main_window.as_weak();
         move || {
+            if is_patching_confirm.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast_message("正在处理...".into());
+                }
+                return;
+            }
+            let Some(action) = pending_confirm.lock().unwrap().take() else {
+                is_patching_confirm.store(false, std::sync::atomic::Ordering::SeqCst);
+                return;
+            };
             if let Some(ui) = ui_weak.upgrade() {
-                let action = pending_confirm.lock().unwrap().take();
+                ui.set_toast_message("正在处理...".into());
+            }
+            let ui_weak_async = ui_weak.clone();
+            let is_patching_bg = Arc::clone(&is_patching_confirm);
+            std::thread::spawn(move || {
                 match action {
-                    Some(PendingPatchAction::TogglePatchAg2) => {
+                    PendingPatchAction::TogglePatchAg2 => {
                         let _ = LauncherConfig::kill_all_antigravity();
-                        match LauncherConfig::toggle_ag2_patch() {
-                            Ok(state) => {
-                                ui.set_patch_ag2_installed(state);
-                                let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
-                                ui.set_patch_ag2_installed(is_patched);
-                                ui.set_patch_ag2_version(ver.into());
-                                ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
+                        let res = LauncherConfig::toggle_ag2_patch();
+                        let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak_async.upgrade() {
+                                match res {
+                                    Ok(state) => {
+                                        ui.set_patch_ag2_installed(is_patched);
+                                        ui.set_patch_ag2_version(ver.into());
+                                        ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
+                                    }
+                                    Err(e) => {
+                                        ui.set_toast_message(format!("{}", e).into());
+                                    }
+                                }
                             }
-                            Err(e) => {
-                                ui.set_toast_message(format!("{}", e).into());
-                            }
-                        }
+                        });
                     }
-                    Some(PendingPatchAction::ToggleProxy) => {
+                    PendingPatchAction::ToggleProxy => {
                         let _ = LauncherConfig::kill_all_antigravity();
                         let status = ProxyManager::check_status();
                         if status.is_fully_deployed() {
-                            match ProxyManager::remove_all() {
-                                Ok(summary) => {
-                                    let now = ProxyManager::check_status();
-                                    ui.set_proxy_injected(now.is_fully_deployed());
-                                    ui.set_proxy_status_text(now.status_text().into());
-                                    ui.set_toast_message(summary.status_text().into());
+                            let res = ProxyManager::remove_all();
+                            let now = ProxyManager::check_status();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(ui) = ui_weak_async.upgrade() {
+                                    match res {
+                                        Ok(summary) => {
+                                            ui.set_proxy_injected(now.is_fully_deployed());
+                                            ui.set_proxy_status_text(now.status_text().into());
+                                            ui.set_toast_message(summary.status_text().into());
+                                        }
+                                        Err(e) => {
+                                            ui.set_toast_message(format!("移除代理失败: {}", e).into());
+                                        }
+                                    }
                                 }
-                                Err(e) => {
-                                    ui.set_toast_message(format!("移除代理失败: {}", e).into());
-                                }
-                            }
+                            });
                         } else {
-                            match ProxyManager::deploy_all() {
-                                Ok(msg) => {
-                                    let now = ProxyManager::check_status();
-                                    ui.set_proxy_injected(now.is_fully_deployed());
-                                    ui.set_proxy_status_text(now.status_text().into());
-                                    ui.set_toast_message(msg.into());
+                            let res = ProxyManager::deploy_all();
+                            let now = ProxyManager::check_status();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(ui) = ui_weak_async.upgrade() {
+                                    match res {
+                                        Ok(msg) => {
+                                            ui.set_proxy_injected(now.is_fully_deployed());
+                                            ui.set_proxy_status_text(now.status_text().into());
+                                            ui.set_toast_message(msg.into());
+                                        }
+                                        Err(e) => {
+                                            ui.set_toast_message(format!("开启代理失败: {}", e).into());
+                                        }
+                                    }
                                 }
-                                Err(e) => {
-                                    ui.set_toast_message(format!("开启代理失败: {}", e).into());
-                                }
-                            }
+                            });
                         }
                     }
-                    None => {}
                 }
-            }
+                is_patching_bg.store(false, std::sync::atomic::Ordering::SeqCst);
+            });
         }
     });
 
@@ -2445,7 +2518,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let hwnd = cached_hwnd;
         if !configured_dark {
             apply_dark_window_attributes(hwnd);
-            center_and_scale_cockpit_window(hwnd);
+            let scale = ui_weak_restore.upgrade().map(|ui| ui.window().scale_factor()).unwrap_or(1.0);
+            center_and_scale_cockpit_window(hwnd, scale);
             configured_dark = true;
         }
         let is_iconic = unsafe {
@@ -3155,7 +3229,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     {
         let hwnd = get_cockpit_hwnd();
         apply_dark_window_attributes(hwnd);
-        center_and_scale_cockpit_window(hwnd);
+        let scale = main_window.window().scale_factor();
+        center_and_scale_cockpit_window(hwnd, scale);
     }
 
     let widget_cfg_init = widget_config.lock().unwrap().clone();
