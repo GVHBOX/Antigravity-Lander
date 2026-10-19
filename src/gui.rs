@@ -2567,7 +2567,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    let mut widget_was_shown = false;
+    let initial_widget_shown = {
+        let cfg = widget_config.lock().unwrap().clone();
+        cfg.enabled && cfg.mode == crate::widget_state::WidgetMode::Always
+    };
+    let mut widget_was_shown = initial_widget_shown;
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
             let mon = monitor_timer.lock().unwrap();
@@ -2880,7 +2884,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub4_summary_text(sub4_sessions.summary_text.as_str().into());
             ui.set_sub4_has_running(sub4_sessions.has_running);
             ui.set_sub4_has_sessions(sub4_sessions.total_sessions > 0);
-            ui.set_sub4_session_count_text(if sub4_sessions.total_sessions > 0 { format!("{} 个", sub4_sessions.total_sessions).into() } else { "0".into() });
+            ui.set_sub4_session_count_text(if sub4_sessions.total_sessions > 0 { format!("{} 个", sub4_sessions.total_sessions).into() } else { "--".into() });
             let (s4_p, s4_title, s4_t, s4_time) = extract_recent_session_info(&sub4_sessions);
             ui.set_sub4_recent_project(s4_p.into());
             ui.set_sub4_recent_title(s4_title.into());
@@ -3088,8 +3092,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             if let Some(w) = widget_weak_timer.upgrade() {
                 let cfg = widget_config_timer.lock().unwrap().clone();
                 if !cfg.enabled {
-                    let _ = w.window().hide();
-                    widget_was_shown = false;
+                    if widget_was_shown {
+                        let _ = w.window().hide();
+                        widget_was_shown = false;
+                    }
                 }
 
                 let store = sessions_store_timer.lock().unwrap();
@@ -3151,8 +3157,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     };
 
                     if should_show {
-                        let _ = w.window().show();
                         if !widget_was_shown {
+                            let _ = w.window().show();
                             widget_was_shown = true;
                             #[cfg(target_os = "windows")]
                             {
@@ -3164,8 +3170,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             }
                         }
                     } else {
-                        let _ = w.window().hide();
-                        widget_was_shown = false;
+                        if widget_was_shown {
+                            let _ = w.window().hide();
+                            widget_was_shown = false;
+                        }
                     }
 
                     let active_slot: usize = if is_finished_active && finished_slot.is_some() {
@@ -3234,7 +3242,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     }
 
     let widget_cfg_init = widget_config.lock().unwrap().clone();
-    if widget_cfg_init.enabled {
+    if widget_cfg_init.enabled && widget_cfg_init.mode == crate::widget_state::WidgetMode::Always {
         floating_widget.show()?;
         #[cfg(target_os = "windows")]
         {

@@ -15,13 +15,14 @@ pub mod widget_state;
 use anyhow::{anyhow, Result};
 use app::App;
 use crossterm::{
+    cursor::Show,
     event::{self, Event, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::env;
-use std::io::stdout;
+use std::io::{stdout, Stdout};
 use std::panic;
 use std::ptr::null;
 use std::time::{Duration, Instant};
@@ -106,11 +107,20 @@ impl SingleInstanceGuard {
     }
 }
 
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let _ = execute!(stdout(), LeaveAlternateScreen, Show);
+    }
+}
+
 fn setup_panic_hook() {
     let original_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
         let _ = disable_raw_mode();
-        let _ = execute!(stdout(), LeaveAlternateScreen);
+        let _ = execute!(stdout(), LeaveAlternateScreen, Show);
         original_hook(panic_info);
     }));
 }
@@ -173,17 +183,36 @@ fn main() -> Result<()> {
     let mut app = App::new()?;
 
     enable_raw_mode()?;
+    let guard = TerminalGuard;
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    let run_result = run_tui_app(&mut terminal, &mut app);
+
+    drop(guard);
+
+    if run_result.is_ok() {
+        println!();
+        println!(" [Antigravity Lander v{}] 退出。", env!("CARGO_PKG_VERSION"));
+        println!(" 分身已在后台独立运行。");
+        println!();
+    }
+
+    run_result
+}
+
+fn run_tui_app(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    app: &mut App,
+) -> Result<()> {
     let tick_rate = Duration::from_millis(200);
     let refresh_interval = Duration::from_millis(1200);
     let mut last_refresh = Instant::now();
 
     loop {
-        terminal.draw(|frame| ui::render(frame, &app))?;
+        terminal.draw(|frame| ui::render(frame, app))?;
 
         if app.should_quit {
             break;
@@ -202,15 +231,6 @@ fn main() -> Result<()> {
             last_refresh = Instant::now();
         }
     }
-
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
-    println!();
-    println!(" [Antigravity Lander v{}] 退出。", env!("CARGO_PKG_VERSION"));
-    println!(" 分身已在后台独立运行。");
-    println!();
 
     Ok(())
 }

@@ -50,7 +50,11 @@ impl Default for WidgetConfig {
 
 impl WidgetConfig {
     pub fn config_path() -> PathBuf {
-        PathBuf::from("data").join("floating_widget_settings.json")
+        if let Ok(base) = crate::launcher::LauncherConfig::resolve_base_dir() {
+            base.join("data").join("floating_widget_settings.json")
+        } else {
+            PathBuf::from("data").join("floating_widget_settings.json")
+        }
     }
 
     pub fn load_or_default() -> Self {
@@ -270,5 +274,12 @@ mod tests {
             }
             _ => panic!("expected Finished transition for slot 3"),
         }
+    }
+
+    #[test]
+    fn test_widget_config_path_resolution() {
+        let path = WidgetConfig::config_path();
+        assert!(path.is_absolute());
+        assert!(path.ends_with("data\\floating_widget_settings.json") || path.ends_with("data/floating_widget_settings.json"));
     }
 }

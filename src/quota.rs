@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -525,33 +527,54 @@ pub fn fetch_instance_quota(port: u16, csrf: &str, tag: &str) -> InstanceQuotaSt
     state
 }
 
+thread_local! {
+    static QUOTA_RING_CACHE: RefCell<HashMap<(i32, bool), slint::Image>> = RefCell::new(HashMap::new());
+}
+
 pub fn render_quota_ring(pct: f32, is_dark: bool) -> slint::Image {
+    let bucket = if pct.is_nan() || pct < 0.0 {
+        -1
+    } else {
+        (pct.clamp(0.0, 1.0) * 100.0).round() as i32
+    };
+    let key = (bucket, is_dark);
+
+    if let Some(cached) = QUOTA_RING_CACHE.with(|c| c.borrow().get(&key).cloned()) {
+        return cached;
+    }
+
     let circumference = 50.265f32;
     let track_color = if is_dark { "#1e293b" } else { "#e2e8f0" };
 
-    if pct < 0.0 {
+    let image = if bucket < 0 {
         let svg = format!(
             r#"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="{}" stroke-width="2.6"/></svg>"#,
             track_color
         );
-        return slint::Image::load_from_svg_data(svg.as_bytes()).unwrap_or_default();
-    }
-
-    let clamped = pct.clamp(0.0, 1.0);
-    let offset = circumference * (1.0 - clamped);
-    let stroke_color = if clamped < 0.10 {
-        if is_dark { "#dc2626" } else { "#ef4444" }
-    } else if clamped < 0.25 {
-        if is_dark { "#ca8a04" } else { "#eab308" }
+        slint::Image::load_from_svg_data(svg.as_bytes()).unwrap_or_default()
     } else {
-        if is_dark { "#16a34a" } else { "#22c55e" }
+        let clamped = (bucket as f32) / 100.0;
+        let offset = circumference * (1.0 - clamped);
+        let stroke_color = if clamped < 0.10 {
+            if is_dark { "#dc2626" } else { "#ef4444" }
+        } else if clamped < 0.25 {
+            if is_dark { "#ca8a04" } else { "#eab308" }
+        } else {
+            if is_dark { "#16a34a" } else { "#22c55e" }
+        };
+
+        let svg = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="{}" stroke-width="2.6"/><circle cx="10" cy="10" r="8" fill="none" stroke="{}" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="50.265" stroke-dashoffset="{:.2}" transform="rotate(-90 10 10)"/></svg>"#,
+            track_color, stroke_color, offset
+        );
+        slint::Image::load_from_svg_data(svg.as_bytes()).unwrap_or_default()
     };
 
-    let svg = format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="{}" stroke-width="2.6"/><circle cx="10" cy="10" r="8" fill="none" stroke="{}" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="50.265" stroke-dashoffset="{:.2}" transform="rotate(-90 10 10)"/></svg>"#,
-        track_color, stroke_color, offset
-    );
-    slint::Image::load_from_svg_data(svg.as_bytes()).unwrap_or_default()
+    QUOTA_RING_CACHE.with(|c| {
+        c.borrow_mut().insert(key, image.clone());
+    });
+
+    image
 }
 
 fn resolve_language_server_bin() -> Option<PathBuf> {
@@ -764,5 +787,28 @@ mod tests {
         assert!(result.is_some());
         assert_eq!(result.unwrap(), "{\"userStatus\":{\"email\":\"chunked@example.com\"}}");
         handle.join().unwrap();
+    }
+
+    #[test]
+    fn test_render_quota_ring_cache_and_robustness() {
+        let img_normal = render_quota_ring(0.5, true);
+        assert!(img_normal.size().width > 0);
+        let img_cached = render_quota_ring(0.5, true);
+        assert_eq!(img_normal.size(), img_cached.size());
+
+        let img_zero = render_quota_ring(0.0, true);
+        assert!(img_zero.size().width > 0);
+
+        let img_full = render_quota_ring(1.0, false);
+        assert!(img_full.size().width > 0);
+
+        let img_neg = render_quota_ring(-1.0, true);
+        assert!(img_neg.size().width > 0);
+
+        let img_nan = render_quota_ring(f32::NAN, true);
+        assert!(img_nan.size().width > 0);
+
+        let img_overflow = render_quota_ring(2.5, false);
+        assert!(img_overflow.size().width > 0);
     }
 }

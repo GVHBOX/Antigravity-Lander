@@ -11,11 +11,16 @@ pub fn log_diag(line: &str) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let _ = std::fs::create_dir_all("data");
+    let data_dir = if let Ok(base) = crate::launcher::LauncherConfig::resolve_base_dir() {
+        base.join("data")
+    } else {
+        std::path::PathBuf::from("data")
+    };
+    let _ = std::fs::create_dir_all(&data_dir);
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(std::path::Path::new("data").join("sound_debug.log"))
+        .open(data_dir.join("sound_debug.log"))
     {
         let _ = writeln!(f, "{} {}", stamp, line);
     }

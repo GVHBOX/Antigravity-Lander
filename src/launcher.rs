@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::os::windows::process::CommandExt;
@@ -38,13 +39,26 @@ fn run_taskkill_pid(pid: u32) -> Result<()> {
     anyhow::bail!("终止进程失败 (PID: {}): {}", pid, stderr.trim())
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ScaleSettings {
     pub host: u32,
     pub sub1: u32,
     pub sub2: u32,
     pub sub3: u32,
     pub sub4: u32,
+}
+
+impl Default for ScaleSettings {
+    fn default() -> Self {
+        Self {
+            host: 158,
+            sub1: 144,
+            sub2: 100,
+            sub3: 100,
+            sub4: 100,
+        }
+    }
 }
 
 impl ScaleSettings {
@@ -55,13 +69,7 @@ impl ScaleSettings {
                 return settings;
             }
         }
-        let settings = Self {
-            host: 158,
-            sub1: 144,
-            sub2: 100,
-            sub3: 100,
-            sub4: 100,
-        };
+        let settings = Self::default();
         let _ = settings.save();
         settings
     }
@@ -108,10 +116,7 @@ impl ScaleSettings {
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let json = format!(
-            "{{\"host\":{},\"sub1\":{},\"sub2\":{},\"sub3\":{},\"sub4\":{}}}",
-            self.host, self.sub1, self.sub2, self.sub3, self.sub4
-        );
+        let json = serde_json::to_string(self)?;
         fs::write(path, json)?;
         Ok(())
     }
@@ -124,32 +129,8 @@ impl ScaleSettings {
         }
     }
 
-    fn parse_json(s: &str) -> Option<Self> {
-        let mut host = 158;
-        let mut sub1 = 144;
-        let mut sub2 = 100;
-        let mut sub3 = 100;
-        let mut sub4 = 100;
-        for part in s.trim_matches(|c| c == '{' || c == '}').split(',') {
-            let mut kv = part.split(':');
-            let k = kv.next()?.trim().trim_matches('"');
-            let v = kv.next()?.trim().parse::<u32>().ok()?;
-            match k {
-                "host" => host = v,
-                "sub1" => sub1 = v,
-                "sub2" => sub2 = v,
-                "sub3" => sub3 = v,
-                "sub4" => sub4 = v,
-                _ => {}
-            }
-        }
-        Some(Self {
-            host,
-            sub1,
-            sub2,
-            sub3,
-            sub4,
-        })
+    pub fn parse_json(s: &str) -> Option<Self> {
+        serde_json::from_str(s).ok()
     }
 }
 
@@ -1263,5 +1244,33 @@ mod tests {
         assert!(dirs[0].to_string_lossy().ends_with(".lander_trash"));
 
         let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_scale_settings_parse_json() {
+        let single_line = r#"{"host":120,"sub1":110,"sub2":90,"sub3":80,"sub4":70}"#;
+        let parsed = ScaleSettings::parse_json(single_line).unwrap();
+        assert_eq!(parsed.host, 120);
+        assert_eq!(parsed.sub1, 110);
+        assert_eq!(parsed.sub2, 90);
+        assert_eq!(parsed.sub3, 80);
+        assert_eq!(parsed.sub4, 70);
+
+        let multiline = "{\n  \"host\": 150,\n  \"sub1\": 130\n}";
+        let parsed_partial = ScaleSettings::parse_json(multiline).unwrap();
+        assert_eq!(parsed_partial.host, 150);
+        assert_eq!(parsed_partial.sub1, 130);
+        assert_eq!(parsed_partial.sub2, 100);
+        assert_eq!(parsed_partial.sub3, 100);
+        assert_eq!(parsed_partial.sub4, 100);
+
+        let invalid = "not json at all";
+        assert!(ScaleSettings::parse_json(invalid).is_none());
+
+        let extra_fields = r#"{"host":140,"unknown_extra":"ignored","sub2":110}"#;
+        let parsed_extra = ScaleSettings::parse_json(extra_fields).unwrap();
+        assert_eq!(parsed_extra.host, 140);
+        assert_eq!(parsed_extra.sub1, 144);
+        assert_eq!(parsed_extra.sub2, 110);
     }
 }
