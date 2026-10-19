@@ -475,12 +475,15 @@ fn track_floating_widget_gesture(
 ) -> bool {
     use windows_sys::Win32::Foundation::{POINT, RECT};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetCursorPos, GetWindowRect, SetWindowPos, HWND_TOPMOST,
-        SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
+        DispatchMessageW, GetCursorPos, GetWindowRect, PeekMessageW, PostQuitMessage,
+        SetWindowPos, TranslateMessage, HWND_TOPMOST, MSG, PM_REMOVE, SWP_NOACTIVATE,
+        SWP_NOSIZE, SWP_NOZORDER, WM_QUIT,
     };
 
     unsafe extern "system" {
         fn GetAsyncKeyState(vkey: i32) -> i16;
+        fn SetCapture(hwnd: windows_sys::Win32::Foundation::HWND) -> windows_sys::Win32::Foundation::HWND;
+        fn ReleaseCapture() -> i32;
     }
     const VK_LBUTTON: i32 = 0x01;
 
@@ -505,8 +508,22 @@ fn track_floating_widget_gesture(
         let mut last_win_x = start_x;
         let mut last_win_y = start_y;
         let mut max_dist_sq = 0i32;
+        let mut received_quit = false;
 
-        while (GetAsyncKeyState(VK_LBUTTON) as u16 & 0x8000) != 0 {
+        SetCapture(hwnd);
+
+        'drag_loop: while (GetAsyncKeyState(VK_LBUTTON) as u16 & 0x8000) != 0 {
+            let mut msg: MSG = std::mem::zeroed();
+            while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
+                if msg.message == WM_QUIT {
+                    PostQuitMessage(msg.wParam as i32);
+                    received_quit = true;
+                    break 'drag_loop;
+                }
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+
             if GetCursorPos(&mut cur_cursor) != 0 {
                 let dx = cur_cursor.x - start_cursor.x;
                 let dy = cur_cursor.y - start_cursor.y;
@@ -536,7 +553,11 @@ fn track_floating_widget_gesture(
             std::thread::sleep(std::time::Duration::from_millis(8));
         }
 
-        if max_dist_sq < 36 {
+        ReleaseCapture();
+
+        if received_quit {
+            false
+        } else if max_dist_sq < 36 {
             true
         } else {
             snap_and_save_widget_position(hwnd, config);
@@ -869,11 +890,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let floating_widget = FloatingWidgetWindow::new()?;
     let widget_config = Arc::new(Mutex::new(crate::widget_state::WidgetConfig::load_or_default()));
     let active_slot_tracker = Arc::new(Mutex::new(1u8));
+    let finish_info: Arc<Mutex<Option<(std::time::Instant, String, usize)>>> = Arc::new(Mutex::new(None));
     floating_widget.set_is_dark(true);
     let widget_cfg_drag = Arc::clone(&widget_config);
     let widget_weak_drag = floating_widget.as_weak();
     let mon_drag = Arc::clone(&monitor);
     let slot_tracker_drag = Arc::clone(&active_slot_tracker);
+    let finish_info_drag = Arc::clone(&finish_info);
     floating_widget.on_drag_requested(move || {
         #[cfg(target_os = "windows")]
         {
@@ -884,6 +907,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 if is_click {
                     if let Some(w) = widget_weak_drag.upgrade() {
                         if w.get_is_finished() {
+                            *finish_info_drag.lock().unwrap() = None;
+                            w.set_is_finished(false);
                             let slot = *slot_tracker_drag.lock().unwrap();
                             activate_instance_window(slot, &mon_drag);
                         } else {
@@ -899,7 +924,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     });
     let mon_act = Arc::clone(&monitor);
     let slot_tracker_act = Arc::clone(&active_slot_tracker);
+    let finish_info_act = Arc::clone(&finish_info);
+    let widget_weak_act = floating_widget.as_weak();
     floating_widget.on_activate_target(move || {
+        *finish_info_act.lock().unwrap() = None;
+        if let Some(w) = widget_weak_act.upgrade() {
+            w.set_is_finished(false);
+        }
         let slot = *slot_tracker_act.lock().unwrap();
         activate_instance_window(slot, &mon_act);
     });
@@ -2359,7 +2390,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let widget_weak_timer = floating_widget.as_weak();
     let widget_config_timer = Arc::clone(&widget_config);
     let widget_detector = Arc::new(Mutex::new(crate::widget_state::StateTransitionDetector::new()));
-    let finish_info: Arc<Mutex<Option<(std::time::Instant, String)>>> = Arc::new(Mutex::new(None));
+    let finish_info = Arc::clone(&finish_info);
     let slot_tracker_timer = Arc::clone(&active_slot_tracker);
 
     let monitor_bg = Arc::clone(&monitor);
@@ -3006,7 +3037,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             let summary = format!("{} OK {} · {:.1}s · {:.0} T/s", badge, format_tokens(total_tokens), duration_secs, avg_tps);
                             let until = now + std::time::Duration::from_secs(4);
                             let mut fin = finish_info.lock().unwrap();
-                            *fin = Some((until, summary));
+                            *fin = Some((until, summary, slot as usize));
 
                             if cfg.enabled && cfg.notify_on_done {
                                 let title = format!("Antigravity [{}]", slot_title);
@@ -3023,12 +3054,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
                     let mut is_finished_active = false;
                     let mut finished_msg = String::new();
+                    let mut finished_slot = None;
                     {
                         let mut fin = finish_info.lock().unwrap();
-                        if let Some((until, ref msg)) = *fin {
+                        if let Some((until, ref msg, f_slot)) = *fin {
                             if now < until {
                                 is_finished_active = true;
                                 finished_msg = msg.clone();
+                                finished_slot = Some(f_slot);
                             } else {
                                 *fin = None;
                             }
@@ -3061,7 +3094,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         widget_was_shown = false;
                     }
 
-                    let active_slot: usize = if let Some((slot, _, _, _)) = slot_inputs.iter().find(|&&(_, r, _, _)| r) {
+                    let active_slot: usize = if is_finished_active && finished_slot.is_some() {
+                        finished_slot.unwrap()
+                    } else if let Some((slot, _, _, _)) = slot_inputs.iter().find(|&&(_, r, _, _)| r) {
                         *slot as usize
                     } else {
                         1

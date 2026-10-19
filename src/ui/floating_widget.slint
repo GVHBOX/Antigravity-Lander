@@ -370,11 +370,7 @@ export component FloatingWidgetWindow inherits Window {
             cache_text: root.cache_rate_text;
             is_finished: root.is_finished;
             finished_text: root.finished_text;
-            clicked => {
-                if root.is_finished {
-                    root.activate_target();
-                }
-            }
+            clicked => {}
             drag_requested => { root.drag_requested(); }
         }
 

@@ -4,8 +4,11 @@ use std::fs;
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 const WIN32_DETACHED_FLAGS: u32 = 0x01000208;
+static ASAR_PATCH_CACHE: Mutex<Option<(SystemTime, u64, bool, String)>> = Mutex::new(None);
 
 fn run_taskkill_pid(pid: u32) -> Result<()> {
     if pid == 0 {
@@ -818,14 +821,36 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             let exe = app_dir.join("Antigravity.exe");
             let asar = app_dir.join("resources").join("app.asar");
 
-            let is_patched = asar_has_injection_markers(&asar);
+            if let Ok(meta) = fs::metadata(&asar) {
+                let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+                let len = meta.len();
+                if let Ok(guard) = ASAR_PATCH_CACHE.lock() {
+                    if let Some((cached_mtime, cached_len, cached_patched, ref cached_ver)) = *guard {
+                        if cached_mtime == mtime && cached_len == len {
+                            return (cached_patched, cached_ver.clone());
+                        }
+                    }
+                }
+
+                let is_patched = asar_has_injection_markers(&asar);
+                let ver = if exe.exists() {
+                    get_pe_version(&exe).map(|v| format!("v{}", v)).unwrap_or_else(|| "已安装".to_string())
+                } else {
+                    "未安装".to_string()
+                };
+
+                if let Ok(mut guard) = ASAR_PATCH_CACHE.lock() {
+                    *guard = Some((mtime, len, is_patched, ver.clone()));
+                }
+                return (is_patched, ver);
+            }
 
             let ver = if exe.exists() {
                 get_pe_version(&exe).map(|v| format!("v{}", v)).unwrap_or_else(|| "已安装".to_string())
             } else {
                 "未安装".to_string()
             };
-            return (is_patched, ver);
+            return (false, ver);
         }
         (false, "未安装".to_string())
     }
@@ -848,13 +873,17 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
 
         let installed = get_pe_version(&exe);
 
-        if asar_has_injection_markers(&asar) {
+        let result = if asar_has_injection_markers(&asar) {
             Self::restore_ag2_from_same_version_backup(&asar, &res_dir, &installed)?;
             Ok(false)
         } else {
             Self::install_ag2_from_cached_or_engine(&asar, &res_dir, &installed)?;
             Ok(true)
+        };
+        if let Ok(mut guard) = ASAR_PATCH_CACHE.lock() {
+            *guard = None;
         }
+        result
     }
 
     fn restore_ag2_from_same_version_backup(
@@ -1157,5 +1186,24 @@ fn get_pe_version(path: &std::path::Path) -> Option<String> {
         let minor = ms & 0xffff;
         let patch = ls >> 16;
         Some(format!("{}.{}.{}", major, minor, patch))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_asar_patch_cache_hit() {
+        let (p1, v1) = LauncherConfig::check_ag2_patch_status();
+        let guard = ASAR_PATCH_CACHE.lock().unwrap();
+        if let Some((_mtime, _len, cp, ref cv)) = *guard {
+            assert_eq!(p1, cp);
+            assert_eq!(&v1, cv);
+        }
+        drop(guard);
+        let (p2, v2) = LauncherConfig::check_ag2_patch_status();
+        assert_eq!(p1, p2);
+        assert_eq!(v1, v2);
     }
 }

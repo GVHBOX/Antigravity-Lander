@@ -504,6 +504,15 @@ pub fn render_quota_ring(pct: f32, is_dark: bool) -> slint::Image {
 }
 
 fn resolve_language_server_bin() -> Option<PathBuf> {
+    if let Some(app_dir) = crate::launcher::LauncherConfig::detect_app_dir() {
+        let p = app_dir
+            .join("resources")
+            .join("bin")
+            .join("language_server.exe");
+        if p.exists() {
+            return Some(p);
+        }
+    }
     if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
         let p = PathBuf::from(local_appdata)
             .join("Programs")
@@ -580,9 +589,11 @@ pub fn fetch_offline_quota_headless(slot: usize) -> Option<InstanceQuotaState> {
         cmd.env("LOCALAPPDATA", real_local);
     }
 
-    let proxy_url = format!("http://127.0.0.1:{}", crate::proxy::DEFAULT_PROXY_PORT);
-    cmd.env("HTTP_PROXY", &proxy_url);
-    cmd.env("HTTPS_PROXY", &proxy_url);
+    if crate::proxy::ProxyManager::is_port_online(crate::proxy::DEFAULT_PROXY_PORT) {
+        let proxy_url = format!("http://127.0.0.1:{}", crate::proxy::DEFAULT_PROXY_PORT);
+        cmd.env("HTTP_PROXY", &proxy_url);
+        cmd.env("HTTPS_PROXY", &proxy_url);
+    }
 
     cmd.creation_flags(0x08000000);
 

@@ -253,4 +253,22 @@ mod tests {
         }
         assert!(!detector.has_any_running());
     }
+
+    #[test]
+    fn test_multi_slot_transitions() {
+        let mut detector = StateTransitionDetector::new();
+        let t1 = detector.update(&[(0, false, 0, 0.0), (3, true, 100, 40.0)]);
+        assert_eq!(t1.len(), 1);
+        assert_eq!(t1[0], SessionTransition::Started { slot: 3 });
+
+        let t2 = detector.update(&[(0, false, 0, 0.0), (3, false, 300, 0.0)]);
+        assert_eq!(t2.len(), 1);
+        match t2[0] {
+            SessionTransition::Finished { slot, total_tokens, .. } => {
+                assert_eq!(slot, 3);
+                assert_eq!(total_tokens, 200);
+            }
+            _ => panic!("expected Finished transition for slot 3"),
+        }
+    }
 }

@@ -15,7 +15,7 @@ pub mod widget_state;
 use anyhow::{anyhow, Result};
 use app::App;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -192,36 +192,8 @@ fn main() -> Result<()> {
         if event::poll(tick_rate)?
             && let Event::Key(key) = event::read()?
                 && key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char(' ') => {
-                            app.launch_or_bring_to_front();
-                        }
-                        KeyCode::Char('k') | KeyCode::Char('K') => {
-                            app.stop_sub_instance();
-                        }
-                        KeyCode::Char('r') | KeyCode::Char('R') => {
-                            app.restart_engine();
-                        }
-                        KeyCode::Char('c') | KeyCode::Char('C') => {
-                            app.clear_token();
-                        }
-                        KeyCode::Char('p') | KeyCode::Char('P') => {
-                            app.toggle_or_deploy_proxy();
-                        }
-                        KeyCode::Char('o') | KeyCode::Char('O') => {
-                            app.open_sandbox_dir();
-                        }
-                        KeyCode::Char('t') | KeyCode::Char('T') => {
-                            app.toggle_language();
-                        }
-                        KeyCode::Char('l') | KeyCode::Char('L') => {
-                            app.clear_logs();
-                        }
-                        KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
-                            app.should_quit = true;
-                            break;
-                        }
-                        _ => {}
+                    if app.handle_key(key.code) {
+                        break;
                     }
                 }
 

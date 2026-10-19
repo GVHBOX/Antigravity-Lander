@@ -19,6 +19,7 @@ pub struct App {
     pub toast_is_alert: bool,
     pub sub_known_pid: Option<u32>,
     pub launcher_rss_mb: f64,
+    pub confirm_clear_token: bool,
     pub should_quit: bool,
 }
 
@@ -36,6 +37,7 @@ impl App {
             toast_is_alert: false,
             sub_known_pid: None,
             launcher_rss_mb: 5.2,
+            confirm_clear_token: false,
             should_quit: false,
         };
 
@@ -289,5 +291,92 @@ impl App {
             self.add_log("SYSTEM", "Manager ready.");
             self.add_log("DATA", format!("Data directory: {}", dir_str));
         }
+    }
+
+    pub fn handle_key(&mut self, code: crossterm::event::KeyCode) -> bool {
+        use crossterm::event::KeyCode;
+        if self.confirm_clear_token {
+            match code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    self.confirm_clear_token = false;
+                    self.clear_token();
+                }
+                _ => {
+                    self.confirm_clear_token = false;
+                    self.set_toast("", false);
+                }
+            }
+            return false;
+        }
+
+        match code {
+            KeyCode::Char(' ') => {
+                self.launch_or_bring_to_front();
+            }
+            KeyCode::Char('k') | KeyCode::Char('K') => {
+                self.stop_sub_instance();
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                self.restart_engine();
+            }
+            KeyCode::Char('c') | KeyCode::Char('C') => {
+                self.confirm_clear_token = true;
+                let prompt = if self.language == Language::Zh {
+                    "按 'y' 确认清除凭据，按任意其他键取消"
+                } else {
+                    "Press 'y' to confirm clearing credentials, any other key to cancel"
+                };
+                self.set_toast(prompt, true);
+            }
+            KeyCode::Char('p') | KeyCode::Char('P') => {
+                self.toggle_or_deploy_proxy();
+            }
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                self.open_sandbox_dir();
+            }
+            KeyCode::Char('t') | KeyCode::Char('T') => {
+                self.toggle_language();
+            }
+            KeyCode::Char('l') | KeyCode::Char('L') => {
+                self.clear_logs();
+            }
+            KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                self.should_quit = true;
+                return true;
+            }
+            _ => {}
+        }
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyCode;
+
+    #[test]
+    fn test_app_confirm_clear_token_flow() {
+        let mut app = App::new().unwrap();
+        assert!(!app.confirm_clear_token);
+
+        assert!(!app.handle_key(KeyCode::Char('c')));
+        assert!(app.confirm_clear_token);
+        assert!(app.toast_is_alert);
+        assert!(!app.toast_message.is_empty());
+
+        assert!(!app.handle_key(KeyCode::Char('n')));
+        assert!(!app.confirm_clear_token);
+        assert_eq!(app.toast_message, "");
+
+        assert!(!app.handle_key(KeyCode::Char('C')));
+        assert!(app.confirm_clear_token);
+
+        assert!(!app.handle_key(KeyCode::Char('q')));
+        assert!(!app.confirm_clear_token);
+        assert!(!app.should_quit);
+
+        assert!(app.handle_key(KeyCode::Char('q')));
+        assert!(app.should_quit);
     }
 }
