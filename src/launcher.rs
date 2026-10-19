@@ -64,11 +64,10 @@ impl Default for ScaleSettings {
 impl ScaleSettings {
     pub fn load_or_detect() -> Self {
         let path = Self::get_config_path();
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Some(settings) = Self::parse_json(&content) {
+        if let Ok(content) = fs::read_to_string(&path)
+            && let Some(settings) = Self::parse_json(&content) {
                 return settings;
             }
-        }
         let settings = Self::default();
         let _ = settings.save();
         settings
@@ -195,19 +194,17 @@ impl LauncherConfig {
     }
 
     pub fn resolve_base_dir() -> Result<PathBuf> {
-        if let Ok(exe_path) = env::current_exe() {
-            if let Some(exe_dir) = exe_path.parent() {
+        if let Ok(exe_path) = env::current_exe()
+            && let Some(exe_dir) = exe_path.parent() {
                 let mut check_dir = Some(exe_dir);
                 while let Some(dir) = check_dir {
-                    if dir.file_name().map(|n| n == "target").unwrap_or(false) {
-                        if let Some(project_root) = dir.parent() {
-                            if project_root.join("data").exists()
-                                || project_root.join("Cargo.toml").exists()
+                    if dir.file_name().map(|n| n == "target").unwrap_or(false)
+                        && let Some(project_root) = dir.parent()
+                            && (project_root.join("data").exists()
+                                || project_root.join("Cargo.toml").exists())
                             {
                                 return Ok(project_root.to_path_buf());
                             }
-                        }
-                    }
                     check_dir = dir.parent();
                 }
                 if exe_dir.join("data").exists()
@@ -219,15 +216,13 @@ impl LauncherConfig {
                     if parent.join("data").exists() {
                         return Ok(parent.to_path_buf());
                     }
-                    if let Some(grandparent) = parent.parent() {
-                        if grandparent.join("data").exists() {
+                    if let Some(grandparent) = parent.parent()
+                        && grandparent.join("data").exists() {
                             return Ok(grandparent.to_path_buf());
                         }
-                    }
                 }
                 return Ok(exe_dir.to_path_buf());
             }
-        }
         env::current_dir().context("Failed to get current directory")
     }
 
@@ -246,15 +241,11 @@ impl LauncherConfig {
                 && !name.contains("multi")
                 && !name.contains("lander")
                 && !name.contains("cockpit")
-            {
-                if let Some(exe_path) = proc.exe() {
-                    if let Some(dir) = exe_path.parent() {
-                        if dir.join("Antigravity.exe").exists() || dir.join("antigravity.exe").exists() {
+                && let Some(exe_path) = proc.exe()
+                    && let Some(dir) = exe_path.parent()
+                        && (dir.join("Antigravity.exe").exists() || dir.join("antigravity.exe").exists()) {
                             return Some(dir.to_path_buf());
                         }
-                    }
-                }
-            }
         }
 
         if let Ok(local) = env::var("LOCALAPPDATA") {
@@ -312,11 +303,9 @@ impl LauncherConfig {
             .arg("-v")
             .creation_flags(WIN32_DETACHED_FLAGS)
             .output()
-        {
-            if output.status.success() {
+            && output.status.success() {
                 return Some(PathBuf::from("node"));
             }
-        }
         for var in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
             if let Ok(pf) = env::var(var) {
                 let p = PathBuf::from(pf).join("nodejs").join("node.exe");
@@ -435,13 +424,12 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
     }
 
     pub fn clear_host_token() -> Result<bool> {
-        if let Some(token_path) = Self::host_token_path() {
-            if token_path.exists() {
+        if let Some(token_path) = Self::host_token_path()
+            && token_path.exists() {
                 fs::remove_file(&token_path)
                     .with_context(|| format!("Failed to delete host token at {:?}", token_path))?;
                 return Ok(true);
             }
-        }
         Ok(false)
     }
 
@@ -832,13 +820,11 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             if let Ok(meta) = fs::metadata(&asar) {
                 let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
                 let len = meta.len();
-                if let Ok(guard) = ASAR_PATCH_CACHE.lock() {
-                    if let Some((cached_mtime, cached_len, cached_patched, ref cached_ver)) = *guard {
-                        if cached_mtime == mtime && cached_len == len {
+                if let Ok(guard) = ASAR_PATCH_CACHE.lock()
+                    && let Some((cached_mtime, cached_len, cached_patched, ref cached_ver)) = *guard
+                        && cached_mtime == mtime && cached_len == len {
                             return (cached_patched, cached_ver.clone());
                         }
-                    }
-                }
 
                 let is_patched = asar_has_injection_markers(&asar);
                 let ver = if exe.exists() {
@@ -978,11 +964,10 @@ fn is_replaceable_shell_dir(dir: &std::path::Path) -> bool {
         if name == "desktop.ini" || name == "antigravity.lnk" {
             continue;
         }
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            if is_replaceable_shell_dir(&entry.path()) {
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
+            && is_replaceable_shell_dir(&entry.path()) {
                 continue;
             }
-        }
         return false;
     }
     true

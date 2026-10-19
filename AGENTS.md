@@ -1,7 +1,7 @@
 # Antigravity Lander 作业规程
 
 `D:\Development_Environment\AI_Vibe_Coding_Workspace\Antigravity-Lander`：Rust + Slint 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
-运行形态：默认 Slint GUI（带系统托盘），支持 `--tui` / `-t` Ratatui 终端仪表盘。
+运行形态：Slint GUI（带系统托盘与桌面悬浮球）。
 本文件定义工程规范与纪律，功能说明见 `README.md`。
 
 ## 5 条铁律

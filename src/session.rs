@@ -148,17 +148,19 @@ struct TailMetrics {
     file_step_count: u32,
 }
 
-static TAIL_CACHE: Mutex<Option<HashMap<String, (u64, SystemTime, TailMetrics)>>> = Mutex::new(None);
+type CachedTailEntry = (u64, SystemTime, TailMetrics);
+type TailCacheMap = HashMap<String, CachedTailEntry>;
+
+static TAIL_CACHE: Mutex<Option<TailCacheMap>> = Mutex::new(None);
 
 fn get_or_parse_tail_metrics(uuid: &str, log_path: &Path, len: u64, mtime: SystemTime) -> TailMetrics {
     {
         let mut cache_guard = TAIL_CACHE.lock().unwrap();
         let cache = cache_guard.get_or_insert_with(HashMap::new);
-        if let Some((c_len, c_mtime, metrics)) = cache.get(uuid) {
-            if *c_len == len && *c_mtime == mtime {
+        if let Some((c_len, c_mtime, metrics)) = cache.get(uuid)
+            && *c_len == len && *c_mtime == mtime {
                 return metrics.clone();
             }
-        }
     }
     let metrics = parse_tail_metrics(log_path, len);
     let mut cache_guard = TAIL_CACHE.lock().unwrap();
@@ -287,11 +289,10 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
     let mut lines = Vec::new();
     for line in text.lines() {
         let trimmed = line.trim();
-        if !trimmed.is_empty() {
-            if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
+        if !trimmed.is_empty()
+            && let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
                 lines.push(step);
             }
-        }
     }
 
     if lines.is_empty() && file_len > tail_bytes_to_read as u64 {
@@ -306,11 +307,10 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
                 let retry_text = String::from_utf8_lossy(&retry_buf);
                 for line in retry_text.lines() {
                     let trimmed = line.trim();
-                    if !trimmed.is_empty() {
-                        if let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
+                    if !trimmed.is_empty()
+                        && let Ok(step) = serde_json::from_str::<TailStep>(trimmed) {
                             lines.push(step);
                         }
-                    }
                 }
             }
         }
@@ -360,14 +360,12 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
 
     let mut steps_with_out = Vec::new();
     for step in &lines {
-        if let (Some(out), Some(ca)) = (step.output_tokens, &step.created_at) {
-            if out > 0 {
-                if let Some(sec) = parse_rfc3339_secs(ca) {
+        if let (Some(out), Some(ca)) = (step.output_tokens, &step.created_at)
+            && out > 0
+                && let Some(sec) = parse_rfc3339_secs(ca) {
                     let idx = step.step_index.map(|i| (i + 1) as u32).unwrap_or(0);
                     steps_with_out.push((sec, out, idx));
                 }
-            }
-        }
     }
 
     let mut tps_tuples = Vec::new();

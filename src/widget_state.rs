@@ -4,16 +4,13 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum WidgetMode {
+    #[default]
     Smart,
     Always,
 }
 
-impl Default for WidgetMode {
-    fn default() -> Self {
-        Self::Smart
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WidgetConfig {

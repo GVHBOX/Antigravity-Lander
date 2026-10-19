@@ -73,8 +73,8 @@ fn apply_quota_to_ui(
     set_weekly: impl FnOnce(&str, &str, slint::Image),
     set_five_h: impl FnOnce(&str, &str, slint::Image),
 ) {
-    if let Some(st) = state {
-        if st.is_available {
+    if let Some(st) = state
+        && st.is_available {
             set_profile(
                 &st.profile.name,
                 &st.profile.email,
@@ -98,22 +98,18 @@ fn apply_quota_to_ui(
             set_five_h(five_h_pct, &st.five_h.reset_text, five_h_ring);
             return;
         }
-    }
     set_profile("--", "--", "", None);
     set_weekly("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
     set_five_h("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
 }
 
 fn load_avatar_image(path: Option<&std::path::Path>) -> (slint::Image, bool) {
-    if let Some(p) = path {
-        if p.exists() {
-            if let Ok(img) = slint::Image::load_from_path(p) {
-                if img.size().width > 0 {
+    if let Some(p) = path
+        && p.exists()
+            && let Ok(img) = slint::Image::load_from_path(p)
+                && img.size().width > 0 {
                     return (img, true);
                 }
-            }
-        }
-    }
     (slint::Image::default(), false)
 }
 
@@ -647,7 +643,6 @@ fn snap_and_save_widget_position(
     }
 }
 
-#[cfg(target_os = "windows")]
 fn show_desktop_notification(title: &str, message: &str) {
     use windows_sys::Win32::UI::Shell::{
         Shell_NotifyIconW, NOTIFYICONDATAW, NIF_INFO, NIM_ADD, NIM_MODIFY, NIIF_INFO,
@@ -683,8 +678,6 @@ fn show_desktop_notification(title: &str, message: &str) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-fn show_desktop_notification(_title: &str, _message: &str) {}
 
 fn play_done_or_builtin(cfg: &crate::widget_state::WidgetConfig) -> Option<String> {
     if let Some(ref path_str) = cfg.sound_file {
@@ -701,18 +694,16 @@ fn play_done_or_builtin(cfg: &crate::widget_state::WidgetConfig) -> Option<Strin
 fn activate_instance_window(slot: u8, monitor: &Arc<Mutex<TelemetryMonitor>>) {
     let mon = monitor.lock().unwrap();
     if slot == 0 {
-        if let Some(pid) = mon.host.electron_pid {
-            if let Ok(conf) = LauncherConfig::new() {
+        if let Some(pid) = mon.host.electron_pid
+            && let Ok(conf) = LauncherConfig::new() {
                 conf.bring_to_front(pid);
             }
-        }
     } else if (1..=4).contains(&slot) {
         let idx = (slot - 1) as usize;
-        if let Some(pid) = mon.subs[idx].electron_pid {
-            if let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
+        if let Some(pid) = mon.subs[idx].electron_pid
+            && let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
                 conf.bring_to_front(pid);
             }
-        }
     }
 }
 
@@ -934,8 +925,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             if !hwnd.is_null() {
                 let mut cfg = widget_cfg_drag.lock().unwrap();
                 let is_click = track_floating_widget_gesture(hwnd, &mut cfg);
-                if is_click {
-                    if let Some(w) = widget_weak_drag.upgrade() {
+                if is_click
+                    && let Some(w) = widget_weak_drag.upgrade() {
                         if w.get_is_finished() {
                             *finish_info_drag.lock().unwrap() = None;
                             w.set_is_finished(false);
@@ -948,7 +939,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             update_widget_geometry(hwnd, next_expanded, scale, &mut cfg);
                         }
                     }
-                }
             }
         }
     });
@@ -1184,30 +1174,26 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
                 });
             } else if event.id == widget_sound_pick_id {
-                #[cfg(target_os = "windows")]
-                {
-                    crate::sound::log_diag("menu pick clicked");
-                    let owner_hwnd = get_cockpit_hwnd() as isize;
-                    let cfg_arc = Arc::clone(&widget_cfg_menu);
-                    let ui_w = ui_weak.clone();
-                    std::thread::spawn(move || {
-                        let Some(picked) = crate::sound::pick_sound_file(owner_hwnd) else {
-                            return;
-                        };
-                        let name = crate::sound::file_stem_of(&picked);
-                        {
-                            let mut cfg = cfg_arc.lock().unwrap();
-                            cfg.sound_file = Some(picked.to_string_lossy().to_string());
-                            let _ = cfg.save();
+                let owner_hwnd = get_cockpit_hwnd() as isize;
+                let cfg_arc = Arc::clone(&widget_cfg_menu);
+                let ui_w = ui_weak.clone();
+                std::thread::spawn(move || {
+                    let Some(picked) = crate::sound::pick_sound_file(owner_hwnd) else {
+                        return;
+                    };
+                    let name = crate::sound::file_stem_of(&picked);
+                    {
+                        let mut cfg = cfg_arc.lock().unwrap();
+                        cfg.sound_file = Some(picked.to_string_lossy().to_string());
+                        let _ = cfg.save();
+                    }
+                    crate::sound::play_done_sound(&picked);
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_w.upgrade() {
+                            ui.set_toast_message(format!("完成音效: {}", name).into());
                         }
-                        crate::sound::play_done_sound(&picked);
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(ui) = ui_w.upgrade() {
-                                ui.set_toast_message(format!("完成音效: {}", name).into());
-                            }
-                        });
                     });
-                }
+                });
             } else {
                 let target_slot = if event.id == sub1_id {
                     Some(1usize)
@@ -1486,11 +1472,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             std::thread::spawn(move || {
                 let mut started = 0;
                 let is_host_running = mon_arc.lock().unwrap().host.is_running;
-                if !is_host_running {
-                    if LauncherConfig::spawn_host_native().is_ok() {
+                if !is_host_running
+                    && LauncherConfig::spawn_host_native().is_ok() {
                         started += 1;
                     }
-                }
                 for slot in 1..=4 {
                     let idx = slot - 1;
                     let is_sub_running = {
@@ -1498,15 +1483,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         let pids = sub_pids.lock().unwrap();
                         mon.subs[idx].is_running || pids[idx].is_some()
                     };
-                    if !is_sub_running {
-                        if let Ok(conf) = LauncherConfig::for_slot(slot) {
-                            if let Ok(new_pid) = conf.spawn_detached() {
+                    if !is_sub_running
+                        && let Ok(conf) = LauncherConfig::for_slot(slot)
+                            && let Ok(new_pid) = conf.spawn_detached() {
                                 let mut pids = sub_pids.lock().unwrap();
                                 pids[idx] = Some(new_pid);
                                 started += 1;
                             }
-                        }
-                    }
                 }
                 is_launching_thread.store(false, std::sync::atomic::Ordering::SeqCst);
                 let _ = slint::invoke_from_event_loop(move || {
@@ -1640,7 +1623,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
-            if slot < 1 || slot > 4 {
+            if !(1..=4).contains(&slot) {
                 return;
             }
             let idx = (slot - 1) as usize;
@@ -1699,7 +1682,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
-            if slot < 1 || slot > 4 {
+            if !(1..=4).contains(&slot) {
                 return;
             }
             let idx = (slot - 1) as usize;
@@ -1738,7 +1721,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
         move |slot| {
-            if slot < 0 || slot > 4 {
+            if !(0..=4).contains(&slot) {
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
@@ -1795,15 +1778,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     main_window.on_action_open_sandbox({
         let ui_weak = main_window.as_weak();
         move |slot| {
-            if slot < 1 || slot > 4 {
+            if !(1..=4).contains(&slot) {
                 return;
             }
-            if let Some(ui) = ui_weak.upgrade() {
-                if let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
+            if let Some(ui) = ui_weak.upgrade()
+                && let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
                     let _ = conf.open_sandbox_in_explorer();
                     ui.set_toast_message(format!("已打开分身 {} 目录", slot).into());
                 }
-            }
         }
     });
 
@@ -2068,7 +2050,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         move |delta| {
             if let Some(ui) = ui_weak.upgrade() {
                 let mut scales = scales_lock.lock().unwrap();
-                scales.adjust_host(delta as i32);
+                scales.adjust_host(delta);
                 let _ = scales.save();
                 ui.set_host_scale_text(format!("{}%", scales.host).into());
                 ui.set_toast_message(format!("主账号界面调节: {}% (重启生效)", scales.host).into());
@@ -2094,12 +2076,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         let scales_lock = Arc::clone(&scale_settings);
         move |slot, delta| {
-            if slot < 1 || slot > 4 {
+            if !(1..=4).contains(&slot) {
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
                 let mut scales = scales_lock.lock().unwrap();
-                scales.adjust_sub(slot as usize, delta as i32);
+                scales.adjust_sub(slot as usize, delta);
                 let _ = scales.save();
                 let val = scales.get_sub_scale(slot as usize);
                 let text = format!("{}%", val);
@@ -2119,7 +2101,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         let scales_lock = Arc::clone(&scale_settings);
         move |slot| {
-            if slot < 1 || slot > 4 {
+            if !(1..=4).contains(&slot) {
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
@@ -2170,7 +2152,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         move |_| {
             let mut slot_val = *live_slot_cb.lock().unwrap();
-            slot_val = if slot_val < -1 || slot_val >= 4 { -1 } else { slot_val + 1 };
+            slot_val = if !(-1..4).contains(&slot_val) { -1 } else { slot_val + 1 };
             *live_slot_cb.lock().unwrap() = slot_val;
             if let Some(ui) = ui_weak.upgrade() {
                 let target_text = match slot_val {
@@ -2197,14 +2179,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         *hover_state.lock().unwrap() = Some(i);
         let Some(ui) = ui_weak_hover.upgrade() else { return; };
         let sess = active_hover.lock().unwrap();
-        if let Some(ref s) = *sess {
-            if i < 16 && s.recent_turn_indices[i] > 0 {
+        if let Some(ref s) = *sess
+            && i < 16 && s.recent_turn_indices[i] > 0 {
                 ui.set_live_is_hovering_bar(true);
                 ui.set_live_hover_tag(format!("#{} 轮", s.recent_turn_indices[i]).into());
                 ui.set_live_session_speed_text(format!("{:.1}", s.recent_tps[i]).into());
                 ui.set_live_session_speed_sub(format!("该轮产出 {} · {:.1}s", format_tokens(s.recent_turn_tokens[i]), s.recent_turn_durations[i]).into());
             }
-        }
     });
 
     let active_leave = Arc::clone(&active_live_session);
@@ -2280,6 +2261,20 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 return;
             };
 
+            let is_running = {
+                let mon = mon_refresh.lock().unwrap();
+                if slot == 0 {
+                    mon.host.is_running
+                } else {
+                    mon.subs[slot - 1].is_running
+                }
+            };
+
+            if !is_running {
+                ui.set_toast_message("实例未运行".into());
+                return;
+            }
+
             match slot {
                 0 => ui.set_host_quota_refreshing(true),
                 1 => ui.set_sub1_quota_refreshing(true),
@@ -2295,24 +2290,30 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let qc_arc = Arc::clone(&qc_refresh);
 
             std::thread::spawn(move || {
-                let (ls_port, ls_csrf, is_running) = {
+                let (ls_port, ls_csrf) = {
                     let mon = mon_arc.lock().unwrap();
                     if slot == 0 {
-                        (mon.host.ls_port, mon.host.ls_csrf.clone(), mon.host.is_running)
+                        (mon.host.ls_port, mon.host.ls_csrf.clone())
                     } else {
                         let idx = slot - 1;
-                        (mon.subs[idx].ls_port, mon.subs[idx].ls_csrf.clone(), mon.subs[idx].is_running)
+                        (mon.subs[idx].ls_port, mon.subs[idx].ls_csrf.clone())
                     }
                 };
 
                 let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
-                let state_opt = if is_running && ls_port.is_some() && ls_csrf.as_ref().map(|c| !c.is_empty()).unwrap_or(false) {
-                    let port = ls_port.unwrap();
-                    let csrf = ls_csrf.unwrap();
-                    let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
-                    if st.is_available { Some(st) } else { None }
+                let state_opt = if let (Some(port), Some(csrf)) = (ls_port, ls_csrf) {
+                    if !csrf.is_empty() {
+                        let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
+                        if st.is_available {
+                            Some(st)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 } else {
-                    crate::quota::fetch_offline_quota_headless(slot)
+                    None
                 };
 
                 let is_ok = state_opt.is_some();
@@ -2366,8 +2367,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
             let mut fetched_any = false;
             for (idx, (port_opt, csrf_opt, tag)) in targets.into_iter().enumerate() {
-                if let (Some(port), Some(csrf)) = (port_opt, csrf_opt) {
-                    if !csrf.is_empty() {
+                if let (Some(port), Some(csrf)) = (port_opt, csrf_opt)
+                    && !csrf.is_empty() {
                         let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
                         if st.is_available {
                             {
@@ -2382,7 +2383,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             fetched_any = true;
                         }
                     }
-                }
             }
 
             let sleep_ms = if fetched_any { 3000 } else { 800 };
@@ -2904,7 +2904,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
 
                 let target_slot_setting = *live_session_slot_timer.lock().unwrap();
-                let (effective_slot, is_auto) = if target_slot_setting < 0 || target_slot_setting > 4 {
+                let (effective_slot, is_auto) = if !(0..=4).contains(&target_slot_setting) {
                     let running_slot = (0..5).find(|&i| store[i].has_running);
                     let chosen = if let Some(r) = running_slot {
                         r
@@ -3091,12 +3091,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
             if let Some(w) = widget_weak_timer.upgrade() {
                 let cfg = widget_config_timer.lock().unwrap().clone();
-                if !cfg.enabled {
-                    if widget_was_shown {
+                if !cfg.enabled
+                    && widget_was_shown {
                         let _ = w.window().hide();
                         widget_was_shown = false;
                     }
-                }
 
                 let store = sessions_store_timer.lock().unwrap();
                     let mut slot_inputs = Vec::new();
@@ -3176,8 +3175,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         }
                     }
 
-                    let active_slot: usize = if is_finished_active && finished_slot.is_some() {
-                        finished_slot.unwrap()
+                    let active_slot: usize = if is_finished_active && let Some(slot) = finished_slot {
+                        slot
                     } else if let Some((slot, _, _, _)) = slot_inputs.iter().find(|&&(_, r, _, _)| r) {
                         *slot as usize
                     } else {

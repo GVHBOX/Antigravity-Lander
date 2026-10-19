@@ -5,42 +5,21 @@ const MCI_ALIAS: &str = "lander_done";
 
 const BUILTIN_WAV: &[u8] = include_bytes!("../assets/done.wav");
 
-pub fn log_diag(line: &str) {
-    use std::io::Write;
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let data_dir = if let Ok(base) = crate::launcher::LauncherConfig::resolve_base_dir() {
-        base.join("data")
-    } else {
-        std::path::PathBuf::from("data")
-    };
-    let _ = std::fs::create_dir_all(&data_dir);
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(data_dir.join("sound_debug.log"))
-    {
-        let _ = writeln!(f, "{} {}", stamp, line);
-    }
-}
-
 pub fn play_builtin_sound() {
-    let mut path = std::env::temp_dir();
-    path.push("lander_done.wav");
-    if !path.exists() {
-        let _ = std::fs::write(&path, BUILTIN_WAV);
+    use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT};
+    unsafe {
+        PlaySoundW(
+            BUILTIN_WAV.as_ptr() as *const u16,
+            std::ptr::null_mut(),
+            SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
+        );
     }
-    log_diag("play builtin");
-    play_done_sound(&path);
 }
 
 fn to_wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-#[cfg(target_os = "windows")]
 fn mci_send(command: &[u16]) -> u32 {
     use windows_sys::Win32::Media::Multimedia::mciSendStringW;
     unsafe {
@@ -53,12 +32,10 @@ fn mci_send(command: &[u16]) -> u32 {
     }
 }
 
-#[cfg(target_os = "windows")]
 pub fn play_done_sound(path: &Path) {
     use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_FILENAME, SND_NODEFAULT};
 
     if !path.exists() {
-        log_diag(&format!("play skip missing {}", path.display()));
         return;
     }
 
@@ -74,14 +51,13 @@ pub fn play_done_sound(path: &Path) {
 
     if ext == "wav" {
         let wide = to_wide(path_str);
-        let ret = unsafe {
+        unsafe {
             PlaySoundW(
                 wide.as_ptr(),
                 std::ptr::null_mut(),
                 SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
-            )
-        };
-        log_diag(&format!("playsound {} ret={}", path_str, ret));
+            );
+        }
         return;
     }
 
@@ -107,31 +83,21 @@ pub fn play_done_sound(path: &Path) {
     let typed_ret = mci_send(&typed_w);
     if typed_ret != 0 {
         let plain_w = to_wide(&open_plain_cmd);
-        let plain_ret = mci_send(&plain_w);
-        log_diag(&format!(
-            "mci typed {} ret={} plain ret={}",
-            path_str, typed_ret, plain_ret
-        ));
+        mci_send(&plain_w);
     }
 
     let play_w = to_wide(&play_cmd);
-    let play_ret = mci_send(&play_w);
-    log_diag(&format!("mci play {} ret={}", path_str, play_ret));
+    mci_send(&play_w);
 }
 
-#[cfg(not(target_os = "windows"))]
-pub fn play_done_sound(_path: &Path) {}
-
-#[cfg(target_os = "windows")]
 pub fn pick_sound_file(owner_hwnd: isize) -> Option<PathBuf> {
     use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
     use windows_sys::Win32::UI::Controls::Dialogs::{
-        CommDlgExtendedError, GetOpenFileNameW, OFN_EXPLORER, OFN_FILEMUSTEXIST, OFN_HIDEREADONLY,
+        GetOpenFileNameW, OFN_EXPLORER, OFN_FILEMUSTEXIST, OFN_HIDEREADONLY,
         OFN_NOCHANGEDIR, OFN_PATHMUSTEXIST, OPENFILENAMEW,
     };
 
     let hr = unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32) };
-    log_diag(&format!("coinit hr={}", hr));
 
     let filter = to_wide("音频文件\0*.wav;*.mp3;*.wma;*.m4a;*.aac;*.mid\0所有文件\0*.*\0");
     let title = to_wide("选择完成音效");
@@ -151,12 +117,6 @@ pub fn pick_sound_file(owner_hwnd: isize) -> Option<PathBuf> {
         | OFN_NOCHANGEDIR;
 
     let result = unsafe { GetOpenFileNameW(&mut ofn) };
-    if result == 0 {
-        let err = unsafe { CommDlgExtendedError() };
-        log_diag(&format!("open cancelled or failed cderr={}", err));
-    } else {
-        log_diag("open ok");
-    }
     let picked = if result == 0 {
         None
     } else {
@@ -169,20 +129,34 @@ pub fn pick_sound_file(owner_hwnd: isize) -> Option<PathBuf> {
         }
     };
 
-    unsafe {
-        CoUninitialize();
+    if hr >= 0 {
+        unsafe {
+            CoUninitialize();
+        }
     }
 
     picked
 }
 
-#[cfg(not(target_os = "windows"))]
-pub fn pick_sound_file(_owner_hwnd: isize) -> Option<PathBuf> {
-    None
-}
-
 pub fn file_stem_of(path: &Path) -> String {
-    path.file_name()
+    path.file_stem()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_play_builtin_sound_does_not_panic() {
+        play_builtin_sound();
+    }
+
+    #[test]
+    fn test_file_stem_of() {
+        assert_eq!(file_stem_of(Path::new("C:/test/sound.wav")), "sound");
+        assert_eq!(file_stem_of(Path::new("music.mp3")), "music");
+        assert_eq!(file_stem_of(Path::new("")), "");
+    }
 }

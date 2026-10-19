@@ -58,14 +58,13 @@ fn quota_cache_path() -> PathBuf {
 
 pub fn load_quota_cache() -> QuotaCacheFile {
     let path = quota_cache_path();
-    if let Ok(data) = std::fs::read_to_string(&path) {
-        if let Ok(mut cache) = serde_json::from_str::<QuotaCacheFile>(&data) {
+    if let Ok(data) = std::fs::read_to_string(&path)
+        && let Ok(mut cache) = serde_json::from_str::<QuotaCacheFile>(&data) {
             if cache.slots.len() < 5 {
                 cache.slots.resize(5, None);
             }
             return cache;
         }
-    }
     let mut cache = QuotaCacheFile::default();
     cache.slots.resize(5, None);
     cache
@@ -148,7 +147,7 @@ pub fn compute_window_offline(window: &QuotaWindow, period_secs: i64) -> QuotaWi
         let mut next_target = target;
         let step = chrono::Duration::seconds(period_secs);
         while next_target <= now {
-            next_target = next_target + step;
+            next_target += step;
         }
         let next_diff = next_target.signed_duration_since(now);
         let total_minutes = next_diff.num_minutes();
@@ -208,17 +207,16 @@ pub fn compute_offline_state(
     let default_avatar = base_dir.join("data").join("avatars").join(format!("{}.png", tag));
 
     if !state.is_available {
-        if let Some(tp) = token_path {
-            if let Some(prof) = extract_offline_profile(tp) {
+        if let Some(tp) = token_path
+            && let Some(prof) = extract_offline_profile(tp) {
                 state.is_available = true;
                 state.profile = prof;
                 if default_avatar.exists() {
                     state.profile.avatar_path = Some(default_avatar.clone());
                 }
             }
-        }
-        if !state.is_available && tag == "host" {
-            if let Some(prof) = extract_host_offline_profile(&base_dir) {
+        if !state.is_available && tag == "host"
+            && let Some(prof) = extract_host_offline_profile(&base_dir) {
                 state.is_available = true;
                 state.profile = prof;
                 if state.weekly.pct_text.is_empty() || state.weekly.pct_text == "--" {
@@ -230,7 +228,6 @@ pub fn compute_offline_state(
                     state.five_h.pct_text = "100%".to_string();
                 }
             }
-        }
     }
 
     if !state.is_available {
@@ -345,23 +342,20 @@ Connection: close\r\n\
             Ok(0) => break,
             Ok(n) => {
                 resp.extend_from_slice(&chunk[..n]);
-                if header_len.is_none() {
-                    if let Some(pos) = resp.windows(4).position(|w| w == b"\r\n\r\n") {
+                if header_len.is_none()
+                    && let Some(pos) = resp.windows(4).position(|w| w == b"\r\n\r\n") {
                         let h_len = pos + 4;
                         header_len = Some(h_len);
                         if let Ok(header_str) = std::str::from_utf8(&resp[..pos]) {
                             for line in header_str.lines() {
-                                if let Some((k, v)) = line.split_once(':') {
-                                    if k.trim().eq_ignore_ascii_case("content-length") {
-                                        if let Ok(cl) = v.trim().parse::<usize>() {
+                                if let Some((k, v)) = line.split_once(':')
+                                    && k.trim().eq_ignore_ascii_case("content-length")
+                                        && let Ok(cl) = v.trim().parse::<usize>() {
                                             content_length = Some(cl);
                                         }
-                                    }
-                                }
                             }
                         }
                     }
-                }
 
                 if let (Some(hlen), Some(clen)) = (header_len, content_length) {
                     if resp.len() >= hlen + clen {
@@ -369,15 +363,12 @@ Connection: close\r\n\
                     }
                 } else if let Some(hlen) = header_len {
                     let body = &resp[hlen..];
-                    if let Some(start) = body.iter().position(|&b| b == b'{') {
-                        if let Some(end) = body.iter().rposition(|&b| b == b'}') {
-                            if end >= start {
-                                if serde_json::from_slice::<serde_json::Value>(&body[start..=end]).is_ok() {
+                    if let Some(start) = body.iter().position(|&b| b == b'{')
+                        && let Some(end) = body.iter().rposition(|&b| b == b'}')
+                            && end >= start
+                                && serde_json::from_slice::<serde_json::Value>(&body[start..=end]).is_ok() {
                                     break;
                                 }
-                            }
-                        }
-                    }
                 }
             }
             Err(_) => break,
@@ -455,9 +446,9 @@ pub fn fetch_instance_quota(port: u16, csrf: &str, tag: &str) -> InstanceQuotaSt
     let mut valid_port = None;
 
     for &p in &candidate_ports {
-        if let Some(user_json) = rpc_post(p, "GetUserStatus", csrf) {
-            if let Ok(user_resp) = serde_json::from_str::<UserStatusResponse>(&user_json) {
-                if let Some(u) = user_resp.user_status {
+        if let Some(user_json) = rpc_post(p, "GetUserStatus", csrf)
+            && let Ok(user_resp) = serde_json::from_str::<UserStatusResponse>(&user_json)
+                && let Some(u) = user_resp.user_status {
                     state.is_available = true;
                     state.profile.name = u.name.unwrap_or_else(|| "Antigravity User".to_string());
                     state.profile.email = u.email.unwrap_or_default();
@@ -466,23 +457,20 @@ pub fn fetch_instance_quota(port: u16, csrf: &str, tag: &str) -> InstanceQuotaSt
                         .and_then(|i| i.plan_name)
                         .unwrap_or_else(|| "Pro".to_string());
 
-                    if let Some(pic_url) = u.profile_picture_url {
-                        if pic_url.contains("data:image/") {
+                    if let Some(pic_url) = u.profile_picture_url
+                        && pic_url.contains("data:image/") {
                             state.profile.avatar_path = save_avatar_file(&pic_url, tag);
                         }
-                    }
                     valid_port = Some(p);
                     break;
                 }
-            }
-        }
     }
 
     let active_port = valid_port.unwrap_or(port);
-    if let Some(quota_json) = rpc_post(active_port, "RetrieveUserQuotaSummary", csrf) {
-        if let Ok(quota_resp) = serde_json::from_str::<QuotaSummaryResponse>(&quota_json) {
-            if let Some(inner) = quota_resp.response {
-                if let Some(groups) = inner.groups {
+    if let Some(quota_json) = rpc_post(active_port, "RetrieveUserQuotaSummary", csrf)
+        && let Ok(quota_resp) = serde_json::from_str::<QuotaSummaryResponse>(&quota_json)
+            && let Some(inner) = quota_resp.response
+                && let Some(groups) = inner.groups {
                     for group in groups {
                         let is_gemini = group.display_name.as_deref().unwrap_or("").to_lowercase().contains("gemini");
                         if is_gemini {
@@ -520,9 +508,6 @@ pub fn fetch_instance_quota(port: u16, csrf: &str, tag: &str) -> InstanceQuotaSt
                         }
                     }
                 }
-            }
-        }
-    }
 
     state
 }
@@ -575,155 +560,6 @@ pub fn render_quota_ring(pct: f32, is_dark: bool) -> slint::Image {
     });
 
     image
-}
-
-fn resolve_language_server_bin() -> Option<PathBuf> {
-    if let Some(app_dir) = crate::launcher::LauncherConfig::detect_app_dir() {
-        let p = app_dir
-            .join("resources")
-            .join("bin")
-            .join("language_server.exe");
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
-        let p = PathBuf::from(local_appdata)
-            .join("Programs")
-            .join("antigravity")
-            .join("resources")
-            .join("bin")
-            .join("language_server.exe");
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    if let Some(user_dir) = crate::launcher::LauncherConfig::resolve_host_user_dir() {
-        let p = user_dir
-            .join("AppData")
-            .join("Local")
-            .join("Programs")
-            .join("antigravity")
-            .join("resources")
-            .join("bin")
-            .join("language_server.exe");
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    None
-}
-
-pub fn fetch_offline_quota_headless(slot: usize) -> Option<InstanceQuotaState> {
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
-
-    let bin = resolve_language_server_bin()?;
-    let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
-
-    let (home_dir, roaming_dir) = if slot == 0 {
-        if !crate::launcher::LauncherConfig::is_host_token_present() {
-            return None;
-        }
-        let user_dir = crate::launcher::LauncherConfig::resolve_host_user_dir()?;
-        let roaming = std::env::var("APPDATA").map(PathBuf::from).unwrap_or_else(|_| user_dir.join("AppData").join("Roaming"));
-        (user_dir, roaming)
-    } else {
-        let launcher = crate::launcher::LauncherConfig::for_slot(slot).ok()?;
-        if !launcher.is_token_present() {
-            return None;
-        }
-        (launcher.home_dir, launcher.roaming_dir)
-    };
-
-    let now_nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let csrf = format!("{:016x}{:016x}", now_nanos, std::process::id());
-
-    let mut cmd = Command::new(&bin);
-    cmd.args([
-        "--standalone",
-        "--override_ide_name", "antigravity",
-        "--subclient_type", "hub",
-        "--override_ide_version", "2.22.0",
-        "--override_user_agent_name", "antigravity",
-        "--https_server_port", "0",
-        "--csrf_token", &csrf,
-        "--app_data_dir", "antigravity",
-        "--api_server_url", "https://generativelanguage.googleapis.com",
-        "--cloud_code_endpoint", "https://daily-cloudcode-pa.googleapis.com",
-    ]);
-
-    cmd.env("USERPROFILE", &home_dir);
-    cmd.env("HOME", &home_dir);
-    cmd.env("APPDATA", &roaming_dir);
-    if let Ok(real_local) = std::env::var("LOCALAPPDATA") {
-        cmd.env("LOCALAPPDATA", real_local);
-    }
-
-    if crate::proxy::ProxyManager::is_port_online(crate::proxy::DEFAULT_PROXY_PORT) {
-        let proxy_url = format!("http://127.0.0.1:{}", crate::proxy::DEFAULT_PROXY_PORT);
-        cmd.env("HTTP_PROXY", &proxy_url);
-        cmd.env("HTTPS_PROXY", &proxy_url);
-    }
-
-    cmd.creation_flags(0x08000000);
-
-    let mut child = cmd.spawn().ok()?;
-    let child_pid = child.id();
-
-    let mut detected_port = None;
-    for _ in 0..25 {
-        std::thread::sleep(Duration::from_millis(100));
-        let output = Command::new("netstat")
-            .args(["-ano", "-p", "tcp"])
-            .creation_flags(0x08000000)
-            .output();
-        if let Ok(out) = output {
-            let text = String::from_utf8_lossy(&out.stdout);
-            let target_pid = child_pid.to_string();
-            let mut ports = Vec::new();
-            for line in text.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 5 && parts[0].eq_ignore_ascii_case("tcp") && parts.iter().any(|p| p.eq_ignore_ascii_case("listening")) && parts[parts.len() - 1] == target_pid {
-                    if let Some(port) = parts[1].rfind(':').and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok()) {
-                        ports.push(port);
-                    }
-                }
-            }
-            if !ports.is_empty() {
-                ports.sort_unstable();
-                detected_port = ports.last().copied();
-                if detected_port.is_some() {
-                    break;
-                }
-            }
-        }
-    }
-
-    let quota_state = if let Some(port) = detected_port {
-        let st = fetch_instance_quota(port, &csrf, &tag);
-        if st.is_available {
-            Some(st)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    let _ = child.kill();
-    let _ = child.wait();
-
-    if let Some(ref st) = quota_state {
-        let mut cache = load_quota_cache();
-        cache.set_slot(slot, st.clone());
-        save_quota_cache(&cache);
-    }
-
-    quota_state
 }
 
 #[cfg(test)]
@@ -810,5 +646,36 @@ mod tests {
 
         let img_overflow = render_quota_ring(2.5, false);
         assert!(img_overflow.size().width > 0);
+    }
+
+    #[test]
+    fn test_compute_window_offline() {
+        let empty = QuotaWindow::default();
+        let computed_empty = compute_window_offline(&empty, 3600);
+        assert_eq!(computed_empty.reset_text, "");
+
+        let future = (chrono::Utc::now() + chrono::Duration::hours(2)).to_rfc3339();
+        let win_future = QuotaWindow {
+            remaining_pct: 0.75,
+            pct_text: "75%".to_string(),
+            reset_text: String::new(),
+            reset_time_rfc3339: future,
+        };
+        let computed_future = compute_window_offline(&win_future, 5 * 3600);
+        assert_eq!(computed_future.remaining_pct, 0.75);
+        assert_eq!(computed_future.pct_text, "75%");
+        assert!(computed_future.reset_text.contains("小时"));
+
+        let past = (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
+        let win_past = QuotaWindow {
+            remaining_pct: 0.1,
+            pct_text: "10%".to_string(),
+            reset_text: String::new(),
+            reset_time_rfc3339: past,
+        };
+        let computed_past = compute_window_offline(&win_past, 5 * 3600);
+        assert_eq!(computed_past.remaining_pct, 1.0);
+        assert_eq!(computed_past.pct_text, "100%");
+        assert!(computed_past.reset_text.contains("小时") || computed_past.reset_text.contains("分钟"));
     }
 }
