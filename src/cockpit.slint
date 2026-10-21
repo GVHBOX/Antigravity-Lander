@@ -268,6 +268,8 @@ export component MainWindow inherits Window {
     in property <string> host_uptime_text: "--";
     callback action_stop_host();
     callback preview_sound();
+    in property <bool> sound_on: true;
+    callback toggle_sound();
 
     in property <float> mem_host_pct: 0.08;
     in property <float> mem_subs_pct: 0.12;
@@ -768,16 +770,9 @@ export component MainWindow inherits Window {
             StatusToolbar {
                 horizontal-stretch: 1;
                 is_dark: root.is_dark;
-                toast_text: root.toast_message;
-                uptime_text: root.host_uptime_text;
-                summary_text: root.global_summary_text;
-                proxy_text: root.proxy_badge_text;
-                widget_mode_text: root.widget_mode_text;
-                launch_all => { root.action_launch_all(); }
-                stop_all => { root.action_stop_all(); }
-                refresh_telemetry => { root.action_refresh_telemetry(); }
-                toggle_widget_mode => { root.toggle_widget_mode(); }
+                sound_on: root.sound_on;
                 preview_sound => { root.preview_sound(); }
+                toggle_sound => { root.toggle_sound(); }
             }
         }
     }

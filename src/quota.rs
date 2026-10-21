@@ -311,6 +311,10 @@ struct QuotaResponseInner {
 }
 
 fn rpc_post(port: u16, method: &str, csrf: &str) -> Option<String> {
+    rpc_post_json(port, method, csrf, "{}")
+}
+
+pub fn rpc_post_json(port: u16, method: &str, csrf: &str, body: &str) -> Option<String> {
     let mut stream = TcpStream::connect_timeout(
         &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
         Duration::from_millis(1500),
@@ -324,11 +328,11 @@ Host: 127.0.0.1:{}\r\n\
 Content-Type: application/json\r\n\
 Connect-Protocol-Version: 1\r\n\
 x-codeium-csrf-token: {}\r\n\
-Content-Length: 2\r\n\
+Content-Length: {}\r\n\
 Connection: close\r\n\
 \r\n\
-{{}}",
-        method, port, csrf
+{}",
+        method, port, csrf, body.len(), body
     );
 
     stream.write_all(req.as_bytes()).ok()?;

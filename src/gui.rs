@@ -970,19 +970,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         main_window.set_sub4_scale_text(format!("{}%", scales.get_sub_scale(4)).into());
     }
 
-    let (initial_mode_text, initial_mode_key) = {
+    let (initial_mode_text, initial_mode_key, initial_sound_on) = {
         let cfg = widget_config.lock().unwrap();
-        if !cfg.enabled {
+        let (text, key) = if !cfg.enabled {
             ("悬浮球: 关闭", "hidden")
         } else {
             match cfg.mode {
                 crate::widget_state::WidgetMode::Smart => ("悬浮球: 智能", "smart"),
                 crate::widget_state::WidgetMode::Always => ("悬浮球: 常驻", "always"),
             }
-        }
+        };
+        (text, key, cfg.sound_on_done)
     };
     main_window.set_widget_mode_text(initial_mode_text.into());
     main_window.set_widget_mode(initial_mode_key.into());
+    main_window.set_sound_on(initial_sound_on);
 
     const ICON_RGBA: &[u8] = include_bytes!("../assets/icon_32.rgba");
     let tray_menu = tray_icon::menu::Menu::new();
@@ -1170,6 +1172,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         } else {
                             "完成音效已关闭"
                         };
+                        ui.set_sound_on(is_on);
                         ui.set_toast_message(msg.into());
                     }
                 });
@@ -1241,6 +1244,26 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             None => "完成音效: 内置提示音".to_string(),
         };
         if let Some(ui) = main_weak_preview.upgrade() {
+            ui.set_toast_message(msg.into());
+        }
+    });
+
+    let widget_cfg_sound = Arc::clone(&widget_config);
+    let main_weak_sound = main_window.as_weak();
+    main_window.on_toggle_sound(move || {
+        let is_on = {
+            let mut cfg = widget_cfg_sound.lock().unwrap();
+            cfg.sound_on_done = !cfg.sound_on_done;
+            let _ = cfg.save();
+            cfg.sound_on_done
+        };
+        if let Some(ui) = main_weak_sound.upgrade() {
+            ui.set_sound_on(is_on);
+            let msg = if is_on {
+                "完成音效已开启"
+            } else {
+                "完成音效已关闭"
+            };
             ui.set_toast_message(msg.into());
         }
     });
@@ -2232,14 +2255,22 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             if s.is_running {
                 if s.round_tps > 0.0 {
                     ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                    if s.ttft_secs > 0.0 {
+                        ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s (首字 {:.1}s)", s.round_duration_secs, s.ttft_secs).into());
+                    } else {
+                        ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                    }
                 } else {
                     ui.set_live_session_speed_text("--".into());
                     ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
                 }
             } else {
                 ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                if s.ttft_secs > 0.0 {
+                    ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s (首字 {:.1}s) · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
+                } else {
+                    ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                }
             }
         } else {
             ui.set_live_session_speed_text("0.0".into());
@@ -2972,7 +3003,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
 
                 let target_sessions = &store[effective_slot];
-                let active = target_sessions
+                let mut active = target_sessions
                     .groups
                     .iter()
                     .flat_map(|g| g.sessions.iter())
@@ -2984,6 +3015,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             .and_then(|g| g.sessions.first())
                     })
                     .cloned();
+
+                if let Some(ref mut s) = active {
+                    let ls_info = {
+                        if effective_slot == 0 {
+                            mon.host.ls_port.zip(mon.host.ls_csrf.as_deref())
+                        } else if (1..=4).contains(&effective_slot) {
+                            mon.subs[(effective_slot - 1) as usize].ls_port.zip(mon.subs[(effective_slot - 1) as usize].ls_csrf.as_deref())
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some((port, csrf)) = ls_info {
+                        crate::session::enrich_session_with_rpc(s, port, csrf);
+                    }
+                }
 
                 *active_live_timer.lock().unwrap() = active.clone();
                 let is_hovering = hover_bar_timer.lock().unwrap().is_some();
@@ -2998,14 +3044,22 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         if s.is_running {
                             if s.round_tps > 0.0 {
                                 ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                                ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                                if s.ttft_secs > 0.0 {
+                                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s (首字 {:.1}s)", s.round_duration_secs, s.ttft_secs).into());
+                                } else {
+                                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                                }
                             } else {
                                 ui.set_live_session_speed_text("--".into());
                                 ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
                             }
                         } else {
                             ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
-                            ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                            if s.ttft_secs > 0.0 {
+                                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s (首字 {:.1}s) · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
+                            } else {
+                                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                            }
                         }
                         ui.set_live_is_hovering_bar(false);
                         ui.set_live_hover_tag("".into());
@@ -3045,7 +3099,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     };
                     ui.set_live_avg_line_pct(avg_pct);
 
-                    let max_tokens = 262_144u64;
+                    let max_tokens = 256_000u64;
                     let prompt_tokens = s.input_tokens;
                     let cache_tokens = s.cache_read_tokens;
                     let output_tokens = s.output_tokens;
@@ -3230,9 +3284,16 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         "--"
                     };
 
-                    let active_session = store[active_slot].groups.iter().flat_map(|g| &g.sessions).find(|s| s.is_running).or_else(|| {
-                        store[active_slot].groups.iter().flat_map(|g| &g.sessions).next()
-                    });
+                    let active_session = {
+                        let live = active_live_timer.lock().unwrap().clone();
+                        if live.is_some() {
+                            live
+                        } else {
+                            store[active_slot].groups.iter().flat_map(|g| &g.sessions).find(|s| s.is_running).or_else(|| {
+                                store[active_slot].groups.iter().flat_map(|g| &g.sessions).next()
+                            }).cloned()
+                        }
+                    };
 
                     w.set_is_running(any_running);
                     w.set_slot_badge(badge.into());
@@ -3242,7 +3303,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     w.set_is_finished(is_finished_active);
                     w.set_finished_text(finished_msg.into());
 
-                    if let Some(s) = active_session {
+                    if let Some(ref s) = active_session {
                         w.set_project_name(s.project_name.as_str().into());
                         w.set_tps_text(format!("{:.1}", s.round_tps).into());
                         w.set_tokens_text(format_tokens(s.output_tokens).into());

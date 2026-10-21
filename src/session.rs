@@ -79,6 +79,7 @@ pub struct SessionItem {
     pub time_ago_str: String,
     pub step_count: u32,
     pub round_duration_secs: f32,
+    pub ttft_secs: f32,
     pub round_tps: f32,
     pub peak_tps: f32,
     pub avg_tps: f32,
@@ -117,6 +118,8 @@ struct HeaderStep {
 struct TailStep {
     #[serde(default)]
     step_index: Option<u64>,
+    #[serde(rename = "type", default)]
+    step_type: Option<String>,
     #[serde(default)]
     status: Option<String>,
     #[serde(default)]
@@ -138,6 +141,7 @@ struct TailMetrics {
     cache_rate: f32,
     is_running: bool,
     round_duration_secs: f32,
+    ttft_secs: f32,
     round_tps: f32,
     peak_tps: f32,
     avg_tps: f32,
@@ -263,10 +267,134 @@ fn parse_title_from_log(path: &Path) -> Option<String> {
     None
 }
 
-fn parse_rfc3339_secs(s: &str) -> Option<i64> {
+fn parse_rfc3339_millis(s: &str) -> Option<i64> {
     chrono::DateTime::parse_from_rfc3339(s)
         .ok()
-        .map(|dt| dt.timestamp())
+        .map(|dt| dt.timestamp_millis())
+}
+
+#[derive(Deserialize, Default)]
+struct GeneratorMetadataResponse {
+    #[serde(rename = "generatorMetadata", default)]
+    generator_metadata: Vec<GeneratorMetadataEntry>,
+}
+
+#[derive(Deserialize, Default)]
+struct GeneratorMetadataEntry {
+    #[serde(rename = "stepIndices", default)]
+    step_indices: Vec<u32>,
+    #[serde(rename = "chatModel")]
+    chat_model: Option<GeneratorChatModel>,
+}
+
+#[derive(Deserialize, Default)]
+struct GeneratorChatModel {
+    #[serde(rename = "streamingDuration")]
+    streaming_duration: Option<String>,
+    #[serde(rename = "timeToFirstToken")]
+    time_to_first_token: Option<String>,
+    usage: Option<GeneratorUsage>,
+}
+
+#[derive(Deserialize, Default)]
+struct GeneratorUsage {
+    #[serde(rename = "outputTokens")]
+    output_tokens: Option<String>,
+    #[serde(rename = "responseOutputTokens")]
+    response_output_tokens: Option<String>,
+}
+
+fn parse_seconds_suffix(s: &str) -> Option<f32> {
+    s.trim_end_matches('s').parse::<f32>().ok()
+}
+
+pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
+    let body = format!(
+        "{{\"cascadeId\":\"{}\",\"generatorMetadataOffset\":0,\"includeMessages\":false}}",
+        s.id
+    );
+    let resp_text = match crate::quota::rpc_post_json(port, "GetCascadeTrajectoryGeneratorMetadata", csrf, &body) {
+        Some(t) => t,
+        None => return,
+    };
+    let parsed: GeneratorMetadataResponse = match serde_json::from_str(&resp_text) {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    if parsed.generator_metadata.is_empty() {
+        return;
+    }
+
+    let mut samples = Vec::new();
+    for entry in &parsed.generator_metadata {
+        let chat = match entry.chat_model.as_ref() {
+            Some(c) => c,
+            None => continue,
+        };
+        let usage = match chat.usage.as_ref() {
+            Some(u) => u,
+            None => continue,
+        };
+        let dur = match chat.streaming_duration.as_deref().and_then(parse_seconds_suffix) {
+            Some(d) if d >= 0.2 && d <= 120.0 => d,
+            _ => continue,
+        };
+        let ttft = chat.time_to_first_token.as_deref().and_then(parse_seconds_suffix).unwrap_or(0.0);
+        let resp_tokens = usage.response_output_tokens.as_deref()
+            .and_then(|t| t.parse::<u64>().ok())
+            .unwrap_or(0);
+        let total_out = usage.output_tokens.as_deref()
+            .and_then(|t| t.parse::<u64>().ok())
+            .unwrap_or(0);
+        let effective_tokens = if resp_tokens > 0 { resp_tokens } else { total_out };
+        if effective_tokens == 0 {
+            continue;
+        }
+        let tps = effective_tokens as f32 / dur;
+        if tps > 500.0 {
+            continue;
+        }
+        let idx = entry.step_indices.last().copied().unwrap_or(0);
+        samples.push((tps, effective_tokens, dur, ttft, idx));
+    }
+
+    if samples.is_empty() {
+        return;
+    }
+
+    let last_sample = samples[samples.len() - 1];
+    s.round_tps = last_sample.0;
+    s.round_duration_secs = last_sample.2;
+    s.ttft_secs = last_sample.3;
+
+    let take_n = samples.len().min(16);
+    let start_idx = 16 - take_n;
+    s.recent_tps = [0.0; 16];
+    s.recent_turn_tokens = [0; 16];
+    s.recent_turn_durations = [0.0; 16];
+    s.recent_turn_indices = [0; 16];
+
+    for (i, &(tps, tokens, dur, _, idx)) in samples.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
+        s.recent_tps[start_idx + i] = tps;
+        s.recent_turn_tokens[start_idx + i] = tokens;
+        s.recent_turn_durations[start_idx + i] = dur;
+        s.recent_turn_indices[start_idx + i] = idx;
+    }
+
+    let mut peak: f32 = 0.0;
+    let mut sum: f32 = 0.0;
+    let mut count: usize = 0;
+    for &val in &s.recent_tps {
+        if val > 0.0 {
+            if val > peak {
+                peak = val;
+            }
+            sum += val;
+            count += 1;
+        }
+    }
+    s.peak_tps = peak;
+    s.avg_tps = if count > 0 { sum / count as f32 } else { 0.0 };
 }
 
 fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
@@ -358,34 +486,40 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         .map(|idx| (idx + 1) as u32)
         .unwrap_or(0);
 
-    let mut steps_with_out = Vec::new();
-    for step in &lines {
-        if let (Some(out), Some(ca)) = (step.output_tokens, &step.created_at)
-            && out > 0
-                && let Some(sec) = parse_rfc3339_secs(ca) {
-                    let idx = step.step_index.map(|i| (i + 1) as u32).unwrap_or(0);
-                    steps_with_out.push((sec, out, idx));
-                }
-    }
-
     let mut tps_tuples = Vec::new();
     let mut last_dur = 0.0f32;
-    if steps_with_out.len() >= 2 {
-        for w in steps_with_out.windows(2) {
-            let t0 = w[0].0;
-            let t1 = w[1].0;
-            let out = w[1].1;
-            let idx = w[1].2;
-            let dur = (t1 - t0).clamp(1, 60) as f32;
-            let tps = out as f32 / dur;
-            tps_tuples.push((tps, out, dur, idx));
-            last_dur = dur;
+
+    for i in 0..lines.len() {
+        let cur = &lines[i];
+        let out = cur.output_tokens.unwrap_or(0);
+        let ca_cur = match cur.created_at.as_deref().and_then(parse_rfc3339_millis) {
+            Some(t) => t,
+            None => continue,
+        };
+        if out == 0 {
+            continue;
         }
-    } else if let Some(&(_, out, idx)) = steps_with_out.first() {
-        let dur = 2.0f32;
-        let tps = out as f32 / dur;
-        tps_tuples.push((tps, out, dur, idx));
-        last_dur = dur;
+        let idx = cur.step_index.map(|i| (i + 1) as u32).unwrap_or(0);
+        let mut dur_opt = None;
+        if i + 1 < lines.len() {
+            let nxt = &lines[i + 1];
+            let is_user_input = nxt.step_type.as_deref().map(|t| t == "USER_INPUT").unwrap_or(false);
+            if !is_user_input
+                && let Some(ca_nxt) = nxt.created_at.as_deref().and_then(parse_rfc3339_millis)
+                    && ca_nxt >= ca_cur {
+                        let delta_ms = ca_nxt - ca_cur;
+                        if (500..=120_000).contains(&delta_ms) {
+                            dur_opt = Some(delta_ms as f32 / 1000.0);
+                        }
+                    }
+        }
+        if let Some(dur) = dur_opt {
+            let tps = out as f32 / dur;
+            if tps <= 500.0 {
+                tps_tuples.push((tps, out, dur, idx));
+                last_dur = dur;
+            }
+        }
     }
 
     let round_tps = tps_tuples.last().map(|t| t.0).unwrap_or(0.0);
@@ -429,6 +563,7 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
         cache_rate,
         is_running,
         round_duration_secs: last_dur,
+        ttft_secs: 0.0,
         round_tps,
         peak_tps,
         avg_tps,
@@ -669,6 +804,7 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             time_ago_str,
             step_count,
             round_duration_secs: tail.round_duration_secs,
+            ttft_secs: tail.ttft_secs,
             round_tps: tail.round_tps,
             peak_tps: tail.peak_tps,
             avg_tps: tail.avg_tps,
