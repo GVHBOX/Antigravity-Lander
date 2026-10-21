@@ -21,6 +21,9 @@ base64 = "0.22.1"
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_Media_Multimedia", "Win32_UI_Controls_Dialogs", "Win32_System_Com"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 
+[profile.dev]
+debug = false
+
 [profile.release]
 strip = true
 lto = "thin"
