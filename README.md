@@ -35,7 +35,7 @@
 
 ### 方式一：直接下载运行（推荐）
 
-前往 [GitHub Releases](https://github.com/GVHBOX/Antigravity-Lander/releases) 下载最新版本的 `Antigravity-Lander-v1.0.2-windows-x64.zip` 或 `Antigravity-Lander.exe`，解压后双击即可运行。
+前往 [GitHub Releases](https://github.com/GVHBOX/Antigravity-Lander/releases) 下载最新版本的 `Antigravity-Lander-v1.0.3-windows-x64.zip` 或 `Antigravity-Lander.exe`，解压后双击即可运行。
 
 > 运行环境要求：Windows 10 / 11 64位系统。运行前确认已安装官方 Google Antigravity 客户端（默认路径为 `AppData\Local\Programs\antigravity`）。
 

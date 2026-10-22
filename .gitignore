@@ -20,3 +20,6 @@ node_modules/
 Thumbs.db
 desktop.ini
 *.log
+
+# 发布压缩包
+*.zip
