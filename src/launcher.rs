@@ -375,6 +375,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
 
         let sandbox_config = self.home_dir.join(".gemini").join("config");
         let _ = fs::create_dir_all(&sandbox_config);
+        localize_config_dirs(&sandbox_config);
 
         if let Some(host_user) = Self::resolve_host_user_dir() {
             let host_locallow = host_user.join("AppData").join("LocalLow");
@@ -402,13 +403,6 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             let host_ms_local = host_user.join("AppData").join("Local").join("Microsoft");
             ensure_junction(&self.home_dir.join("AppData").join("Local").join("Microsoft"), &host_ms_local);
 
-            let shared_dirs = ["skills", "rules", "plugins", "sidecars"];
-            for dir_name in shared_dirs {
-                let host_dir = host_user.join(".gemini").join("config").join(dir_name);
-                let sub_dir = sandbox_config.join(dir_name);
-                ensure_junction(&sub_dir, &host_dir);
-            }
-
             let host_mcp = host_user.join(".gemini").join("config").join("mcp_config.json");
             let sub_mcp = sandbox_config.join("mcp_config.json");
             if host_mcp.exists() {
@@ -426,16 +420,30 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(())
     }
 
-    pub fn is_token_present(&self) -> bool {
-        self.token_path.exists()
-    }
-
     pub fn host_token_path() -> Option<PathBuf> {
         Self::resolve_host_user_dir().map(|h| h.join(".gemini").join("jetski-standalone-oauth-token"))
     }
 
     pub fn is_host_token_present() -> bool {
         Self::host_token_path().map(|p| p.exists()).unwrap_or(false)
+    }
+
+    pub fn slot_sandbox_root(slot: usize) -> Option<PathBuf> {
+        Self::resolve_base_dir()
+            .ok()
+            .map(|base| base.join("data").join(format!("instance_{}", slot)))
+    }
+
+    pub fn slot_home_dir(slot: usize) -> Option<PathBuf> {
+        Self::slot_sandbox_root(slot).map(|root| root.join("home"))
+    }
+
+    pub fn slot_token_path(slot: usize) -> Option<PathBuf> {
+        Self::slot_home_dir(slot).map(|home| home.join(".gemini").join("jetski-standalone-oauth-token"))
+    }
+
+    pub fn is_slot_token_present(slot: usize) -> bool {
+        Self::slot_token_path(slot).map(|p| p.exists()).unwrap_or(false)
     }
 
     pub fn clear_host_token() -> Result<bool> {
@@ -565,55 +573,6 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         let _ = self.kill_slot_processes();
         res
     }
-
-    pub fn kill_managed_instances(known_pids: &[u32]) -> Result<usize> {
-        let mut sys = sysinfo::System::new();
-        let refresh_kind = sysinfo::ProcessRefreshKind::nothing()
-            .with_cmd(sysinfo::UpdateKind::OnlyIfNotSet);
-        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
-
-        let self_pid = std::process::id();
-        let mut targets: Vec<u32> = Vec::new();
-
-        for (pid, proc) in sys.processes() {
-            let pid_u32 = pid.as_u32();
-            if pid_u32 == self_pid {
-                continue;
-            }
-            let name = proc.name().to_string_lossy().to_lowercase();
-            let is_proc = (name == "antigravity.exe" || name == "antigravity" || name == "language_server.exe" || name == "language_server")
-                && !name.contains("lander")
-                && !name.contains("cockpit");
-            if !is_proc {
-                continue;
-            }
-            let cmd_line = proc
-                .cmd()
-                .iter()
-                .map(|s| s.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" ");
-            if (0..4).any(|slot| crate::monitor::matches_instance_slot(&cmd_line, slot)) {
-                targets.push(pid_u32);
-            }
-        }
-
-        for pid in known_pids {
-            if *pid != 0 && !targets.contains(pid) {
-                targets.push(*pid);
-            }
-        }
-
-        let mut killed = 0usize;
-        for pid in targets {
-            if run_taskkill_pid(pid).is_ok() {
-                killed += 1;
-            }
-        }
-
-        Ok(killed)
-    }
-
 
     pub fn kill_all_antigravity() -> Result<()> {
         let _ = Command::new("taskkill")
@@ -1070,6 +1029,63 @@ fn ensure_junction(link: &std::path::Path, target: &std::path::Path) {
         .args(["/c", "mklink", "/J", &link.to_string_lossy(), &target.to_string_lossy()])
         .creation_flags(WIN32_DETACHED_FLAGS)
         .output();
+}
+
+fn localize_config_dirs(sandbox_config: &std::path::Path) {
+    use std::os::windows::fs::MetadataExt;
+    for dir_name in ["skills", "rules", "plugins", "sidecars"] {
+        let sub_dir = sandbox_config.join(dir_name);
+        let is_junction = sub_dir
+            .symlink_metadata()
+            .map(|m| m.file_attributes() & 0x400 != 0)
+            .unwrap_or(false);
+        if !is_junction {
+            if !sub_dir.exists() {
+                let _ = fs::create_dir_all(&sub_dir);
+            }
+            continue;
+        }
+        let staging = sandbox_config.join(format!("{dir_name}.stage"));
+        let _ = fs::remove_dir_all(&staging);
+        if let Ok(target) = fs::read_link(&sub_dir)
+            && target.exists()
+            && copy_dir_all(&target, &staging).is_err()
+        {
+            let _ = fs::remove_dir_all(&staging);
+            continue;
+        }
+        if remove_junction(&sub_dir).is_err() {
+            let _ = fs::remove_dir_all(&staging);
+            continue;
+        }
+        if fs::rename(&staging, &sub_dir).is_err() {
+            let _ = fs::create_dir_all(&sub_dir);
+            let _ = fs::remove_dir_all(&staging);
+        }
+    }
+}
+
+fn remove_junction(link: &std::path::Path) -> Result<()> {
+    fs::remove_dir(link).with_context(|| format!("remove junction: {}", link.display()))
+}
+
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        let child = entry.path();
+        let target = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_all(&child, &target)?;
+        } else {
+            fs::copy(&child, &target)?;
+        }
+    }
+    Ok(())
 }
 
 const LOCALIZED_MARKERS: [&str; 3] = [

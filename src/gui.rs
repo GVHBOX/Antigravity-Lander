@@ -1602,150 +1602,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    let is_launching_all = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    main_window.on_action_launch_all({
-        let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
-        let sub_pids = Arc::clone(&sub_pids);
-        let is_launching = Arc::clone(&is_launching_all);
-        move || {
-            if is_launching.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
-                return;
-            }
-            let ui_weak_thread = ui_weak.clone();
-            let mon_arc = Arc::clone(&mon_arc);
-            let sub_pids = Arc::clone(&sub_pids);
-            let is_launching_thread = Arc::clone(&is_launching);
-
-            std::thread::spawn(move || {
-                let mut started = 0;
-                let is_host_running = mon_arc.lock().unwrap().host.is_running;
-                if !is_host_running
-                    && LauncherConfig::spawn_host_native().is_ok() {
-                        started += 1;
-                    }
-                for slot in 1..=4 {
-                    let idx = slot - 1;
-                    let is_sub_running = {
-                        let mon = mon_arc.lock().unwrap();
-                        let pids = sub_pids.lock().unwrap();
-                        mon.subs[idx].is_running || pids[idx].is_some()
-                    };
-                    if !is_sub_running
-                        && let Ok(conf) = LauncherConfig::for_slot(slot)
-                            && let Ok(new_pid) = conf.spawn_detached() {
-                                let mut pids = sub_pids.lock().unwrap();
-                                pids[idx] = Some(new_pid);
-                                started += 1;
-                            }
-                }
-                is_launching_thread.store(false, std::sync::atomic::Ordering::SeqCst);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak_thread.upgrade() {
-                        ui.set_toast_message(format!("已启动 {} 个实例", started).into());
-                    }
-                });
-            });
-        }
-    });
-
-    let is_stopping_all = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    main_window.on_action_stop_all({
-        let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
-        let sub_pids = Arc::clone(&sub_pids);
-        let is_stopping = Arc::clone(&is_stopping_all);
-        move || {
-            if is_stopping.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
-                return;
-            }
-            let ui_weak_thread = ui_weak.clone();
-            let mon_arc = Arc::clone(&mon_arc);
-            let sub_pids = Arc::clone(&sub_pids);
-            let is_stopping_thread = Arc::clone(&is_stopping);
-
-            std::thread::spawn(move || {
-                let known_pids = {
-                    let mut collected: Vec<u32> = Vec::new();
-                    let mon = mon_arc.lock().unwrap();
-                    if let Some(pid) = mon.host.electron_pid {
-                        collected.push(pid);
-                    }
-                    if let Some(pid) = mon.host.ls_pid {
-                        collected.push(pid);
-                    }
-                    for s in mon.subs.iter() {
-                        if let Some(pid) = s.electron_pid {
-                            collected.push(pid);
-                        }
-                        if let Some(pid) = s.ls_pid {
-                            collected.push(pid);
-                        }
-                    }
-                    drop(mon);
-                    let pids = sub_pids.lock().unwrap();
-                    for p in pids.iter().flatten() {
-                        collected.push(*p);
-                    }
-                    collected
-                };
-                let _ = LauncherConfig::kill_managed_instances(&known_pids);
-                {
-                    let mut pids = sub_pids.lock().unwrap();
-                    for p in pids.iter_mut() {
-                        *p = None;
-                    }
-                }
-                {
-                    let mut mon = mon_arc.lock().unwrap();
-                    mon.host.is_running = false;
-                    mon.host.electron_pid = None;
-                    for s in mon.subs.iter_mut() {
-                        s.is_running = false;
-                        s.electron_pid = None;
-                    }
-                }
-                is_stopping_thread.store(false, std::sync::atomic::Ordering::SeqCst);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak_thread.upgrade() {
-                        ui.set_host_running(false);
-                        ui.set_host_pid("--".into());
-                        ui.set_sub1_running(false);
-                        ui.set_sub1_pid("--".into());
-                        ui.set_sub2_running(false);
-                        ui.set_sub2_pid("--".into());
-                        ui.set_sub3_running(false);
-                        ui.set_sub3_pid("--".into());
-                        ui.set_sub4_running(false);
-                        ui.set_sub4_pid("--".into());
-                        ui.set_toast_message("已停止全部运行中实例".into());
-                    }
-                });
-
-            });
-        }
-    });
-
-    main_window.on_action_refresh_telemetry({
-        let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
-        let sub_pids = Arc::clone(&sub_pids);
-        move || {
-            let ui_weak_thread = ui_weak.clone();
-            let mon_arc = Arc::clone(&mon_arc);
-            let sub_pids = Arc::clone(&sub_pids);
-            std::thread::spawn(move || {
-                let known_subs = *sub_pids.lock().unwrap();
-                mon_arc.lock().unwrap().refresh(known_subs);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak_thread.upgrade() {
-                        ui.set_toast_message("遥测数据已刷新".into());
-                    }
-                });
-            });
-        }
-    });
-
     main_window.on_action_open_clean_modal({
         let ui_weak = main_window.as_weak();
         let view_arc = Arc::clone(&monitor_view);
@@ -2638,25 +2494,25 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             } else {
                 InstanceSessions::default()
             };
-            let sub1_home = LauncherConfig::for_slot(1).ok().map(|c| c.home_dir);
+            let sub1_home = LauncherConfig::slot_home_dir(1);
             let sub1_sessions = if let Some(ref h) = sub1_home {
                 scan_sandbox_sessions(h, 1)
             } else {
                 InstanceSessions::default()
             };
-            let sub2_home = LauncherConfig::for_slot(2).ok().map(|c| c.home_dir);
+            let sub2_home = LauncherConfig::slot_home_dir(2);
             let sub2_sessions = if let Some(ref h) = sub2_home {
                 scan_sandbox_sessions(h, 2)
             } else {
                 InstanceSessions::default()
             };
-            let sub3_home = LauncherConfig::for_slot(3).ok().map(|c| c.home_dir);
+            let sub3_home = LauncherConfig::slot_home_dir(3);
             let sub3_sessions = if let Some(ref h) = sub3_home {
                 scan_sandbox_sessions(h, 3)
             } else {
                 InstanceSessions::default()
             };
-            let sub4_home = LauncherConfig::for_slot(4).ok().map(|c| c.home_dir);
+            let sub4_home = LauncherConfig::slot_home_dir(4);
             let sub4_sessions = if let Some(ref h) = sub4_home {
                 scan_sandbox_sessions(h, 4)
             } else {
@@ -2849,28 +2705,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub1_port(mon.subs[0].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub1_cpu_text(if mon.subs[0].is_running { format!("{:.1}%", mon.subs[0].cpu_usage).into() } else { "--".into() });
             ui.set_sub1_ram_text(if mon.subs[0].is_running { format!("{:.0} MB", mon.subs[0].memory_rss_mb).into() } else { "--".into() });
-            ui.set_sub1_token_present(LauncherConfig::for_slot(1).map(|c| c.is_token_present()).unwrap_or(false));
+            ui.set_sub1_token_present(LauncherConfig::is_slot_token_present(1));
 
             ui.set_sub2_running(mon.subs[1].is_running);
             ui.set_sub2_pid(mon.subs[1].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub2_port(mon.subs[1].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub2_cpu_text(if mon.subs[1].is_running { format!("{:.1}%", mon.subs[1].cpu_usage).into() } else { "--".into() });
             ui.set_sub2_ram_text(if mon.subs[1].is_running { format!("{:.0} MB", mon.subs[1].memory_rss_mb).into() } else { "--".into() });
-            ui.set_sub2_token_present(LauncherConfig::for_slot(2).map(|c| c.is_token_present()).unwrap_or(false));
+            ui.set_sub2_token_present(LauncherConfig::is_slot_token_present(2));
 
             ui.set_sub3_running(mon.subs[2].is_running);
             ui.set_sub3_pid(mon.subs[2].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub3_port(mon.subs[2].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub3_cpu_text(if mon.subs[2].is_running { format!("{:.1}%", mon.subs[2].cpu_usage).into() } else { "--".into() });
             ui.set_sub3_ram_text(if mon.subs[2].is_running { format!("{:.0} MB", mon.subs[2].memory_rss_mb).into() } else { "--".into() });
-            ui.set_sub3_token_present(LauncherConfig::for_slot(3).map(|c| c.is_token_present()).unwrap_or(false));
+            ui.set_sub3_token_present(LauncherConfig::is_slot_token_present(3));
 
             ui.set_sub4_running(mon.subs[3].is_running);
             ui.set_sub4_pid(mon.subs[3].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub4_port(mon.subs[3].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub4_cpu_text(if mon.subs[3].is_running { format!("{:.1}%", mon.subs[3].cpu_usage).into() } else { "--".into() });
             ui.set_sub4_ram_text(if mon.subs[3].is_running { format!("{:.0} MB", mon.subs[3].memory_rss_mb).into() } else { "--".into() });
-            ui.set_sub4_token_present(LauncherConfig::for_slot(4).map(|c| c.is_token_present()).unwrap_or(false));
+            ui.set_sub4_token_present(LauncherConfig::is_slot_token_present(4));
 
             let running_sub_count = mon.subs.iter().filter(|s| s.is_running).count();
             ui.set_sub_running_count_text(format!("当前活动分身: {} / 4", running_sub_count).into());
@@ -2913,7 +2769,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 },
             );
 
-            let sub1_token = LauncherConfig::for_slot(1).ok().map(|c| c.token_path);
+            let sub1_token = LauncherConfig::slot_token_path(1);
             let sub1_state = if mon.subs[0].is_running && qs_snapshot[1].is_available {
                 Some(qs_snapshot[1].clone())
             } else if cleared_snapshot[1] {
@@ -2945,7 +2801,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 },
             );
 
-            let sub2_token = LauncherConfig::for_slot(2).ok().map(|c| c.token_path);
+            let sub2_token = LauncherConfig::slot_token_path(2);
             let sub2_state = if mon.subs[1].is_running && qs_snapshot[2].is_available {
                 Some(qs_snapshot[2].clone())
             } else if cleared_snapshot[2] {
@@ -2977,7 +2833,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 },
             );
 
-            let sub3_token = LauncherConfig::for_slot(3).ok().map(|c| c.token_path);
+            let sub3_token = LauncherConfig::slot_token_path(3);
             let sub3_state = if mon.subs[2].is_running && qs_snapshot[3].is_available {
                 Some(qs_snapshot[3].clone())
             } else if cleared_snapshot[3] {
@@ -3009,7 +2865,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 },
             );
 
-            let sub4_token = LauncherConfig::for_slot(4).ok().map(|c| c.token_path);
+            let sub4_token = LauncherConfig::slot_token_path(4);
             let sub4_state = if mon.subs[3].is_running && qs_snapshot[4].is_available {
                 Some(qs_snapshot[4].clone())
             } else if cleared_snapshot[4] {
