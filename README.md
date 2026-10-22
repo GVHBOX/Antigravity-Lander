@@ -4,7 +4,7 @@
 
 # Antigravity Lander
 
-**Antigravity 实例调度与遥测中枢**
+**Antigravity 沙箱+监控工具**
 
 [![CI](https://github.com/GVHBOX/Antigravity-Lander/actions/workflows/ci.yml/badge.svg)](https://github.com/GVHBOX/Antigravity-Lander/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
