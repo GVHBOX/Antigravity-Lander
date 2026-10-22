@@ -1,5 +1,5 @@
 use crate::launcher::{LauncherConfig, ScaleSettings};
-use crate::monitor::TelemetryMonitor;
+use crate::monitor::{MonitorView, TelemetryMonitor};
 use crate::proxy::ProxyManager;
 use crate::quota::InstanceQuotaState;
 use crate::session::{format_tokens, scan_sandbox_sessions, InstanceSessions};
@@ -111,6 +111,50 @@ fn load_avatar_image(path: Option<&std::path::Path>) -> (slint::Image, bool) {
                     return (img, true);
                 }
     (slint::Image::default(), false)
+}
+
+fn slot_rpc_info(mon: &TelemetryMonitor, slot: usize) -> (Option<u32>, Option<u16>, Vec<u16>, Option<String>) {
+    if slot == 0 {
+        (mon.host.ls_pid, mon.host.ls_port, mon.host.ls_ports.clone(), mon.host.ls_csrf.clone())
+    } else {
+        let s = &mon.subs[slot - 1];
+        (s.ls_pid, s.ls_port, s.ls_ports.clone(), s.ls_csrf.clone())
+    }
+}
+
+fn slot_rpc_ports(mon_arc: &Arc<Mutex<TelemetryMonitor>>, slot: usize) -> Option<(Vec<u16>, String)> {
+    if slot > 4 {
+        return None;
+    }
+    let (pid, resolved, ports, csrf) = {
+        let mon = mon_arc.lock().unwrap();
+        slot_rpc_info(&mon, slot)
+    };
+    let csrf = csrf.filter(|c| !c.is_empty())?;
+    let pid = pid?;
+    let active = match resolved {
+        Some(p) => p,
+        None => {
+            let p = crate::quota::resolve_rpc_port(pid, &ports, &csrf)?;
+            mon_arc.lock().unwrap().apply_resolved_port(pid, p);
+            p
+        }
+    };
+    let mut ordered = Vec::with_capacity(ports.len() + 1);
+    ordered.push(active);
+    ordered.extend(ports.into_iter().filter(|&p| p != active));
+    Some((ordered, csrf))
+}
+
+fn cache_report_text(found: &[crate::launcher::SandboxCache]) -> (String, String) {
+    let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+    let total = total_bytes as f64 / (1024.0 * 1024.0);
+    let detail = found
+        .iter()
+        .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
+        .collect::<Vec<_>>()
+        .join("\n");
+    (detail, format!("共 {:.1} MB", total))
 }
 
 fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, String, String) {
@@ -675,9 +719,11 @@ fn snap_and_save_widget_position(
     }
 }
 
+static NOTIFY_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 fn show_desktop_notification(title: &str, message: &str) {
     use windows_sys::Win32::UI::Shell::{
-        Shell_NotifyIconW, NOTIFYICONDATAW, NIF_INFO, NIM_ADD, NIM_MODIFY, NIIF_INFO,
+        Shell_NotifyIconW, NOTIFYICONDATAW, NIF_INFO, NIM_ADD, NIM_DELETE, NIM_MODIFY, NIIF_INFO,
     };
 
     let hwnd = get_cockpit_hwnd();
@@ -702,12 +748,36 @@ fn show_desktop_notification(title: &str, message: &str) {
         nid.szInfo[i] = ch;
     }
 
-    unsafe {
-        if Shell_NotifyIconW(NIM_MODIFY, &nid) == 0 {
-            Shell_NotifyIconW(NIM_ADD, &nid);
+    let registered = unsafe {
+        if Shell_NotifyIconW(NIM_MODIFY, &nid) != 0 {
+            true
+        } else if Shell_NotifyIconW(NIM_ADD, &nid) != 0 {
             Shell_NotifyIconW(NIM_MODIFY, &nid);
+            true
+        } else {
+            false
         }
+    };
+
+    if !registered {
+        return;
     }
+
+    let generation = NOTIFY_GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    let hwnd_raw = hwnd as isize;
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(12));
+        if NOTIFY_GENERATION.load(std::sync::atomic::Ordering::Relaxed) != generation {
+            return;
+        }
+        let mut del: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+        del.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+        del.hWnd = hwnd_raw as windows_sys::Win32::Foundation::HWND;
+        del.uID = 10086;
+        unsafe {
+            Shell_NotifyIconW(NIM_DELETE, &del);
+        }
+    });
 }
 
 
@@ -723,19 +793,17 @@ fn play_done_or_builtin(cfg: &crate::widget_state::WidgetConfig) -> Option<Strin
     None
 }
 
-fn activate_instance_window(slot: u8, monitor: &Arc<Mutex<TelemetryMonitor>>) {
-    let mon = monitor.lock().unwrap();
+fn activate_instance_window(slot: u8, view: &Arc<Mutex<MonitorView>>) {
+    let view = view.lock().unwrap().clone();
     if slot == 0 {
-        if let Some(pid) = mon.host.electron_pid
-            && let Ok(conf) = LauncherConfig::new() {
-                conf.bring_to_front(pid);
-            }
+        if let Some(pid) = view.host.electron_pid {
+            LauncherConfig::bring_to_front(pid);
+        }
     } else if (1..=4).contains(&slot) {
         let idx = (slot - 1) as usize;
-        if let Some(pid) = mon.subs[idx].electron_pid
-            && let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
-                conf.bring_to_front(pid);
-            }
+        if let Some(pid) = view.subs[idx].electron_pid {
+            LauncherConfig::bring_to_front(pid);
+        }
     }
 }
 
@@ -926,9 +994,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let _ = LauncherConfig::ensure_all_sandboxes();
     let sub_pids = Arc::new(Mutex::new([None::<u32>; 4]));
     let monitor = Arc::new(Mutex::new(TelemetryMonitor::new()));
+    let monitor_view = Arc::new(Mutex::new(MonitorView::default()));
     {
         let mut initial_mon = monitor.lock().unwrap();
         initial_mon.refresh([None, None, None, None]);
+        *monitor_view.lock().unwrap() = initial_mon.view();
     }
     let scale_settings = Arc::new(Mutex::new(ScaleSettings::load_or_detect()));
     let scanned_cache_bytes = Arc::new(Mutex::new(0u64));
@@ -938,6 +1008,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let live_session_slot = Arc::new(Mutex::new(-1i32));
     let active_live_session = Arc::new(Mutex::new(None::<crate::session::SessionItem>));
     let hover_bar_state = Arc::new(Mutex::new(None::<usize>));
+    let quota_cache = Arc::new(Mutex::new(crate::quota::load_quota_cache()));
+    let quota_states = Arc::new(Mutex::new([
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+        InstanceQuotaState::default(),
+    ]));
+    let cleared_credentials = Arc::new(Mutex::new([false; 5]));
 
     let main_window = MainWindow::new()?;
     let floating_widget = FloatingWidgetWindow::new()?;
@@ -947,7 +1026,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     floating_widget.set_is_dark(true);
     let widget_cfg_drag = Arc::clone(&widget_config);
     let widget_weak_drag = floating_widget.as_weak();
-    let mon_drag = Arc::clone(&monitor);
+    let mon_drag = Arc::clone(&monitor_view);
     let slot_tracker_drag = Arc::clone(&active_slot_tracker);
     let finish_info_drag = Arc::clone(&finish_info);
     floating_widget.on_drag_requested(move || {
@@ -974,7 +1053,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             }
         }
     });
-    let mon_act = Arc::clone(&monitor);
+    let mon_act = Arc::clone(&monitor_view);
     let slot_tracker_act = Arc::clone(&active_slot_tracker);
     let finish_info_act = Arc::clone(&finish_info);
     let widget_weak_act = floating_widget.as_weak();
@@ -1256,7 +1335,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             return;
                         };
                         if let Some(pid) = running_pid {
-                            let _ = c.bring_to_front(pid);
+                            LauncherConfig::bring_to_front(pid);
                         } else if let Ok(new_pid) = c.spawn_detached() {
                             let mut pids = pid_lock.lock().unwrap();
                             pids[idx] = Some(new_pid);
@@ -1447,15 +1526,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_launch_host({
         let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
+        let view_arc = Arc::clone(&monitor_view);
         move || {
-            let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
+            let pid_opt = view_arc.lock().unwrap().host.electron_pid;
             if let Some(pid) = pid_opt {
                 let ui_w = ui_weak.clone();
                 std::thread::spawn(move || {
-                    let opened = LauncherConfig::for_slot(1)
-                        .map(|conf| conf.bring_to_front(pid))
-                        .unwrap_or(false);
+                    let opened = LauncherConfig::bring_to_front(pid);
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_w.upgrade() {
                             ui.set_toast_message(
@@ -1484,17 +1561,34 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_stop_host({
         let ui_weak = main_window.as_weak();
+        let view_arc = Arc::clone(&monitor_view);
         let mon_arc = Arc::clone(&monitor);
         move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let pid_opt = mon_arc.lock().unwrap().host.electron_pid;
-                if let Some(pid) = pid_opt {
-                    if let Ok(conf) = LauncherConfig::for_slot(1) {
-                        match conf.kill_sub_instance_by_pid(pid) {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let (pid_opt, ls_pid) = {
+                let view = view_arc.lock().unwrap();
+                (view.host.electron_pid, view.host.ls_pid)
+            };
+            let Some(pid) = pid_opt else {
+                ui.set_toast_message("主账号未在运行".into());
+                return;
+            };
+            let ui_w = ui_weak.clone();
+            let mon_bg = Arc::clone(&mon_arc);
+            std::thread::spawn(move || {
+                let res = LauncherConfig::kill_host_by_pid(pid, ls_pid);
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        match res {
                             Ok(()) => {
-                                let mut mon = mon_arc.lock().unwrap();
+                                let mut mon = mon_bg.lock().unwrap();
                                 mon.host.is_running = false;
                                 mon.host.electron_pid = None;
+                                mon.host.ls_pid = None;
+                                mon.host.ls_port = None;
+                                mon.host.ls_ports.clear();
                                 ui.set_toast_message(format!("主账号已停止 (PID: {})", pid).into());
                             }
                             Err(e) => {
@@ -1502,10 +1596,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             }
                         }
                     }
-                } else {
-                    ui.set_toast_message("主账号未在运行".into());
-                }
-            }
+                });
+            });
         }
     });
 
@@ -1578,8 +1670,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     if let Some(pid) = mon.host.electron_pid {
                         collected.push(pid);
                     }
+                    if let Some(pid) = mon.host.ls_pid {
+                        collected.push(pid);
+                    }
                     for s in mon.subs.iter() {
                         if let Some(pid) = s.electron_pid {
+                            collected.push(pid);
+                        }
+                        if let Some(pid) = s.ls_pid {
                             collected.push(pid);
                         }
                     }
@@ -1649,44 +1747,47 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_open_clean_modal({
         let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
+        let view_arc = Arc::clone(&monitor_view);
         let cache_bytes = Arc::clone(&scanned_cache_bytes);
         move || {
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
             let running = {
-                let mon = mon_arc.lock().unwrap();
+                let view = view_arc.lock().unwrap();
                 [
-                    mon.subs[0].is_running,
-                    mon.subs[1].is_running,
-                    mon.subs[2].is_running,
-                    mon.subs[3].is_running,
+                    view.subs[0].is_running,
+                    view.subs[1].is_running,
+                    view.subs[2].is_running,
+                    view.subs[3].is_running,
                 ]
             };
-            let found = LauncherConfig::scan_sandbox_cache(&running);
-            if found.is_empty() {
-                ui.set_toast_message("没有可清理的缓存".into());
-                return;
-            }
-            let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
-            *cache_bytes.lock().unwrap() = total_bytes;
-            let total = total_bytes as f64 / (1024.0 * 1024.0);
-            let detail = found
-                .iter()
-                .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
-                .collect::<Vec<_>>()
-                .join("\n");
-            ui.set_cache_detail_text(detail.into());
-            ui.set_cache_total_text(format!("共 {:.1} MB", total).into());
-            ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", total).into());
-            ui.set_clean_modal_visible(true);
+            let ui_w = ui_weak.clone();
+            let cache_bytes = Arc::clone(&cache_bytes);
+            std::thread::spawn(move || {
+                let found = LauncherConfig::scan_sandbox_cache(&running);
+                let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+                *cache_bytes.lock().unwrap() = total_bytes;
+                let (detail, total_text) = cache_report_text(&found);
+                let summary = format!("Cache / Code / GPU ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0));
+                let empty = found.is_empty();
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_w.upgrade() else {
+                        return;
+                    };
+                    if empty {
+                        ui.set_toast_message("没有可清理的缓存".into());
+                        return;
+                    }
+                    ui.set_cache_detail_text(detail.into());
+                    ui.set_cache_total_text(total_text.into());
+                    ui.set_cache_summary_text(summary.into());
+                    ui.set_clean_modal_visible(true);
+                });
+            });
         }
     });
 
     main_window.on_action_launch_sub({
         let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
+        let view_arc = Arc::clone(&monitor_view);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
             if !(1..=4).contains(&slot) {
@@ -1703,17 +1804,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 };
 
                 let running_pid = {
-                    let mon = mon_arc.lock().unwrap();
+                    let view = view_arc.lock().unwrap();
                     let pids = sub_pids.lock().unwrap();
-                    mon.subs[idx].electron_pid.or(pids[idx])
+                    view.subs[idx].electron_pid.or(pids[idx])
                 };
 
                 if let Some(pid) = running_pid {
                     let ui_w = ui_weak.clone();
                     std::thread::spawn(move || {
-                        let opened = LauncherConfig::for_slot(slot as usize)
-                            .map(|c| c.bring_to_front(pid))
-                            .unwrap_or(false);
+                        let opened = LauncherConfig::bring_to_front(pid);
                         let _ = slint::invoke_from_event_loop(move || {
                             if let Some(ui) = ui_w.upgrade() {
                                 ui.set_toast_message(
@@ -1745,6 +1844,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_stop_sub({
         let ui_weak = main_window.as_weak();
+        let view_arc = Arc::clone(&monitor_view);
         let mon_arc = Arc::clone(&monitor);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
@@ -1752,24 +1852,42 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 return;
             }
             let idx = (slot - 1) as usize;
-            if let Some(ui) = ui_weak.upgrade() {
-                let conf = match LauncherConfig::for_slot(slot as usize) {
-                    Ok(c) => c,
-                    Err(_) => return,
-                };
-                let pid_to_kill = {
-                    let mon = mon_arc.lock().unwrap();
-                    let pids = sub_pids.lock().unwrap();
-                    mon.subs[idx].electron_pid.or(pids[idx])
-                };
-                if let Some(pid) = pid_to_kill {
-                    match conf.kill_sub_instance_by_pid(pid) {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let conf = match LauncherConfig::for_slot(slot as usize) {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let (pid_to_kill, ls_pid) = {
+                let view = view_arc.lock().unwrap();
+                let pids = sub_pids.lock().unwrap();
+                (view.subs[idx].electron_pid.or(pids[idx]), view.subs[idx].ls_pid)
+            };
+            let Some(pid) = pid_to_kill else {
+                ui.set_toast_message(format!("分身 {} 未在运行", slot).into());
+                return;
+            };
+            let ui_w = ui_weak.clone();
+            let mon_bg = Arc::clone(&mon_arc);
+            let pids_arc = Arc::clone(&sub_pids);
+            std::thread::spawn(move || {
+                let res = conf.kill_slot_by_pid(pid, ls_pid);
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_w.upgrade() else {
+                        return;
+                    };
+                    match res {
                         Ok(()) => {
-                            let mut pids = sub_pids.lock().unwrap();
-                            pids[idx] = None;
-                            let mut mon = mon_arc.lock().unwrap();
-                            mon.subs[idx].is_running = false;
-                            mon.subs[idx].electron_pid = None;
+                            pids_arc.lock().unwrap()[idx] = None;
+                            {
+                                let mut mon = mon_bg.lock().unwrap();
+                                mon.subs[idx].is_running = false;
+                                mon.subs[idx].electron_pid = None;
+                                mon.subs[idx].ls_pid = None;
+                                mon.subs[idx].ls_port = None;
+                                mon.subs[idx].ls_ports.clear();
+                            }
                             match slot {
                                 1 => {
                                     ui.set_sub1_running(false);
@@ -1791,17 +1909,33 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             }
                             ui.set_toast_message(format!("分身 {} 已停止 (PID: {})", slot, pid).into());
                         }
-
                         Err(e) => {
                             ui.set_toast_message(format!("停止分身 {} 失败: {}", slot, e).into());
                         }
                     }
-                } else {
-                    ui.set_toast_message(format!("分身 {} 未在运行", slot).into());
-                }
-            }
+                });
+            });
         }
     });
+
+    let reset_cleared_quota = {
+        let qs = Arc::clone(&quota_states);
+        let qc = Arc::clone(&quota_cache);
+        let cleared = Arc::clone(&cleared_credentials);
+        move |slot: usize| {
+            if let Some(state) = qs.lock().unwrap().get_mut(slot) {
+                *state = InstanceQuotaState::default();
+            }
+            {
+                let mut cache = qc.lock().unwrap();
+                cache.remove_slot(slot);
+                crate::quota::save_quota_cache(&cache);
+            }
+            if let Some(flag) = cleared.lock().unwrap().get_mut(slot) {
+                *flag = true;
+            }
+        }
+    };
 
     main_window.on_action_clear_token({
         let ui_weak = main_window.as_weak();
@@ -1830,6 +1964,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 if slot == 0 {
                     match LauncherConfig::clear_host_token() {
                         Ok(true) => {
+                            reset_cleared_quota(0);
                             ui.set_toast_message("主账号凭据已清理".into());
                         }
                         Ok(false) => {
@@ -1844,6 +1979,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 match LauncherConfig::for_slot(slot as usize) {
                     Ok(conf) => match conf.clear_token() {
                         Ok(true) => {
+                            reset_cleared_quota(slot as usize);
                             ui.set_toast_message(format!("分身 {} 凭据已清理", slot).into());
                         }
                         Ok(false) => {
@@ -1887,77 +2023,94 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     main_window.on_action_scan_cache({
         let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
+        let view_arc = Arc::clone(&monitor_view);
         let cache_bytes = Arc::clone(&scanned_cache_bytes);
         move || {
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
             let running = {
-                let mon = mon_arc.lock().unwrap();
+                let view = view_arc.lock().unwrap();
                 [
-                    mon.subs[0].is_running,
-                    mon.subs[1].is_running,
-                    mon.subs[2].is_running,
-                    mon.subs[3].is_running,
+                    view.subs[0].is_running,
+                    view.subs[1].is_running,
+                    view.subs[2].is_running,
+                    view.subs[3].is_running,
                 ]
             };
-            let found = LauncherConfig::scan_sandbox_cache(&running);
-            if found.is_empty() {
-                ui.set_toast_message("没有可清理的缓存".into());
-                return;
-            }
-            let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
-            *cache_bytes.lock().unwrap() = total_bytes;
-            let total = total_bytes as f64 / (1024.0 * 1024.0);
-            let detail = found
-                .iter()
-                .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
-                .collect::<Vec<_>>()
-                .join("\n");
-            ui.set_cache_detail_text(detail.into());
-            ui.set_cache_total_text(format!("共 {:.1} MB", total).into());
-            ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", total).into());
-            ui.set_clean_modal_visible(true);
+            let ui_w = ui_weak.clone();
+            let cache_bytes = Arc::clone(&cache_bytes);
+            std::thread::spawn(move || {
+                let found = LauncherConfig::scan_sandbox_cache(&running);
+                let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+                *cache_bytes.lock().unwrap() = total_bytes;
+                let (detail, total_text) = cache_report_text(&found);
+                let summary = format!("Cache / Code / GPU ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0));
+                let empty = found.is_empty();
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_w.upgrade() else {
+                        return;
+                    };
+                    if empty {
+                        ui.set_toast_message("没有可清理的缓存".into());
+                        return;
+                    }
+                    ui.set_cache_detail_text(detail.into());
+                    ui.set_cache_total_text(total_text.into());
+                    ui.set_cache_summary_text(summary.into());
+                    ui.set_clean_modal_visible(true);
+                });
+            });
         }
     });
 
     main_window.on_action_clean_cache({
         let ui_weak = main_window.as_weak();
-        let mon_arc = Arc::clone(&monitor);
+        let view_arc = Arc::clone(&monitor_view);
+        let cache_bytes = Arc::clone(&scanned_cache_bytes);
         move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
             ui.set_clean_modal_visible(false);
             let running = {
-                let mon = mon_arc.lock().unwrap();
+                let view = view_arc.lock().unwrap();
                 [
-                    mon.subs[0].is_running,
-                    mon.subs[1].is_running,
-                    mon.subs[2].is_running,
-                    mon.subs[3].is_running,
+                    view.subs[0].is_running,
+                    view.subs[1].is_running,
+                    view.subs[2].is_running,
+                    view.subs[3].is_running,
                 ]
             };
-            match LauncherConfig::clean_sandbox_cache(&running) {
-                Ok(res) => {
-                    let mb = res.freed_bytes as f64 / (1024.0 * 1024.0);
-                    let after_found = LauncherConfig::scan_sandbox_cache(&running);
-                    let after_total: u64 = after_found.iter().map(|c| c.bytes).sum();
-                    let after_mb = after_total as f64 / (1024.0 * 1024.0);
-                    ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", after_mb).into());
-                    if res.has_locked_files && mb > 0.0 {
-                        ui.set_toast_message(format!("已清理 {:.1} MB，部分文件被占用", mb).into());
-                    } else if res.has_locked_files && mb == 0.0 {
-                        ui.set_toast_message("文件被占用，无法清理".into());
-                    } else {
-                        ui.set_toast_message(format!("缓存已清理 ({:.1} MB)", mb).into());
+            let before_bytes = *cache_bytes.lock().unwrap();
+            let ui_w = ui_weak.clone();
+            std::thread::spawn(move || {
+                let res = LauncherConfig::clean_sandbox_cache(&running);
+                let (summary, toast) = match res {
+                    Ok(clean) => {
+                        let mb = clean.freed_bytes as f64 / (1024.0 * 1024.0);
+                        let after_mb = before_bytes.saturating_sub(clean.freed_bytes) as f64 / (1024.0 * 1024.0);
+                        let toast = if clean.has_locked_files && mb > 0.0 {
+                            format!("已清理 {:.1} MB，部分文件被占用", mb)
+                        } else if clean.has_locked_files && mb == 0.0 {
+                            "文件被占用，无法清理".to_string()
+                        } else {
+                            format!("缓存已清理 ({:.1} MB)", mb)
+                        };
+                        (format!("Cache / Code / GPU ({:.0} MB)", after_mb), toast)
                     }
-                }
-                Err(e) => {
-                    ui.set_toast_message(format!("清理缓存失败: {}", e).into());
-                }
-            }
+                    Err(e) => (
+                        String::new(),
+                        format!("清理缓存失败: {}", e),
+                    ),
+                };
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_w.upgrade() else {
+                        return;
+                    };
+                    if !summary.is_empty() {
+                        ui.set_cache_summary_text(summary.into());
+                    }
+                    ui.set_toast_message(toast.into());
+                });
+            });
         }
     });
 
@@ -1966,31 +2119,48 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     main_window.on_toggle_patch_ag2({
         let ui_weak = main_window.as_weak();
         move || {
-            if is_patching_ag2.load(std::sync::atomic::Ordering::SeqCst) {
+            if is_patching_ag2.swap(true, std::sync::atomic::Ordering::SeqCst) {
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_toast_message("正在处理...".into());
                 }
                 return;
             }
-            if let Some(ui) = ui_weak.upgrade() {
+            let ui_w = ui_weak.clone();
+            let pending = Arc::clone(&pending_ag2);
+            let flag = Arc::clone(&is_patching_ag2);
+            std::thread::spawn(move || {
                 if LauncherConfig::is_antigravity_running() {
-                    *pending_ag2.lock().unwrap() = Some(PendingPatchAction::TogglePatchAg2);
-                    ui.set_patch_modal_title("Antigravity 正在运行".into());
-                    ui.set_patch_modal_msg("文件被运行中的实例占用，需退出后继续。".into());
-                    ui.set_patch_modal_btn_text("关闭并应用".into());
-                    ui.set_patch_modal_visible(true);
+                    *pending.lock().unwrap() = Some(PendingPatchAction::TogglePatchAg2);
+                    flag.store(false, std::sync::atomic::Ordering::SeqCst);
+                    let ui_modal = ui_w.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_modal.upgrade() {
+                            ui.set_patch_modal_title("Antigravity 正在运行".into());
+                            ui.set_patch_modal_msg("文件被运行中的实例占用，需退出后继续。".into());
+                            ui.set_patch_modal_btn_text("关闭并应用".into());
+                            ui.set_patch_modal_visible(true);
+                        }
+                    });
                     return;
                 }
-                match LauncherConfig::toggle_ag2_patch() {
-                    Ok(state) => {
-                        ui.set_patch_ag2_installed(state);
-                        ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
+                let res = LauncherConfig::toggle_ag2_patch();
+                let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
+                flag.store(false, std::sync::atomic::Ordering::SeqCst);
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        match res {
+                            Ok(state) => {
+                                ui.set_patch_ag2_installed(is_patched);
+                                ui.set_patch_ag2_version(ver.into());
+                                ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
+                            }
+                            Err(e) => {
+                                ui.set_toast_message(format!("{}", e).into());
+                            }
+                        }
                     }
-                    Err(e) => {
-                        ui.set_toast_message(format!("{}", e).into());
-                    }
-                }
-            }
+                });
+            });
         }
     });
 
@@ -2266,12 +2436,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let Some(ui) = ui_weak_hover.upgrade() else { return; };
         let sess = active_hover.lock().unwrap();
         if let Some(ref s) = *sess
-            && i < 16 && s.recent_turn_indices[i] > 0 {
-                ui.set_live_is_hovering_bar(true);
-                ui.set_live_hover_tag(format!("#{} 轮", s.recent_turn_indices[i]).into());
-                ui.set_live_session_speed_text(format!("{:.1}", s.recent_tps[i]).into());
-                ui.set_live_session_speed_sub(format!("该轮产出 {} · {:.1}s", format_tokens(s.recent_turn_tokens[i]), s.recent_turn_durations[i]).into());
-            }
+            && let Some(&turn_idx) = s.recent_turn_indices.get(i)
+                && turn_idx > 0 {
+                    ui.set_live_is_hovering_bar(true);
+                    ui.set_live_hover_tag(format!("#{} 轮", turn_idx).into());
+                    ui.set_live_session_speed_text(format!("{:.1}", s.recent_tps[i]).into());
+                    ui.set_live_session_speed_sub(format!("该轮产出 {} · {:.1}s", format_tokens(s.recent_turn_tokens[i]), s.recent_turn_durations[i]).into());
+                }
     });
 
     let active_leave = Arc::clone(&active_live_session);
@@ -2332,15 +2503,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         });
     });
 
-    let quota_cache = Arc::new(Mutex::new(crate::quota::load_quota_cache()));
-    let quota_states = Arc::new(Mutex::new([
-        InstanceQuotaState::default(),
-        InstanceQuotaState::default(),
-        InstanceQuotaState::default(),
-        InstanceQuotaState::default(),
-        InstanceQuotaState::default(),
-    ]));
-
     main_window.on_action_refresh_quota({
         let ui_weak = main_window.as_weak();
         let mon_refresh = Arc::clone(&monitor);
@@ -2384,31 +2546,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let qc_arc = Arc::clone(&qc_refresh);
 
             std::thread::spawn(move || {
-                let (ls_port, ls_csrf) = {
-                    let mon = mon_arc.lock().unwrap();
-                    if slot == 0 {
-                        (mon.host.ls_port, mon.host.ls_csrf.clone())
-                    } else {
-                        let idx = slot - 1;
-                        (mon.subs[idx].ls_port, mon.subs[idx].ls_csrf.clone())
-                    }
-                };
-
                 let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
-                let state_opt = if let (Some(port), Some(csrf)) = (ls_port, ls_csrf) {
-                    if !csrf.is_empty() {
-                        let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
-                        if st.is_available {
-                            Some(st)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+                let state_opt = slot_rpc_ports(&mon_arc, slot)
+                    .map(|(ports, csrf)| crate::quota::fetch_instance_quota(&ports, &csrf, &tag))
+                    .filter(|st| st.is_available);
 
                 let is_ok = state_opt.is_some();
                 if let Some(ref st) = state_opt {
@@ -2418,8 +2559,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
                     {
                         let mut qc = qc_arc.lock().unwrap();
-                        qc.set_slot(slot, st.clone());
-                        crate::quota::save_quota_cache(&qc);
+                        if crate::quota::quota_state_changed(qc.get_slot(slot), st) {
+                            qc.set_slot(slot, st.clone());
+                            crate::quota::save_quota_cache(&qc);
+                        }
                     }
                 }
 
@@ -2449,34 +2592,28 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let qc_bg = Arc::clone(&quota_cache);
     std::thread::spawn(move || {
         loop {
-            let targets = {
-                let mon = mon_bg.lock().unwrap();
-                let mut list = Vec::with_capacity(5);
-                list.push((mon.host.ls_port, mon.host.ls_csrf.clone(), "host".to_string()));
-                for (idx, sub) in mon.subs.iter().enumerate() {
-                    list.push((sub.ls_port, sub.ls_csrf.clone(), format!("sub{}", idx + 1)));
-                }
-                list
-            };
-
             let mut fetched_any = false;
-            for (idx, (port_opt, csrf_opt, tag)) in targets.into_iter().enumerate() {
-                if let (Some(port), Some(csrf)) = (port_opt, csrf_opt)
-                    && !csrf.is_empty() {
-                        let st = crate::quota::fetch_instance_quota(port, &csrf, &tag);
-                        if st.is_available {
-                            {
-                                let mut qs = qs_bg.lock().unwrap();
-                                qs[idx] = st.clone();
-                            }
-                            {
-                                let mut qc = qc_bg.lock().unwrap();
-                                qc.set_slot(idx, st);
-                                crate::quota::save_quota_cache(&qc);
-                            }
-                            fetched_any = true;
-                        }
+            for idx in 0..5 {
+                let Some((ports, csrf)) = slot_rpc_ports(&mon_bg, idx) else {
+                    continue;
+                };
+                let tag = if idx == 0 { "host".to_string() } else { format!("sub{}", idx) };
+                let st = crate::quota::fetch_instance_quota(&ports, &csrf, &tag);
+                if !st.is_available {
+                    continue;
+                }
+                {
+                    let mut qs = qs_bg.lock().unwrap();
+                    qs[idx] = st.clone();
+                }
+                {
+                    let mut qc = qc_bg.lock().unwrap();
+                    if crate::quota::quota_state_changed(qc.get_slot(idx), &st) {
+                        qc.set_slot(idx, st);
+                        crate::quota::save_quota_cache(&qc);
                     }
+                }
+                fetched_any = true;
             }
 
             let sleep_ms = if fetched_any { 3000 } else { 800 };
@@ -2491,6 +2628,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     let bg_telem_worker = Arc::clone(&bg_telemetry);
     let sessions_store_worker = Arc::clone(&sessions_store);
+    let mon_sessions_worker = Arc::clone(&monitor);
     std::thread::spawn(move || {
         loop {
             let host_home = LauncherConfig::resolve_host_user_dir();
@@ -2524,13 +2662,23 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 InstanceSessions::default()
             };
 
+            let mut snapshot = [
+                host_sessions,
+                sub1_sessions,
+                sub2_sessions,
+                sub3_sessions,
+                sub4_sessions,
+            ];
+            for (slot, inst) in snapshot.iter_mut().enumerate() {
+                if let Some((ports, csrf)) = slot_rpc_ports(&mon_sessions_worker, slot)
+                    && let Some(&port) = ports.first() {
+                        crate::session::enrich_active_session(inst, port, &csrf);
+                    }
+            }
+
             {
                 let mut store = sessions_store_worker.lock().unwrap();
-                store[0] = host_sessions;
-                store[1] = sub1_sessions;
-                store[2] = sub2_sessions;
-                store[3] = sub3_sessions;
-                store[4] = sub4_sessions;
+                *store = snapshot;
             }
 
             let patch = LauncherConfig::check_ag2_patch_status();
@@ -2547,9 +2695,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let bg_telem_timer = Arc::clone(&bg_telemetry);
     let qs_timer = Arc::clone(&quota_states);
     let qc_timer = Arc::clone(&quota_cache);
+    let cleared_timer = Arc::clone(&cleared_credentials);
     let timer = Timer::default();
     let ui_weak_mon = main_window.as_weak();
-    let monitor_timer = Arc::clone(&monitor);
+    let monitor_view_timer = Arc::clone(&monitor_view);
     let sessions_store_timer = Arc::clone(&sessions_store);
     let live_session_slot_timer = Arc::clone(&live_session_slot);
     let active_live_timer = Arc::clone(&active_live_session);
@@ -2562,6 +2711,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     let monitor_bg = Arc::clone(&monitor);
     let sub_pids_bg = Arc::clone(&sub_pids);
+    let view_bg = Arc::clone(&monitor_view);
     std::thread::spawn(move || {
         loop {
             let known_subs = *sub_pids_bg.lock().unwrap();
@@ -2576,6 +2726,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         pids[i] = None;
                     }
                 }
+                *view_bg.lock().unwrap() = mon.view();
             }
             std::thread::sleep(std::time::Duration::from_millis(1000));
         }
@@ -2668,7 +2819,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let mut widget_was_shown = initial_widget_shown;
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
-            let mon = monitor_timer.lock().unwrap();
+            let mon = monitor_view_timer.lock().unwrap().clone();
 
             ui.set_host_running(mon.host.is_running);
             ui.set_host_pid(mon.host.electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
@@ -2678,7 +2829,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_ram_text(format!("{:.0} MB", mon.host.memory_rss_mb).into());
             ui.set_host_port(mon.host.ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
 
-            let uptime_str = if let Some(secs) = mon.host_uptime_seconds() {
+            let uptime_str = if let Some(secs) = mon.host_uptime_secs {
                 if secs < 60 {
                     format!("{}秒", secs)
                 } else if secs < 3600 {
@@ -2725,11 +2876,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
             let is_dark = ui.get_is_dark();
             let qs_snapshot = qs_timer.lock().unwrap().clone();
+            let cleared_snapshot = *cleared_timer.lock().unwrap();
 
             let host_token = LauncherConfig::resolve_host_user_dir()
                 .map(|u| u.join(".gemini").join("jetski-standalone-oauth-token"));
             let host_state = if mon.host.is_running && qs_snapshot[0].is_available {
                 Some(qs_snapshot[0].clone())
+            } else if cleared_snapshot[0] {
+                None
             } else {
                 let qc = qc_timer.lock().unwrap();
                 crate::quota::compute_offline_state(qc.get_slot(0), host_token.as_deref(), "host")
@@ -2761,6 +2915,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let sub1_token = LauncherConfig::for_slot(1).ok().map(|c| c.token_path);
             let sub1_state = if mon.subs[0].is_running && qs_snapshot[1].is_available {
                 Some(qs_snapshot[1].clone())
+            } else if cleared_snapshot[1] {
+                None
             } else {
                 let qc = qc_timer.lock().unwrap();
                 crate::quota::compute_offline_state(qc.get_slot(1), sub1_token.as_deref(), "sub1")
@@ -2791,6 +2947,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let sub2_token = LauncherConfig::for_slot(2).ok().map(|c| c.token_path);
             let sub2_state = if mon.subs[1].is_running && qs_snapshot[2].is_available {
                 Some(qs_snapshot[2].clone())
+            } else if cleared_snapshot[2] {
+                None
             } else {
                 let qc = qc_timer.lock().unwrap();
                 crate::quota::compute_offline_state(qc.get_slot(2), sub2_token.as_deref(), "sub2")
@@ -2821,6 +2979,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let sub3_token = LauncherConfig::for_slot(3).ok().map(|c| c.token_path);
             let sub3_state = if mon.subs[2].is_running && qs_snapshot[3].is_available {
                 Some(qs_snapshot[3].clone())
+            } else if cleared_snapshot[3] {
+                None
             } else {
                 let qc = qc_timer.lock().unwrap();
                 crate::quota::compute_offline_state(qc.get_slot(3), sub3_token.as_deref(), "sub3")
@@ -2851,6 +3011,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let sub4_token = LauncherConfig::for_slot(4).ok().map(|c| c.token_path);
             let sub4_state = if mon.subs[3].is_running && qs_snapshot[4].is_available {
                 Some(qs_snapshot[4].clone())
+            } else if cleared_snapshot[4] {
+                None
             } else {
                 let qc = qc_timer.lock().unwrap();
                 crate::quota::compute_offline_state(qc.get_slot(4), sub4_token.as_deref(), "sub4")
@@ -3018,6 +3180,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 } else {
                     (target_slot_setting as usize, false)
                 };
+                let effective_slot = effective_slot.min(4);
 
                 let slot_label = match effective_slot {
                     0 => "主机",
@@ -3035,7 +3198,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
 
                 let target_sessions = &store[effective_slot];
-                let mut active = target_sessions
+                let active = target_sessions
                     .groups
                     .iter()
                     .flat_map(|g| g.sessions.iter())
@@ -3047,21 +3210,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             .and_then(|g| g.sessions.first())
                     })
                     .cloned();
-
-                if let Some(ref mut s) = active {
-                    let ls_info = {
-                        if effective_slot == 0 {
-                            mon.host.ls_port.zip(mon.host.ls_csrf.as_deref())
-                        } else if (1..=4).contains(&effective_slot) {
-                            mon.subs[(effective_slot - 1) as usize].ls_port.zip(mon.subs[(effective_slot - 1) as usize].ls_csrf.as_deref())
-                        } else {
-                            None
-                        }
-                    };
-                    if let Some((port, csrf)) = ls_info {
-                        crate::session::enrich_session_with_rpc(s, port, csrf);
-                    }
-                }
 
                 *active_live_timer.lock().unwrap() = active.clone();
                 let is_hovering = hover_bar_timer.lock().unwrap().is_some();

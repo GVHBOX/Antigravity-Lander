@@ -7,7 +7,9 @@ pub struct ProcessStats {
     pub electron_pid: Option<u32>,
     pub cpu_usage: f32,
     pub memory_rss_mb: f64,
+    pub ls_pid: Option<u32>,
     pub ls_port: Option<u16>,
+    pub ls_ports: Vec<u16>,
     pub ls_csrf: Option<String>,
 }
 
@@ -18,10 +20,21 @@ impl Default for ProcessStats {
             electron_pid: None,
             cpu_usage: 0.0,
             memory_rss_mb: 0.0,
+            ls_pid: None,
             ls_port: None,
+            ls_ports: Vec::new(),
             ls_csrf: None,
         }
     }
+}
+
+#[derive(Clone, Default)]
+pub struct MonitorView {
+    pub host: ProcessStats,
+    pub subs: [ProcessStats; 4],
+    pub total_memory_mb: f64,
+    pub system_total_ram_mb: f64,
+    pub host_uptime_secs: Option<u64>,
 }
 
 pub struct TelemetryMonitor {
@@ -32,10 +45,12 @@ pub struct TelemetryMonitor {
     pub system_total_ram_mb: f64,
     cached_host_ls_pid: Option<u32>,
     cached_host_port: Option<u16>,
+    cached_host_port_list: Vec<u16>,
     cached_host_csrf: Option<String>,
     host_port_retry_count: u32,
     cached_sub_ls_pids: [Option<u32>; 4],
     cached_sub_ports: [Option<u16>; 4],
+    cached_sub_port_lists: [Vec<u16>; 4],
     cached_sub_csrfs: [Option<String>; 4],
     sub_port_retry_counts: [u32; 4],
 }
@@ -85,18 +100,38 @@ pub(crate) fn is_sidecar_or_node_process(cmd_line: &str) -> bool {
         || cmd_line.contains("agy-node")
 }
 
+pub(crate) fn extract_user_data_dir(cmd_line: &str) -> Option<String> {
+    let marker = "--user-data-dir=";
+    let pos = cmd_line.find(marker)?;
+    let rest = &cmd_line[pos + marker.len()..];
+    let rest = rest.strip_prefix('"').unwrap_or(rest);
+    let end = rest.find('"').or_else(|| rest.find(' ')).unwrap_or(rest.len());
+    let dir = &rest[..end];
+    (!dir.is_empty()).then(|| dir.to_string())
+}
+
+fn normalize_path(path: &str) -> String {
+    path.replace('/', "\\").to_lowercase()
+}
+
+fn has_instance_segment(path: &str, tag: &str) -> bool {
+    let norm = normalize_path(path);
+    norm.ends_with(&format!("\\data\\{}", tag)) || norm.contains(&format!("\\data\\{}\\", tag))
+}
+
 pub(crate) fn matches_instance_user_data_dir(cmd_line: &str, slot: usize) -> bool {
     let tag = format!("instance_{}", slot + 1);
-    cmd_line.contains("--user-data-dir=") && cmd_line.contains(&tag)
+    extract_user_data_dir(cmd_line)
+        .map(|dir| has_instance_segment(&dir, &tag))
+        .unwrap_or(false)
 }
 
 pub(crate) fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
     let tag = format!("instance_{}", slot + 1);
-    let win_data = format!("data\\{}", tag);
-    let unix_data = format!("data/{}", tag);
-    (cmd_line.contains("--user-data-dir=") && cmd_line.contains(&tag))
-        || cmd_line.contains(&win_data)
-        || cmd_line.contains(&unix_data)
+    match extract_user_data_dir(cmd_line) {
+        Some(dir) => has_instance_segment(&dir, &tag),
+        None => has_instance_segment(cmd_line, &tag),
+    }
 }
 
 
@@ -125,10 +160,12 @@ impl TelemetryMonitor {
             system_total_ram_mb,
             cached_host_ls_pid: None,
             cached_host_port: None,
+            cached_host_port_list: Vec::new(),
             cached_host_csrf: None,
             host_port_retry_count: 0,
             cached_sub_ls_pids: [None; 4],
             cached_sub_ports: [None; 4],
+            cached_sub_port_lists: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             cached_sub_csrfs: [None, None, None, None],
             sub_port_retry_counts: [0; 4],
         }
@@ -138,6 +175,31 @@ impl TelemetryMonitor {
     pub fn host_uptime_seconds(&self) -> Option<u64> {
         let pid = self.host.electron_pid?;
         self.sys.process(sysinfo::Pid::from_u32(pid)).map(|p| p.run_time())
+    }
+
+
+    pub fn view(&self) -> MonitorView {
+        MonitorView {
+            host: self.host.clone(),
+            subs: self.subs.clone(),
+            total_memory_mb: self.total_memory_mb,
+            system_total_ram_mb: self.system_total_ram_mb,
+            host_uptime_secs: self.host_uptime_seconds(),
+        }
+    }
+
+
+    pub fn apply_resolved_port(&mut self, ls_pid: u32, port: u16) {
+        if self.cached_host_ls_pid == Some(ls_pid) {
+            self.cached_host_port = Some(port);
+            self.host.ls_port = Some(port);
+        }
+        for slot in 0..4 {
+            if self.cached_sub_ls_pids[slot] == Some(ls_pid) {
+                self.cached_sub_ports[slot] = Some(port);
+                self.subs[slot].ls_port = Some(port);
+            }
+        }
     }
 
 
@@ -193,10 +255,9 @@ impl TelemetryMonitor {
                     sub_main_pids[slot] = Some(pid_u32);
                 }
             } else if is_main_electron && host_electron_pid.is_none() {
-                let has_any_sub_tag = (0..4).any(|s| matches_instance_slot(&cmd_line, s));
                 let has_user_data_dir = cmd_line.contains("--user-data-dir=");
                 let is_any_known_sub = known_sub_pids.contains(&Some(pid_u32));
-                if !has_any_sub_tag && !has_user_data_dir && !is_any_known_sub {
+                if !has_user_data_dir && !is_any_known_sub {
                     host_electron_pid = Some(pid_u32);
                 }
             }
@@ -274,10 +335,6 @@ impl TelemetryMonitor {
                     }
                     host_cpu += proc.cpu_usage();
                     host_mem_bytes += proc.memory();
-                } else if is_ls && host_ls_pid.is_none() && host_electron_pid.is_some() {
-                    host_ls_pid = Some(pid_u32);
-                    host_ls_csrf = extract_csrf_token(proc.cmd());
-                    host_mem_bytes += proc.memory();
                 }
             }
         }
@@ -285,6 +342,7 @@ impl TelemetryMonitor {
         if host_ls_pid != self.cached_host_ls_pid {
             self.cached_host_ls_pid = host_ls_pid;
             self.cached_host_port = None;
+            self.cached_host_port_list.clear();
             self.cached_host_csrf = host_ls_csrf;
             self.host_port_retry_count = 0;
         } else if host_ls_csrf.is_some() && self.cached_host_csrf.is_none() {
@@ -302,6 +360,7 @@ impl TelemetryMonitor {
             }
         } else {
             self.cached_host_port = None;
+            self.cached_host_port_list.clear();
             self.cached_host_csrf = None;
             self.host_port_retry_count = 0;
         }
@@ -311,6 +370,7 @@ impl TelemetryMonitor {
             if ls_pid != self.cached_sub_ls_pids[slot] {
                 self.cached_sub_ls_pids[slot] = ls_pid;
                 self.cached_sub_ports[slot] = None;
+                self.cached_sub_port_lists[slot].clear();
                 self.cached_sub_csrfs[slot] = sub_ls_csrfs[slot].clone();
                 self.sub_port_retry_counts[slot] = 0;
             } else if sub_ls_csrfs[slot].is_some() && self.cached_sub_csrfs[slot].is_none() {
@@ -326,6 +386,7 @@ impl TelemetryMonitor {
                 }
             } else {
                 self.cached_sub_ports[slot] = None;
+                self.cached_sub_port_lists[slot].clear();
                 self.cached_sub_csrfs[slot] = None;
                 self.sub_port_retry_counts[slot] = 0;
             }
@@ -334,13 +395,17 @@ impl TelemetryMonitor {
         if !pids_to_detect.is_empty() {
             let detected = detect_listening_ports(&pids_to_detect);
             if let Some(pid) = host_ls_pid
-                && let Some(&p) = detected.get(&pid) {
-                    self.cached_host_port = Some(p);
+                && let Some(ports) = detected.get(&pid)
+                && *ports != self.cached_host_port_list {
+                    self.cached_host_port_list = ports.clone();
+                    self.cached_host_port = None;
                 }
             for (slot, &ls_pid_opt) in sub_ls_pids.iter().enumerate() {
                 if let Some(pid) = ls_pid_opt
-                    && let Some(&p) = detected.get(&pid) {
-                        self.cached_sub_ports[slot] = Some(p);
+                    && let Some(ports) = detected.get(&pid)
+                    && *ports != self.cached_sub_port_lists[slot] {
+                        self.cached_sub_port_lists[slot] = ports.clone();
+                        self.cached_sub_ports[slot] = None;
                     }
             }
         }
@@ -355,7 +420,9 @@ impl TelemetryMonitor {
             electron_pid: host_electron_pid,
             cpu_usage: (host_cpu / num_cpus).min(100.0),
             memory_rss_mb: (host_mem_bytes as f64) / (1024.0 * 1024.0),
+            ls_pid: self.cached_host_ls_pid,
             ls_port: self.cached_host_port,
+            ls_ports: self.cached_host_port_list.clone(),
             ls_csrf: self.cached_host_csrf.clone(),
         };
 
@@ -365,7 +432,9 @@ impl TelemetryMonitor {
                 electron_pid: sub_electron_pids[slot],
                 cpu_usage: (sub_cpus[slot] / num_cpus).min(100.0),
                 memory_rss_mb: (sub_mem_bytes[slot] as f64) / (1024.0 * 1024.0),
+                ls_pid: self.cached_sub_ls_pids[slot],
                 ls_port: self.cached_sub_ports[slot],
+                ls_ports: self.cached_sub_port_lists[slot].clone(),
                 ls_csrf: self.cached_sub_csrfs[slot].clone(),
             };
         }
@@ -379,11 +448,11 @@ impl TelemetryMonitor {
     }
 }
 
-fn detect_listening_ports(pids: &[u32]) -> HashMap<u32, u16> {
+fn detect_listening_ports(pids: &[u32]) -> HashMap<u32, Vec<u16>> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
-    let mut result = HashMap::new();
+    let mut result: HashMap<u32, Vec<u16>> = HashMap::new();
     if pids.is_empty() {
         return result;
     }
@@ -396,7 +465,6 @@ fn detect_listening_ports(pids: &[u32]) -> HashMap<u32, u16> {
     };
 
     let text = String::from_utf8_lossy(&output.stdout);
-    let mut pid_ports: HashMap<u32, Vec<u16>> = HashMap::new();
     for line in text.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 5 || !parts[0].eq_ignore_ascii_case("tcp") {
@@ -412,17 +480,61 @@ fn detect_listening_ports(pids: &[u32]) -> HashMap<u32, u16> {
             && let Some(port) = parts[1]
                 .rfind(':')
                 .and_then(|pos| parts[1][pos + 1..].parse::<u16>().ok())
-            {
-                pid_ports.entry(target_pid).or_default().push(port);
+        {
+            let list = result.entry(target_pid).or_default();
+            if !list.contains(&port) {
+                list.push(port);
             }
-    }
-
-    for (&pid, ports) in pid_ports.iter_mut() {
-        ports.sort_unstable();
-        if let Some(&last_port) = ports.last() {
-            result.insert(pid, last_port);
         }
     }
 
+    for ports in result.values_mut() {
+        ports.sort_unstable();
+    }
+
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_slot_matching_requires_path_segment() {
+        let workspace = r#""C:\Program Files\Antigravity\Antigravity.exe" --folder-uri file:///D:/Work/Antigravity-Lander/data/instance_10"#;
+        assert!(!matches_instance_slot(workspace, 0));
+
+        let sub_main = r#""C:\app\Antigravity.exe" --user-data-dir=D:\Work\Lander\data\instance_2\AppData\Roaming\Antigravity --force-device-scale-factor=1.40"#;
+        assert!(matches_instance_slot(sub_main, 1));
+        assert!(!matches_instance_slot(sub_main, 0));
+
+        let sub_child = r#""C:\app\Antigravity.exe" --type=renderer --user-data-dir="D:\Work\Lander\data\instance_2\AppData\Roaming\Antigravity" --lang=zh-CN"#;
+        assert!(matches_instance_user_data_dir(sub_child, 1));
+
+        let sidecar = r#""C:\app\Antigravity.exe" --import=file:///D:/Work/Lander/data/instance_2/home/.gemini/x.js main.mjs"#;
+        assert!(matches_instance_slot(sidecar, 1));
+        assert!(!matches_instance_slot(sidecar, 0));
+
+        let decoy = r#""C:\app\Antigravity.exe" --user-data-dir=D:\Work\Lander\data\instance_20\AppData"#;
+        assert!(!matches_instance_slot(decoy, 1));
+
+        let host = r#""C:\app\Antigravity.exe" --force-device-scale-factor=1.50"#;
+        assert!(extract_user_data_dir(host).is_none());
+        assert!(!matches_instance_slot(host, 0));
+    }
+
+    #[test]
+    fn test_extract_csrf_token_from_command_line() {
+        let cmd = vec![
+            std::ffi::OsString::from("language_server.exe"),
+            std::ffi::OsString::from("--csrf_token"),
+            std::ffi::OsString::from("abc-123"),
+        ];
+        assert_eq!(extract_csrf_token(&cmd).as_deref(), Some("abc-123"));
+        let cmd_eq = vec![
+            std::ffi::OsString::from("language_server.exe"),
+            std::ffi::OsString::from("--csrf_token=xyz"),
+        ];
+        assert_eq!(extract_csrf_token(&cmd_eq).as_deref(), Some("xyz"));
+    }
 }

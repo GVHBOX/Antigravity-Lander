@@ -9,7 +9,7 @@ fn find_rc_exe() -> Option<PathBuf> {
             let candidate = entry.path().join("x64").join("rc.exe");
             if candidate.exists() {
                 let version = entry.file_name().to_string_lossy().to_string();
-                if best.as_ref().map_or(true, |(current, _)| version > *current) {
+                if best.as_ref().is_none_or(|(current, _)| version > *current) {
                     best = Some((version, candidate));
                 }
             }

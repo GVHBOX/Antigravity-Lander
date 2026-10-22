@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::Duration;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AccountProfile {
     pub name: String,
     pub email: String,
@@ -14,7 +15,7 @@ pub struct AccountProfile {
     pub avatar_path: Option<PathBuf>,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct QuotaWindow {
     pub remaining_pct: f32,
     pub pct_text: String,
@@ -22,7 +23,7 @@ pub struct QuotaWindow {
     pub reset_time_rfc3339: String,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct InstanceQuotaState {
     pub is_available: bool,
     pub profile: AccountProfile,
@@ -45,6 +46,12 @@ impl QuotaCacheFile {
             self.slots.resize(idx + 1, None);
         }
         self.slots[idx] = Some(st);
+    }
+
+    pub fn remove_slot(&mut self, idx: usize) {
+        if let Some(slot) = self.slots.get_mut(idx) {
+            *slot = None;
+        }
     }
 }
 
@@ -197,6 +204,21 @@ fn extract_host_offline_profile(base_dir: &Path) -> Option<AccountProfile> {
     })
 }
 
+fn window_core_changed(a: &QuotaWindow, b: &QuotaWindow) -> bool {
+    (a.remaining_pct - b.remaining_pct).abs() > f32::EPSILON
+        || a.reset_time_rfc3339 != b.reset_time_rfc3339
+}
+
+pub fn quota_state_changed(cached: Option<&InstanceQuotaState>, fresh: &InstanceQuotaState) -> bool {
+    let Some(old) = cached else {
+        return true;
+    };
+    old.is_available != fresh.is_available
+        || old.profile != fresh.profile
+        || window_core_changed(&old.weekly, &fresh.weekly)
+        || window_core_changed(&old.five_h, &fresh.five_h)
+}
+
 pub fn compute_offline_state(
     cached: Option<&InstanceQuotaState>,
     token_path: Option<&Path>,
@@ -310,17 +332,23 @@ struct QuotaResponseInner {
     groups: Option<Vec<RawGroup>>,
 }
 
+#[cfg(test)]
 fn rpc_post(port: u16, method: &str, csrf: &str) -> Option<String> {
     rpc_post_json(port, method, csrf, "{}")
 }
 
-pub fn rpc_post_json(port: u16, method: &str, csrf: &str, body: &str) -> Option<String> {
+struct HttpReply {
+    status: u16,
+    json: Option<String>,
+}
+
+fn http_post(port: u16, method: &str, csrf: &str, body: &str, connect_ms: u64, read_ms: u64) -> Option<HttpReply> {
     let mut stream = TcpStream::connect_timeout(
         &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
-        Duration::from_millis(1500),
+        Duration::from_millis(connect_ms),
     ).ok()?;
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(2000)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(1500)));
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(read_ms)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(connect_ms)));
 
     let req = format!(
         "POST /exa.language_server_pb.LanguageServerService/{} HTTP/1.1\r\n\
@@ -381,19 +409,65 @@ Connection: close\r\n\
 
     let text = String::from_utf8_lossy(&resp);
     let body_start = text.find("\r\n\r\n")?;
+    let status = text
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0);
     let raw_body = if let Some(clen) = content_length {
         let end = (body_start + 4 + clen).min(text.len());
         &text[body_start + 4..end]
     } else {
         &text[body_start + 4..]
     };
-    let json_start = raw_body.find('{')?;
-    let json_end = raw_body.rfind('}')?;
-    if json_end >= json_start {
-        Some(raw_body[json_start..=json_end].to_string())
-    } else {
-        None
+    let json = raw_body
+        .find('{')
+        .zip(raw_body.rfind('}'))
+        .and_then(|(start, end)| (end >= start).then(|| raw_body[start..=end].to_string()));
+
+    Some(HttpReply { status, json })
+}
+
+pub fn rpc_post_json(port: u16, method: &str, csrf: &str, body: &str) -> Option<String> {
+    let reply = http_post(port, method, csrf, body, 1500, 2000)?;
+    if reply.status >= 400 {
+        return None;
     }
+    reply.json
+}
+
+fn probe_rpc_port(port: u16, csrf: &str) -> bool {
+    matches!(
+        http_post(port, "GetUserStatus", csrf, "{}", 300, 400),
+        Some(reply) if reply.status == 200
+            && reply.json.as_deref().map(|j| j.contains("userStatus")).unwrap_or(false)
+    )
+}
+
+static RESOLVED_PORTS: Mutex<Option<HashMap<u32, u16>>> = Mutex::new(None);
+
+pub fn resolve_rpc_port(ls_pid: u32, candidates: &[u16], csrf: &str) -> Option<u16> {
+    if candidates.is_empty() {
+        return None;
+    }
+    {
+        let mut guard = RESOLVED_PORTS.lock().unwrap();
+        let cache = guard.get_or_insert_with(HashMap::new);
+        if let Some(&p) = cache.get(&ls_pid)
+            && candidates.contains(&p) {
+                return Some(p);
+            }
+    }
+    let hit = candidates.iter().copied().find(|&p| probe_rpc_port(p, csrf));
+    if let Some(p) = hit {
+        let mut guard = RESOLVED_PORTS.lock().unwrap();
+        let cache = guard.get_or_insert_with(HashMap::new);
+        if cache.len() > 32 {
+            cache.clear();
+        }
+        cache.insert(ls_pid, p);
+    }
+    hit
 }
 
 fn format_reset_time(rfc3339: &str) -> String {
@@ -444,34 +518,51 @@ fn save_avatar_file(avatar_data_uri: &str, tag: &str) -> Option<PathBuf> {
     Some(target)
 }
 
-pub fn fetch_instance_quota(port: u16, csrf: &str, tag: &str) -> InstanceQuotaState {
+pub fn fetch_instance_quota(candidates: &[u16], csrf: &str, tag: &str) -> InstanceQuotaState {
     let mut state = InstanceQuotaState::default();
-    let candidate_ports = [port, port.saturating_add(1), port.saturating_sub(1)];
-    let mut valid_port = None;
+    let mut active_port = None;
 
-    for &p in &candidate_ports {
-        if let Some(user_json) = rpc_post(p, "GetUserStatus", csrf)
-            && let Ok(user_resp) = serde_json::from_str::<UserStatusResponse>(&user_json)
-                && let Some(u) = user_resp.user_status {
-                    state.is_available = true;
-                    state.profile.name = u.name.unwrap_or_else(|| "Antigravity User".to_string());
-                    state.profile.email = u.email.unwrap_or_default();
-                    state.profile.tier = u.plan_status
-                        .and_then(|p| p.plan_info)
-                        .and_then(|i| i.plan_name)
-                        .unwrap_or_else(|| "Pro".to_string());
+    for (idx, &p) in candidates.iter().enumerate() {
+        let (connect_ms, read_ms) = if idx == 0 { (1200, 2000) } else { (300, 400) };
+        let Some(reply) = http_post(p, "GetUserStatus", csrf, "{}", connect_ms, read_ms) else {
+            continue;
+        };
+        if reply.status != 200 {
+            continue;
+        }
+        let Some(json) = reply.json else {
+            continue;
+        };
+        let Ok(user_resp) = serde_json::from_str::<UserStatusResponse>(&json) else {
+            continue;
+        };
+        let Some(u) = user_resp.user_status else {
+            continue;
+        };
 
-                    if let Some(pic_url) = u.profile_picture_url
-                        && pic_url.contains("data:image/") {
-                            state.profile.avatar_path = save_avatar_file(&pic_url, tag);
-                        }
-                    valid_port = Some(p);
-                    break;
-                }
+        state.is_available = true;
+        state.profile.name = u.name.unwrap_or_else(|| "Antigravity User".to_string());
+        state.profile.email = u.email.unwrap_or_default();
+        state.profile.tier = u.plan_status
+            .and_then(|p| p.plan_info)
+            .and_then(|i| i.plan_name)
+            .unwrap_or_else(|| "Pro".to_string());
+
+        if let Some(pic_url) = u.profile_picture_url
+            && pic_url.contains("data:image/") {
+                state.profile.avatar_path = save_avatar_file(&pic_url, tag);
+            }
+        active_port = Some(p);
+        break;
     }
 
-    let active_port = valid_port.unwrap_or(port);
-    if let Some(quota_json) = rpc_post(active_port, "RetrieveUserQuotaSummary", csrf)
+    let Some(active_port) = active_port else {
+        return state;
+    };
+
+    if let Some(quota_json) = http_post(active_port, "RetrieveUserQuotaSummary", csrf, "{}", 1200, 2000)
+        .filter(|r| r.status == 200)
+        .and_then(|r| r.json)
         && let Ok(quota_resp) = serde_json::from_str::<QuotaSummaryResponse>(&quota_json)
             && let Some(inner) = quota_resp.response
                 && let Some(groups) = inner.groups {
@@ -650,6 +741,79 @@ mod tests {
 
         let img_overflow = render_quota_ring(2.5, false);
         assert!(img_overflow.size().width > 0);
+    }
+
+    #[test]
+    fn test_fetch_quota_skips_rejecting_ports() {
+        fn serve_rpc(listener: TcpListener, status: u16, user_body: &'static str, quota_body: &'static str) {
+            std::thread::spawn(move || {
+                loop {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        return;
+                    };
+                    let mut req_buf = [0u8; 2048];
+                    let n = stream.read(&mut req_buf).unwrap_or(0);
+                    let req = String::from_utf8_lossy(&req_buf[..n]).to_string();
+                    let body = if req.contains("RetrieveUserQuotaSummary") { quota_body } else { user_body };
+                    let resp = format!(
+                        "HTTP/1.1 {} X\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        status,
+                        body.len(),
+                        body
+                    );
+                    let _ = stream.write_all(resp.as_bytes());
+                }
+            });
+        }
+
+        let bad = TcpListener::bind("127.0.0.1:0").unwrap();
+        let bad_port = bad.local_addr().unwrap().port();
+        let mid = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mid_port = mid.local_addr().unwrap().port();
+        let good = TcpListener::bind("127.0.0.1:0").unwrap();
+        let good_port = good.local_addr().unwrap().port();
+
+        serve_rpc(bad, 401, "unauthorized", "");
+        serve_rpc(mid, 400, "Client sent an HTTP request to an HTTPS server.", "");
+        serve_rpc(
+            good,
+            200,
+            r#"{"userStatus":{"name":"Tester","email":"t@example.com","planStatus":{"planInfo":{"planName":"Pro"}}}}"#,
+            r#"{"response":{"groups":[{"displayName":"Gemini","buckets":[{"bucketId":"g-weekly","window":"weekly","remainingFraction":0.42,"resetTime":"2099-01-01T00:00:00Z"},{"bucketId":"g-5h","window":"5h","remainingFraction":0.77,"resetTime":"2099-01-01T00:00:00Z"}]}]}}"#,
+        );
+
+        let candidates = vec![bad_port, mid_port, good_port];
+        assert_eq!(resolve_rpc_port(987_654, &candidates, "csrf"), Some(good_port));
+
+        let st = fetch_instance_quota(&candidates, "csrf", "sub9");
+        assert!(st.is_available);
+        assert_eq!(st.profile.email, "t@example.com");
+        assert_eq!(st.weekly.pct_text, "42%");
+        assert_eq!(st.five_h.pct_text, "77%");
+    }
+
+    #[test]
+    fn test_quota_state_changed_ignores_reset_text() {
+        let mut base = InstanceQuotaState::default();
+        base.is_available = true;
+        base.profile.email = "a@example.com".to_string();
+        base.weekly.remaining_pct = 0.5;
+        base.weekly.reset_time_rfc3339 = "2099-01-01T00:00:00Z".to_string();
+        base.weekly.reset_text = "1小时后重置".to_string();
+
+        let mut text_only = base.clone();
+        text_only.weekly.reset_text = "59分钟后重置".to_string();
+        assert!(!quota_state_changed(Some(&base), &text_only));
+
+        let mut shifted = base.clone();
+        shifted.weekly.remaining_pct = 0.4;
+        assert!(quota_state_changed(Some(&base), &shifted));
+
+        let mut reauthorized = base.clone();
+        reauthorized.profile.email = "b@example.com".to_string();
+        assert!(quota_state_changed(Some(&base), &reauthorized));
+
+        assert!(quota_state_changed(None, &base));
     }
 
     #[test]

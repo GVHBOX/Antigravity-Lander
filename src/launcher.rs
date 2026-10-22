@@ -49,11 +49,15 @@ pub struct ScaleSettings {
     pub sub4: u32,
 }
 
+fn align_scale(val: u32) -> u32 {
+    (((val.clamp(80, 200) + 5) / 10) * 10).clamp(80, 200)
+}
+
 impl Default for ScaleSettings {
     fn default() -> Self {
         Self {
-            host: 158,
-            sub1: 144,
+            host: 150,
+            sub1: 140,
             sub2: 100,
             sub3: 100,
             sub4: 100,
@@ -65,12 +69,27 @@ impl ScaleSettings {
     pub fn load_or_detect() -> Self {
         let path = Self::get_config_path();
         if let Ok(content) = fs::read_to_string(&path)
-            && let Some(settings) = Self::parse_json(&content) {
+            && let Some(mut settings) = Self::parse_json(&content) {
+                let normalized = settings.normalized();
+                if normalized != settings {
+                    settings = normalized;
+                    let _ = settings.save();
+                }
                 return settings;
             }
         let settings = Self::default();
         let _ = settings.save();
         settings
+    }
+
+    fn normalized(self) -> Self {
+        Self {
+            host: align_scale(self.host),
+            sub1: align_scale(self.sub1),
+            sub2: align_scale(self.sub2),
+            sub3: align_scale(self.sub3),
+            sub4: align_scale(self.sub4),
+        }
     }
 
     pub fn get_sub_scale(&self, slot: usize) -> u32 {
@@ -84,7 +103,7 @@ impl ScaleSettings {
     }
 
     pub fn set_sub_scale(&mut self, slot: usize, val: u32) {
-        let val = val.clamp(80, 200);
+        let val = align_scale(val);
         match slot {
             1 => self.sub1 = val,
             2 => self.sub2 = val,
@@ -96,7 +115,7 @@ impl ScaleSettings {
     }
 
     pub fn set_host_scale(&mut self, val: u32) {
-        self.host = val.clamp(80, 200);
+        self.host = align_scale(val);
         let _ = self.save();
     }
 
@@ -161,10 +180,6 @@ pub struct LauncherConfig {
 }
 
 impl LauncherConfig {
-    pub fn new() -> Result<Self> {
-        Self::for_slot(1)
-    }
-
     pub fn ensure_all_sandboxes() -> Result<()> {
         for slot in 1..=4 {
             let conf = Self::for_slot(slot)?;
@@ -532,8 +547,21 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(())
     }
 
-    pub fn kill_sub_instance_by_pid(&self, pid: u32) -> Result<()> {
+    pub fn kill_host_by_pid(pid: u32, ls_pid: Option<u32>) -> Result<()> {
         let res = run_taskkill_pid(pid);
+        if let Some(ls) = ls_pid
+            && ls != pid {
+                let _ = run_taskkill_pid(ls);
+            }
+        res
+    }
+
+    pub fn kill_slot_by_pid(&self, pid: u32, ls_pid: Option<u32>) -> Result<()> {
+        let res = run_taskkill_pid(pid);
+        if let Some(ls) = ls_pid
+            && ls != pid {
+                let _ = run_taskkill_pid(ls);
+            }
         let _ = self.kill_slot_processes();
         res
     }
@@ -630,7 +658,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(child.id())
     }
 
-    pub fn bring_to_front(&self, target_pid: u32) -> bool {
+    pub fn bring_to_front(target_pid: u32) -> bool {
         #[cfg(windows)]
         unsafe {
             use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
@@ -1295,10 +1323,16 @@ mod tests {
         let invalid = "not json at all";
         assert!(ScaleSettings::parse_json(invalid).is_none());
 
+        assert_eq!(align_scale(144), 140);
+        assert_eq!(align_scale(158), 160);
+        assert_eq!(align_scale(196), 200);
+        assert_eq!(align_scale(80), 80);
+        assert_eq!(align_scale(200), 200);
+
         let extra_fields = r#"{"host":140,"unknown_extra":"ignored","sub2":110}"#;
         let parsed_extra = ScaleSettings::parse_json(extra_fields).unwrap();
         assert_eq!(parsed_extra.host, 140);
-        assert_eq!(parsed_extra.sub1, 144);
+        assert_eq!(parsed_extra.sub1, 140);
         assert_eq!(parsed_extra.sub2, 110);
     }
 }

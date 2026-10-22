@@ -338,7 +338,7 @@ pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
             None => continue,
         };
         let dur = match chat.streaming_duration.as_deref().and_then(parse_seconds_suffix) {
-            Some(d) if d >= 0.2 && d <= 120.0 => d,
+            Some(d) if (0.2..=120.0).contains(&d) => d,
             _ => continue,
         };
         let ttft = chat.time_to_first_token.as_deref().and_then(parse_seconds_suffix).unwrap_or(0.0);
@@ -397,6 +397,19 @@ pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
     }
     s.peak_tps = peak;
     s.avg_tps = if count > 0 { sum / count as f32 } else { 0.0 };
+}
+
+pub fn enrich_active_session(inst: &mut InstanceSessions, port: u16, csrf: &str) {
+    for group in inst.groups.iter_mut() {
+        if let Some(s) = group.sessions.iter_mut().find(|s| s.is_running) {
+            enrich_session_with_rpc(s, port, csrf);
+            return;
+        }
+    }
+    if let Some(group) = inst.groups.first_mut()
+        && let Some(s) = group.sessions.first_mut() {
+            enrich_session_with_rpc(s, port, csrf);
+        }
 }
 
 fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {

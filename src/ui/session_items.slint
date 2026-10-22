@@ -1,4 +1,5 @@
 import { FolderIcon } from "icons.slint";
+import { ScrollView } from "std-widgets.slint";
 
 export struct SessionUiItem {
     is_group_header: bool,
@@ -207,12 +208,25 @@ export component SubSessionCardBox inherits Rectangle {
     border-width: 1px;
     border-radius: 6px;
     min-height: 50px;
-    preferred-height: root.items.length > 0 ? (22px + root.items.length * 17px) : 50px;
+    preferred-height: root.items.length > 0 ? min(22px + root.items.length * 17px, 260px) : 50px;
     max-height: 260px;
     vertical-stretch: 1;
     clip: true;
 
     card_ta := TouchArea {
+        enabled: root.has_sessions;
+        clicked => {
+            if root.has_sessions {
+                root.clicked();
+            }
+        }
+        mouse-cursor: root.has_sessions ? pointer : default;
+    }
+
+    header_ta := TouchArea {
+        y: 0;
+        width: parent.width;
+        height: 18px;
         enabled: root.has_sessions;
         clicked => {
             if root.has_sessions {
@@ -260,10 +274,12 @@ export component SubSessionCardBox inherits Rectangle {
             }
         }
 
-        if root.items.length > 0 : VerticalLayout {
-            spacing: 2px;
+        if root.items.length > 0 : ScrollView {
             vertical-stretch: 1;
-            alignment: center;
+
+            VerticalLayout {
+                spacing: 2px;
+                padding-right: 8px;
 
             for item in root.items : HorizontalLayout {
                 height: 15px;
@@ -293,6 +309,7 @@ export component SubSessionCardBox inherits Rectangle {
                     font-family: "Cascadia Mono";
                     vertical-alignment: center;
                 }
+            }
             }
         }
 
