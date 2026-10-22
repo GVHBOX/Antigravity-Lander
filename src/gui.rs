@@ -1019,6 +1019,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let cleared_credentials = Arc::new(Mutex::new([false; 5]));
 
     let main_window = MainWindow::new()?;
+    main_window.set_app_version(format!("v{}", env!("CARGO_PKG_VERSION")).into());
     let floating_widget = FloatingWidgetWindow::new()?;
     let widget_config = Arc::new(Mutex::new(crate::widget_state::WidgetConfig::load_or_default()));
     let active_slot_tracker = Arc::new(Mutex::new(1u8));

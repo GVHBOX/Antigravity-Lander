@@ -12,7 +12,8 @@ import { FloatingWidgetWindow } from "ui/floating_widget.slint";
 export { FloatingWidgetWindow }
 
 export component MainWindow inherits Window {
-    title: "Antigravity Lander v1.0.2";
+    in property <string> app_version: "";
+    title: "Antigravity Lander " + root.app_version;
     icon: @image-url("../assets/icon.png");
     preferred-width: 1500px;
     preferred-height: 870px;
