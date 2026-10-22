@@ -80,6 +80,8 @@ pub struct SessionItem {
     pub cache_rate_str: String,
     pub time_ago_str: String,
     pub step_count: u32,
+    pub model_name: String,
+    pub thinking_level: String,
     pub round_duration_secs: f32,
     pub ttft_secs: f32,
     pub round_tps: f32,
@@ -287,6 +289,14 @@ struct GeneratorMetadataEntry {
     step_indices: Vec<u32>,
     #[serde(rename = "chatModel")]
     chat_model: Option<GeneratorChatModel>,
+    #[serde(rename = "plannerConfig", default)]
+    planner_config: Option<GeneratorPlannerConfig>,
+}
+
+#[derive(Deserialize, Default)]
+struct GeneratorPlannerConfig {
+    #[serde(rename = "modelName", default)]
+    model_name: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -295,6 +305,8 @@ struct GeneratorChatModel {
     streaming_duration: Option<String>,
     #[serde(rename = "timeToFirstToken")]
     time_to_first_token: Option<String>,
+    #[serde(rename = "responseModel", default)]
+    response_model: Option<String>,
     usage: Option<GeneratorUsage>,
 }
 
@@ -308,6 +320,58 @@ struct GeneratorUsage {
 
 fn parse_seconds_suffix(s: &str) -> Option<f32> {
     s.trim_end_matches('s').parse::<f32>().ok()
+}
+
+fn pretty_model_token(token: &str) -> String {
+    let mut chars = token.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_alphabetic() => {
+            let mut out = String::new();
+            out.extend(first.to_uppercase());
+            out.push_str(chars.as_str());
+            out
+        }
+        _ => token.to_string(),
+    }
+}
+
+pub fn format_model_display(raw: &str) -> (String, String) {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.starts_with("MODEL_PLACEHOLDER") {
+        return ("--".to_string(), "--".to_string());
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    let mut parts: Vec<&str> = lower.split('-').filter(|p| !p.is_empty()).collect();
+
+    let mut level = "--".to_string();
+    if let Some(last) = parts.last().copied()
+        && matches!(last, "minimal" | "low" | "medium" | "high") {
+            level = pretty_model_token(last);
+            parts.pop();
+        }
+    if parts.len() > 2
+        && parts.last().map(|p| p.len() == 1 && p.chars().all(|c| c.is_ascii_alphabetic())).unwrap_or(false) {
+            parts.pop();
+        }
+    if parts.is_empty() {
+        return ("--".to_string(), level);
+    }
+
+    let mut name = String::new();
+    let mut prev_numeric = false;
+    for part in &parts {
+        let numeric = part.chars().all(|c| c.is_ascii_digit() || c == '.');
+        if !name.is_empty() {
+            if prev_numeric && numeric {
+                name.push('.');
+            } else {
+                name.push(' ');
+            }
+        }
+        name.push_str(&pretty_model_token(part));
+        prev_numeric = numeric;
+    }
+    (name, level)
 }
 
 pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
@@ -325,6 +389,26 @@ pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
     };
     if parsed.generator_metadata.is_empty() {
         return;
+    }
+
+    let raw_model = parsed
+        .generator_metadata
+        .iter()
+        .rev()
+        .filter_map(|e| e.planner_config.as_ref()?.model_name.clone())
+        .find(|m| !m.trim().is_empty())
+        .or_else(|| {
+            parsed
+                .generator_metadata
+                .iter()
+                .rev()
+                .filter_map(|e| e.chat_model.as_ref()?.response_model.clone())
+                .find(|m| !m.trim().is_empty())
+        });
+    if let Some(raw) = raw_model {
+        let (name, level) = format_model_display(&raw);
+        s.model_name = name;
+        s.thinking_level = level;
     }
 
     let mut samples = Vec::new();
@@ -818,6 +902,8 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             cache_rate_str,
             time_ago_str,
             step_count,
+            model_name: String::new(),
+            thinking_level: String::new(),
             round_duration_secs: tail.round_duration_secs,
             ttft_secs: tail.ttft_secs,
             round_tps: tail.round_tps,
@@ -897,6 +983,31 @@ mod tests {
         assert_eq!(format_tokens(500), "500");
         assert_eq!(format_tokens(1500), "1.5K");
         assert_eq!(format_tokens(2_500_000), "2.50M");
+    }
+
+    #[test]
+    fn test_format_model_display() {
+        assert_eq!(
+            format_model_display("gemini-3.8-flash-high"),
+            ("Gemini 3.8 Flash".to_string(), "High".to_string())
+        );
+        assert_eq!(
+            format_model_display("gemini-3.8-pro-medium"),
+            ("Gemini 3.8 Pro".to_string(), "Medium".to_string())
+        );
+        assert_eq!(
+            format_model_display("gemini-3.8-flash-n"),
+            ("Gemini 3.8 Flash".to_string(), "--".to_string())
+        );
+        assert_eq!(
+            format_model_display("claude-sonnet-4-5"),
+            ("Claude Sonnet 4.5".to_string(), "--".to_string())
+        );
+        assert_eq!(format_model_display(""), ("--".to_string(), "--".to_string()));
+        assert_eq!(
+            format_model_display("MODEL_PLACEHOLDER_M318"),
+            ("--".to_string(), "--".to_string())
+        );
     }
 
     #[test]

@@ -7,13 +7,13 @@ component HistBarCol inherits Rectangle {
     callback unhovered();
 
     horizontal-stretch: 1;
-    height: 28px;
+    height: 40px;
 
     bar := Rectangle {
         y: parent.height - self.height;
         width: 4.5px;
         x: (parent.width - self.width) / 2;
-        height: Math.max(3.0, Math.min(28.0, root.bar_h)) * 1px;
+        height: Math.max(3.0, Math.min(40.0, root.bar_h)) * 1px;
         border-radius: 1.5px;
         background: ta.has-hover ? #38bdf8 : (root.is_latest ? #10b981 : (root.is_dark ? rgba(16, 185, 129, 0.38) : rgba(5, 150, 105, 0.42)));
     }
@@ -56,6 +56,8 @@ export component TelemetryCard inherits Rectangle {
     in property <string> live_cache_legend: "缓存读取 0";
     in property <string> live_output_text: "输出 0";
 
+    in property <string> live_model_name: "--";
+    in property <string> live_model_level: "";
     in property <string> live_cache_hit_text: "缓存命中率 0.0%";
     in property <string> live_step_text: "步数 #0";
     in property <bool> is_dark: true;
@@ -93,7 +95,7 @@ export component TelemetryCard inherits Rectangle {
                     y: (parent.height - 8px) / 2;
                 }
                 Text {
-                    text: "当前会话实时遥测";
+                    text: "状态";
                     color: root.is_dark ? #f8fafc : #0f172a;
                     font-size: 14px;
                     font-weight: 700;
@@ -132,39 +134,90 @@ export component TelemetryCard inherits Rectangle {
             }
         }
 
-        Rectangle {
-            background: root.is_dark ? #090e1c : #f8fafc;
-            border-color: root.is_dark ? #162032 : #e2e8f0;
-            border-width: 1px;
-            border-radius: 6px;
-            height: 42px;
-            VerticalLayout {
-                padding-left: 10px;
-                padding-right: 10px;
-                padding-top: 4px;
-                padding-bottom: 4px;
-                spacing: 1px;
-                HorizontalLayout {
-                    alignment: space-between;
+        HorizontalLayout {
+            spacing: 6px;
+            height: 56px;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: 0px;
+                background: root.is_dark ? #090e1c : #f8fafc;
+                border-color: root.is_dark ? #162032 : #e2e8f0;
+                border-width: 1px;
+                border-radius: 6px;
+                VerticalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    spacing: 2px;
                     Text {
-                        text: root.live_session_project;
-                        color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 12px;
-                        font-weight: 700;
+                        text: "当前会话项目";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: space-between;
+                        Text {
+                            text: root.live_session_project;
+                            color: root.is_dark ? #f8fafc : #0f172a;
+                            font-size: 12px;
+                            font-weight: 700;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.live_session_status_text;
+                            color: root.live_session_is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                            font-size: 11px;
+                            font-family: "Cascadia Mono";
+                        }
+                    }
+                    Text {
+                        text: root.live_session_title;
+                        color: root.is_dark ? #94a3b8 : #64748b;
+                        font-size: 11px;
                         overflow: elide;
                     }
+                }
+            }
+
+            Rectangle {
+                width: 208px;
+                vertical-stretch: 1;
+                background: root.is_dark ? #090e1c : #f8fafc;
+                border-color: root.is_dark ? #162032 : #e2e8f0;
+                border-width: 1px;
+                border-radius: 6px;
+                VerticalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    spacing: 2px;
+                    alignment: start;
                     Text {
-                        text: root.live_session_status_text;
-                        color: root.live_session_is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                        text: "模型";
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        height: 16px;
+                        text: root.live_model_name;
+                        color: root.is_dark ? #e2e8f0 : #1e293b;
+                        font-size: 12px;
+                        font-weight: 600;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.live_model_level;
+                        color: root.is_dark ? #94a3b8 : #64748b;
                         font-size: 11px;
                         font-family: "Cascadia Mono";
+                        vertical-alignment: center;
                     }
-                }
-                Text {
-                    text: root.live_session_title;
-                    color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11px;
-                    overflow: elide;
                 }
             }
         }
@@ -174,7 +227,7 @@ export component TelemetryCard inherits Rectangle {
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
             border-radius: 6px;
-            height: 68px;
+            height: 80px;
             HorizontalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
@@ -184,8 +237,8 @@ export component TelemetryCard inherits Rectangle {
 
                 VerticalLayout {
                     min-width: 150px;
-                    alignment: center;
-                    spacing: 2px;
+                    alignment: start;
+                    spacing: 4px;
 
                     HorizontalLayout {
                         spacing: 6px;
@@ -220,7 +273,7 @@ export component TelemetryCard inherits Rectangle {
                         Text {
                             text: root.live_session_speed_text;
                             color: root.live_is_hovering_bar ? #38bdf8 : #10b981;
-                            font-size: 20px;
+                            font-size: 22px;
                             font-weight: 700;
                             font-family: "Cascadia Mono";
                         }
@@ -279,7 +332,7 @@ export component TelemetryCard inherits Rectangle {
                     }
 
                     Rectangle {
-                        height: 28px;
+                        height: 40px;
 
                         Rectangle {
                             y: parent.height - 1px;

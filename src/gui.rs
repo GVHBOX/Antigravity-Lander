@@ -3220,6 +3220,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "".into() });
                     ui.set_live_session_project(s.project_name.as_str().into());
                     ui.set_live_session_title(s.title.as_str().into());
+                    ui.set_live_model_name(if s.model_name.is_empty() { "--".into() } else { s.model_name.as_str().into() });
+                    ui.set_live_model_level(if s.model_name.is_empty() || s.thinking_level == "--" { "".into() } else { s.thinking_level.as_str().into() });
 
                     if !is_hovering {
                         if s.is_running {
@@ -3251,7 +3253,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         if tps <= 0.0 {
                             3.0
                         } else {
-                            (3.0 + (tps / max_tps) * 25.0).clamp(3.0, 28.0)
+                            (3.0 + (tps / max_tps) * 37.0).clamp(3.0, 40.0)
                         }
                     };
                     let bars: Vec<f32> = s.recent_tps.iter().map(|&v| calc_h(v)).collect();
@@ -3313,6 +3315,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_status_text("".into());
                     ui.set_live_session_project("--".into());
                     ui.set_live_session_title("无活动会话".into());
+                    ui.set_live_model_name("--".into());
+                    ui.set_live_model_level("".into());
                     ui.set_live_session_speed_text("0.0".into());
                     ui.set_live_session_speed_sub("无吞吐".into());
                     ui.set_live_session_context_text("0 / 256K (0.0%)".into());
