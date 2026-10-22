@@ -71,6 +71,13 @@ impl SingleInstanceGuard {
 }
 
 fn main() -> Result<()> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+        let app_id: Vec<u16> = "AntigravityLander.Cockpit\0".encode_utf16().collect();
+        SetCurrentProcessExplicitAppUserModelID(app_id.as_ptr());
+    }
+
     let Some(single_instance) = acquire_single_instance()? else {
         return Ok(());
     };

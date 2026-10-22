@@ -194,39 +194,24 @@ export component MainWindow inherits Window {
     in-out property <int> live_session_target_slot: -1;
     in-out property <string> live_session_target_text: "自动跟随";
     in property <bool> live_session_is_running: false;
-    in property <string> live_session_status_text: "待命中";
+    in property <string> live_session_status_text: "";
     in property <string> live_session_project: "--";
     in property <string> live_session_title: "无活动会话";
     in property <string> live_session_speed_text: "0.0";
-    in property <string> live_session_speed_sub: "待命中 · 无吞吐";
+    in property <string> live_session_speed_sub: "无吞吐";
     in property <string> live_hover_tag: "";
     in property <bool> live_is_hovering_bar: false;
     in property <string> live_peak_tps_text: "Pk 0.0";
     in property <string> live_avg_tps_text: "Avg 0";
     in property <float> live_avg_line_pct: 0.5;
 
-    in property <float> live_bar0_h: 3.0;
-    in property <float> live_bar1_h: 3.0;
-    in property <float> live_bar2_h: 3.0;
-    in property <float> live_bar3_h: 3.0;
-    in property <float> live_bar4_h: 3.0;
-    in property <float> live_bar5_h: 3.0;
-    in property <float> live_bar6_h: 3.0;
-    in property <float> live_bar7_h: 3.0;
-    in property <float> live_bar8_h: 3.0;
-    in property <float> live_bar9_h: 3.0;
-    in property <float> live_bar10_h: 3.0;
-    in property <float> live_bar11_h: 3.0;
-    in property <float> live_bar12_h: 3.0;
-    in property <float> live_bar13_h: 3.0;
-    in property <float> live_bar14_h: 3.0;
-    in property <float> live_bar15_h: 3.0;
+    in property <[float]> live_bars: [];
 
     in property <string> live_session_context_text: "0 / 256K (0.0%)";
     in property <float> live_session_context_pct: 0.0;
-    in property <string> live_session_available_text: "可用 256K";
 
-    in property <string> live_session_optimization_text: "缓存命中率: 0.0% · 步数 #0";
+    in property <string> live_cache_hit_text: "缓存命中率 0.0%";
+    in property <string> live_step_text: "步数 #0";
     callback switch_live_session_target(int);
     callback bar_hover(int);
     callback bar_leave();
@@ -279,7 +264,7 @@ export component MainWindow inherits Window {
     in property <float> live_cache_pct: 0.0;
     in property <float> live_output_pct: 0.01;
     in property <string> live_prompt_text: "输入 0";
-    in property <string> live_cache_legend: "缓存 0 (0.0%)";
+    in property <string> live_cache_legend: "缓存读取 0";
     in property <string> live_output_text: "输出 0";
     in property <string> host_session_count_text: "--";
     in property <string> host_cache_size_text: "主机实例";
@@ -418,22 +403,7 @@ export component MainWindow inherits Window {
                         live_peak_tps_text: root.live_peak_tps_text;
                         live_avg_tps_text: root.live_avg_tps_text;
                         live_avg_line_pct: root.live_avg_line_pct;
-                        live_bar0_h: root.live_bar0_h;
-                        live_bar1_h: root.live_bar1_h;
-                        live_bar2_h: root.live_bar2_h;
-                        live_bar3_h: root.live_bar3_h;
-                        live_bar4_h: root.live_bar4_h;
-                        live_bar5_h: root.live_bar5_h;
-                        live_bar6_h: root.live_bar6_h;
-                        live_bar7_h: root.live_bar7_h;
-                        live_bar8_h: root.live_bar8_h;
-                        live_bar9_h: root.live_bar9_h;
-                        live_bar10_h: root.live_bar10_h;
-                        live_bar11_h: root.live_bar11_h;
-                        live_bar12_h: root.live_bar12_h;
-                        live_bar13_h: root.live_bar13_h;
-                        live_bar14_h: root.live_bar14_h;
-                        live_bar15_h: root.live_bar15_h;
+                        live_bars: root.live_bars;
                         live_session_context_text: root.live_session_context_text;
                         live_prompt_pct: root.live_prompt_pct;
                         live_cache_pct: root.live_cache_pct;
@@ -441,18 +411,13 @@ export component MainWindow inherits Window {
                         live_prompt_text: root.live_prompt_text;
                         live_cache_legend: root.live_cache_legend;
                         live_output_text: root.live_output_text;
-                        live_session_available_text: root.live_session_available_text;
-                        live_session_optimization_text: root.live_session_optimization_text;
+                        live_cache_hit_text: root.live_cache_hit_text;
+                        live_step_text: root.live_step_text;
                         is_dark: root.is_dark;
                         widget_mode: root.widget_mode;
 
                         switch_target(target) => { root.switch_live_session_target(target); }
                         set_widget_mode(m) => { root.set_widget_mode(m); }
-                        show_history(slot) => {
-                            root.session_modal_slot = slot;
-                            root.session_modal_visible = true;
-                            root.show_session_modal(slot);
-                        }
                         bar_hover(idx) => { root.bar_hover(idx); }
                         bar_leave() => { root.bar_leave(); }
                     }

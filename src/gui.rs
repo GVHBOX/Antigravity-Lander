@@ -178,6 +178,38 @@ fn get_cockpit_hwnd() -> windows_sys::Win32::Foundation::HWND {
 }
 
 #[cfg(target_os = "windows")]
+fn apply_window_icon(hwnd: windows_sys::Win32::Foundation::HWND) {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::UI::Shell::ExtractIconExW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        HICON, ICON_BIG, ICON_SMALL, SendMessageW, WM_SETICON,
+    };
+
+    if hwnd.is_null() {
+        return;
+    }
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let wide: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+    let mut large: HICON = std::ptr::null_mut();
+    let mut small: HICON = std::ptr::null_mut();
+    unsafe {
+        let extracted = ExtractIconExW(wide.as_ptr(), 0, &mut large, &mut small, 1);
+        if extracted == 0 {
+            return;
+        }
+        if !large.is_null() {
+            SendMessageW(hwnd, WM_SETICON, ICON_BIG as usize, large as isize);
+        }
+        if !small.is_null() {
+            SendMessageW(hwnd, WM_SETICON, ICON_SMALL as usize, small as isize);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
 static CACHED_FLOATING_WIDGET_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 #[cfg(target_os = "windows")]
@@ -2256,9 +2288,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 if s.round_tps > 0.0 {
                     ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
                     if s.ttft_secs > 0.0 {
-                        ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s (首字 {:.1}s)", s.round_duration_secs, s.ttft_secs).into());
+                        ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s", s.round_duration_secs, s.ttft_secs).into());
                     } else {
-                        ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                        ui.set_live_session_speed_sub(format!("耗时 {:.1}s", s.round_duration_secs).into());
                     }
                 } else {
                     ui.set_live_session_speed_text("--".into());
@@ -2267,14 +2299,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             } else {
                 ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
                 if s.ttft_secs > 0.0 {
-                    ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s (首字 {:.1}s) · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
+                    ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
                 } else {
-                    ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                    ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
                 }
             }
         } else {
             ui.set_live_session_speed_text("0.0".into());
-            ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
+            ui.set_live_session_speed_sub("无吞吐".into());
         }
     });
 
@@ -3036,7 +3068,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
                 if let Some(s) = active {
                     ui.set_live_session_is_running(s.is_running);
-                    ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "就绪 · 待命".into() });
+                    ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "".into() });
                     ui.set_live_session_project(s.project_name.as_str().into());
                     ui.set_live_session_title(s.title.as_str().into());
 
@@ -3045,9 +3077,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             if s.round_tps > 0.0 {
                                 ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
                                 if s.ttft_secs > 0.0 {
-                                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s (首字 {:.1}s)", s.round_duration_secs, s.ttft_secs).into());
+                                    ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s", s.round_duration_secs, s.ttft_secs).into());
                                 } else {
-                                    ui.set_live_session_speed_sub(format!("运行中 · 耗时 {:.1}s", s.round_duration_secs).into());
+                                    ui.set_live_session_speed_sub(format!("耗时 {:.1}s", s.round_duration_secs).into());
                                 }
                             } else {
                                 ui.set_live_session_speed_text("--".into());
@@ -3056,9 +3088,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         } else {
                             ui.set_live_session_speed_text(format!("{:.1}", s.round_tps).into());
                             if s.ttft_secs > 0.0 {
-                                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s (首字 {:.1}s) · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
+                                ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
                             } else {
-                                ui.set_live_session_speed_sub(format!("待命中 · 耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
+                                ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 输出 {}", s.round_duration_secs, format_tokens(s.output_tokens)).into());
                             }
                         }
                         ui.set_live_is_hovering_bar(false);
@@ -3073,24 +3105,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             (3.0 + (tps / max_tps) * 25.0).clamp(3.0, 28.0)
                         }
                     };
-                    ui.set_live_bar0_h(calc_h(s.recent_tps[0]));
-                    ui.set_live_bar1_h(calc_h(s.recent_tps[1]));
-                    ui.set_live_bar2_h(calc_h(s.recent_tps[2]));
-                    ui.set_live_bar3_h(calc_h(s.recent_tps[3]));
-                    ui.set_live_bar4_h(calc_h(s.recent_tps[4]));
-                    ui.set_live_bar5_h(calc_h(s.recent_tps[5]));
-                    ui.set_live_bar6_h(calc_h(s.recent_tps[6]));
-                    ui.set_live_bar7_h(calc_h(s.recent_tps[7]));
-                    ui.set_live_bar8_h(calc_h(s.recent_tps[8]));
-                    ui.set_live_bar9_h(calc_h(s.recent_tps[9]));
-                    ui.set_live_bar10_h(calc_h(s.recent_tps[10]));
-                    ui.set_live_bar11_h(calc_h(s.recent_tps[11]));
-                    ui.set_live_bar12_h(calc_h(s.recent_tps[12]));
-                    ui.set_live_bar13_h(calc_h(s.recent_tps[13]));
-                    ui.set_live_bar14_h(calc_h(s.recent_tps[14]));
-                    ui.set_live_bar15_h(calc_h(s.recent_tps[15]));
+                    let bars: Vec<f32> = s.recent_tps.iter().map(|&v| calc_h(v)).collect();
+                    ui.set_live_bars(std::rc::Rc::new(slint::VecModel::from(bars)).into());
 
-                    ui.set_live_peak_tps_text(format!("Pk {:.1}", s.peak_tps).into());
+                    ui.set_live_peak_tps_text(format!("峰值 {:.1}", s.peak_tps).into());
                     ui.set_live_avg_tps_text(format!("Avg {:.0}", s.avg_tps).into());
                     let avg_pct = if max_tps > 0.0 {
                         (s.avg_tps / max_tps).clamp(0.05, 0.95)
@@ -3114,61 +3132,44 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_output_pct(output_pct);
 
                     ui.set_live_prompt_text(format!("输入 {}", format_tokens(prompt_tokens)).into());
-                    ui.set_live_cache_legend(format!("缓存 {} ({})", format_tokens(cache_tokens), s.cache_rate_str).into());
+                    ui.set_live_cache_legend(format!("缓存读取 {}", format_tokens(cache_tokens)).into());
                     ui.set_live_output_text(format!("输出 {}", format_tokens(output_tokens)).into());
 
                     if total_tokens > max_tokens {
                         ui.set_live_session_context_text(format!("{} / 256K (待压缩)", format_tokens(total_tokens)).into());
                         ui.set_live_session_context_pct(1.0);
-                        ui.set_live_session_available_text("待压缩".into());
                     } else {
                         let pct = (total_tokens as f32 / max_tokens as f32).clamp(0.0, 1.0);
                         ui.set_live_session_context_text(format!("{} / 256K ({:.1}%)", format_tokens(total_tokens), pct * 100.0).into());
                         ui.set_live_session_context_pct(pct);
-                        let avail = max_tokens.saturating_sub(total_tokens);
-                        ui.set_live_session_available_text(format!("可用 {}", format_tokens(avail)).into());
                     }
 
-                    ui.set_live_session_optimization_text(format!("缓存命中率: {} · 步数 #{}", s.cache_rate_str, s.step_count).into());
+                    ui.set_live_cache_hit_text(format!("缓存命中率 {}", s.cache_rate_str).into());
+                    ui.set_live_step_text(format!("步数 #{}", s.step_count).into());
                 } else {
                     ui.set_live_prompt_pct(0.0);
                     ui.set_live_cache_pct(0.0);
                     ui.set_live_output_pct(0.0);
                     ui.set_live_prompt_text("输入 0".into());
-                    ui.set_live_cache_legend("缓存 0 (0.0%)".into());
+                    ui.set_live_cache_legend("缓存读取 0".into());
                     ui.set_live_output_text("输出 0".into());
 
-                    ui.set_live_peak_tps_text("Pk 0.0".into());
+                    ui.set_live_peak_tps_text("峰值 0.0".into());
                     ui.set_live_avg_tps_text("Avg 0".into());
                     ui.set_live_avg_line_pct(0.5);
 
-                    ui.set_live_bar0_h(3.0);
-                    ui.set_live_bar1_h(3.0);
-                    ui.set_live_bar2_h(3.0);
-                    ui.set_live_bar3_h(3.0);
-                    ui.set_live_bar4_h(3.0);
-                    ui.set_live_bar5_h(3.0);
-                    ui.set_live_bar6_h(3.0);
-                    ui.set_live_bar7_h(3.0);
-                    ui.set_live_bar8_h(3.0);
-                    ui.set_live_bar9_h(3.0);
-                    ui.set_live_bar10_h(3.0);
-                    ui.set_live_bar11_h(3.0);
-                    ui.set_live_bar12_h(3.0);
-                    ui.set_live_bar13_h(3.0);
-                    ui.set_live_bar14_h(3.0);
-                    ui.set_live_bar15_h(3.0);
+                    ui.set_live_bars(std::rc::Rc::new(slint::VecModel::from(vec![3.0f32; crate::session::HISTORY_LEN])).into());
 
                     ui.set_live_session_is_running(false);
-                    ui.set_live_session_status_text("待命中".into());
+                    ui.set_live_session_status_text("".into());
                     ui.set_live_session_project("--".into());
                     ui.set_live_session_title("无活动会话".into());
                     ui.set_live_session_speed_text("0.0".into());
-                    ui.set_live_session_speed_sub("待命中 · 无吞吐".into());
+                    ui.set_live_session_speed_sub("无吞吐".into());
                     ui.set_live_session_context_text("0 / 256K (0.0%)".into());
                     ui.set_live_session_context_pct(0.0);
-                    ui.set_live_session_available_text("可用 256K".into());
-                    ui.set_live_session_optimization_text("缓存命中率: 0.0% · 步数 #0".into());
+                    ui.set_live_cache_hit_text("缓存命中率 0.0%".into());
+                    ui.set_live_step_text("步数 #0".into());
                     ui.set_live_is_hovering_bar(false);
                     ui.set_live_hover_tag("".into());
                 }
@@ -3328,6 +3329,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     {
         let hwnd = get_cockpit_hwnd();
         apply_dark_window_attributes(hwnd);
+        apply_window_icon(hwnd);
         let scale = main_window.window().scale_factor();
         center_and_scale_cockpit_window(hwnd, scale);
     }
@@ -3338,6 +3340,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         #[cfg(target_os = "windows")]
         {
             let w_hwnd = get_floating_widget_hwnd();
+            apply_window_icon(w_hwnd);
             let scale = floating_widget.window().scale_factor();
             setup_floating_widget_window(w_hwnd, widget_cfg_init.pos_x, widget_cfg_init.pos_y, scale);
         }

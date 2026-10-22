@@ -7,6 +7,8 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
 
+pub const HISTORY_LEN: usize = 32;
+
 type OpenFn = unsafe extern "C" fn(*const c_char, *mut *mut c_void, i32, *const c_char) -> i32;
 type PrepareFn = unsafe extern "C" fn(*mut c_void, *const c_char, i32, *mut *mut c_void, *mut *const c_char) -> i32;
 type StepFn = unsafe extern "C" fn(*mut c_void) -> i32;
@@ -83,10 +85,10 @@ pub struct SessionItem {
     pub round_tps: f32,
     pub peak_tps: f32,
     pub avg_tps: f32,
-    pub recent_tps: [f32; 16],
-    pub recent_turn_tokens: [u64; 16],
-    pub recent_turn_durations: [f32; 16],
-    pub recent_turn_indices: [u32; 16],
+    pub recent_tps: [f32; HISTORY_LEN],
+    pub recent_turn_tokens: [u64; HISTORY_LEN],
+    pub recent_turn_durations: [f32; HISTORY_LEN],
+    pub recent_turn_indices: [u32; HISTORY_LEN],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -145,10 +147,10 @@ struct TailMetrics {
     round_tps: f32,
     peak_tps: f32,
     avg_tps: f32,
-    recent_tps: [f32; 16],
-    recent_turn_tokens: [u64; 16],
-    recent_turn_durations: [f32; 16],
-    recent_turn_indices: [u32; 16],
+    recent_tps: [f32; HISTORY_LEN],
+    recent_turn_tokens: [u64; HISTORY_LEN],
+    recent_turn_durations: [f32; HISTORY_LEN],
+    recent_turn_indices: [u32; HISTORY_LEN],
     file_step_count: u32,
 }
 
@@ -367,12 +369,12 @@ pub fn enrich_session_with_rpc(s: &mut SessionItem, port: u16, csrf: &str) {
     s.round_duration_secs = last_sample.2;
     s.ttft_secs = last_sample.3;
 
-    let take_n = samples.len().min(16);
-    let start_idx = 16 - take_n;
-    s.recent_tps = [0.0; 16];
-    s.recent_turn_tokens = [0; 16];
-    s.recent_turn_durations = [0.0; 16];
-    s.recent_turn_indices = [0; 16];
+    let take_n = samples.len().min(HISTORY_LEN);
+    let start_idx = HISTORY_LEN - take_n;
+    s.recent_tps = [0.0; HISTORY_LEN];
+    s.recent_turn_tokens = [0; HISTORY_LEN];
+    s.recent_turn_durations = [0.0; HISTORY_LEN];
+    s.recent_turn_indices = [0; HISTORY_LEN];
 
     for (i, &(tps, tokens, dur, _, idx)) in samples.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
         s.recent_tps[start_idx + i] = tps;
@@ -523,13 +525,13 @@ fn parse_tail_metrics(path: &Path, file_len: u64) -> TailMetrics {
     }
 
     let round_tps = tps_tuples.last().map(|t| t.0).unwrap_or(0.0);
-    let mut recent_tps = [0.0f32; 16];
-    let mut recent_turn_tokens = [0u64; 16];
-    let mut recent_turn_durations = [0.0f32; 16];
-    let mut recent_turn_indices = [0u32; 16];
+    let mut recent_tps = [0.0f32; HISTORY_LEN];
+    let mut recent_turn_tokens = [0u64; HISTORY_LEN];
+    let mut recent_turn_durations = [0.0f32; HISTORY_LEN];
+    let mut recent_turn_indices = [0u32; HISTORY_LEN];
 
-    let take_n = tps_tuples.len().min(16);
-    let start_idx = 16 - take_n;
+    let take_n = tps_tuples.len().min(HISTORY_LEN);
+    let start_idx = HISTORY_LEN - take_n;
     for (i, &(tps, out, dur, idx)) in tps_tuples.iter().rev().take(take_n).collect::<Vec<_>>().into_iter().rev().enumerate() {
         recent_tps[start_idx + i] = tps;
         recent_turn_tokens[start_idx + i] = out;
