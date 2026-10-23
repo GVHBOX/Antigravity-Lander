@@ -91,6 +91,8 @@ pub struct SessionItem {
     pub recent_turn_tokens: [u64; HISTORY_LEN],
     pub recent_turn_durations: [f32; HISTORY_LEN],
     pub recent_turn_indices: [u32; HISTORY_LEN],
+    pub compact_count: u32,
+    pub compact_str: String,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -185,6 +187,71 @@ fn get_or_parse_tail_metrics(uuid: &str, log_path: &Path, len: u64, mtime: Syste
     }
     cache.insert(uuid.to_string(), (len, mtime, metrics.clone()));
     metrics
+}
+
+const CHECKPOINT_MARKER: &[u8] = b"\"type\":\"CHECKPOINT\"";
+
+#[derive(Clone, Default)]
+struct CompactState {
+    offset: u64,
+    count: u32,
+}
+
+static COMPACT_CACHE: Mutex<Option<HashMap<String, CompactState>>> = Mutex::new(None);
+
+fn line_contains(line: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || line.len() < needle.len() {
+        return false;
+    }
+    line.windows(needle.len()).any(|window| window == needle)
+}
+
+fn get_or_scan_compact(uuid: &str, path: &Path, len: u64) -> u32 {
+    let mut state = {
+        let mut guard = COMPACT_CACHE.lock().unwrap();
+        let cache = guard.get_or_insert_with(HashMap::new);
+        cache.get(uuid).cloned().unwrap_or_default()
+    };
+
+    if state.offset > len {
+        state.offset = 0;
+        state.count = 0;
+    }
+
+    if state.offset >= len {
+        return state.count;
+    }
+
+    let Ok(file) = File::open(path) else {
+        return state.count;
+    };
+    let mut reader = BufReader::new(file);
+    if reader.seek(SeekFrom::Start(state.offset)).is_err() {
+        return state.count;
+    }
+
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        let Ok(read) = reader.read_until(b'\n', &mut line) else {
+            break;
+        };
+        if read == 0 || line.last() != Some(&b'\n') {
+            break;
+        }
+        if line_contains(&line, CHECKPOINT_MARKER) {
+            state.count += 1;
+        }
+        state.offset += read as u64;
+    }
+
+    let mut guard = COMPACT_CACHE.lock().unwrap();
+    let cache = guard.get_or_insert_with(HashMap::new);
+    if cache.len() >= 2048 {
+        cache.clear();
+    }
+    cache.insert(uuid.to_string(), state.clone());
+    state.count
 }
 
 #[derive(Deserialize)]
@@ -868,6 +935,13 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
 
         let tail = get_or_parse_tail_metrics(&uuid, &log_path, len, mtime);
 
+        let compact_count = get_or_scan_compact(&uuid, &log_path, len);
+        let compact_str = if compact_count == 0 {
+            "压缩 0 次".to_string()
+        } else {
+            format!("压缩 {compact_count} 次")
+        };
+
         let is_running_db = if let Some(m) = db_meta {
             (m.status == "CASCADE_RUN_STATUS_RUNNING" || m.not_fully_idle) && secs_ago <= 60
         } else {
@@ -913,6 +987,8 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             recent_turn_tokens: tail.recent_turn_tokens,
             recent_turn_durations: tail.recent_turn_durations,
             recent_turn_indices: tail.recent_turn_indices,
+            compact_count,
+            compact_str,
         });
     }
 
@@ -1057,3 +1133,4 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+

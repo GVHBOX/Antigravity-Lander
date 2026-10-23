@@ -60,6 +60,7 @@ export component TelemetryCard inherits Rectangle {
     in property <string> live_model_level: "";
     in property <string> live_cache_hit_text: "缓存命中率 0.0%";
     in property <string> live_step_text: "步数 #0";
+    in property <string> live_compact_text: "压缩 0 次";
     in property <bool> is_dark: true;
     in property <string> widget_mode: "smart";
 
@@ -403,20 +404,30 @@ export component TelemetryCard inherits Rectangle {
                 spacing: 3px;
 
                 HorizontalLayout {
-                    alignment: start;
-                    spacing: 8px;
+                    alignment: space-between;
                     height: 14px;
-                    Text {
-                        text: "上下文用量";
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 11px;
-                        vertical-alignment: center;
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: 8px;
+                        Text {
+                            text: "上下文用量";
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.live_session_context_text;
+                            color: root.ctx_used_pct >= 0.95 ? #c94f5e : (root.ctx_used_pct >= 0.8 ? #c9822f : (root.is_dark ? #cbd5e1 : #334155));
+                            font-size: 11px;
+                            font-weight: 600;
+                            font-family: "Cascadia Mono";
+                            vertical-alignment: center;
+                        }
                     }
                     Text {
-                        text: root.live_session_context_text;
-                        color: root.ctx_used_pct >= 0.95 ? #c94f5e : (root.ctx_used_pct >= 0.8 ? #c9822f : (root.is_dark ? #cbd5e1 : #334155));
-                        font-size: 11px;
-                        font-weight: 600;
+                        text: root.live_compact_text;
+                        color: root.is_dark ? #64748b : #94a3b8;
+                        font-size: 10px;
                         font-family: "Cascadia Mono";
                         vertical-alignment: center;
                     }

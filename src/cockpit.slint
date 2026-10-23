@@ -215,6 +215,7 @@ export component MainWindow inherits Window {
 
     in property <string> live_cache_hit_text: "缓存命中率 0.0%";
     in property <string> live_step_text: "步数 #0";
+    in property <string> live_compact_text: "压缩 0 次";
     callback switch_live_session_target(int);
     callback bar_hover(int);
     callback bar_leave();
@@ -413,6 +414,7 @@ export component MainWindow inherits Window {
                         live_output_text: root.live_output_text;
                         live_cache_hit_text: root.live_cache_hit_text;
                         live_step_text: root.live_step_text;
+                        live_compact_text: root.live_compact_text;
                         live_model_name: root.live_model_name;
                         live_model_level: root.live_model_level;
                         is_dark: root.is_dark;

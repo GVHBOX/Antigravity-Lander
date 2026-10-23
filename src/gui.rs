@@ -3153,6 +3153,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
                     ui.set_live_cache_hit_text(format!("缓存命中率 {}", s.cache_rate_str).into());
                     ui.set_live_step_text(format!("步数 #{}", s.step_count).into());
+                    ui.set_live_compact_text(s.compact_str.clone().into());
                 } else {
                     ui.set_live_prompt_pct(0.0);
                     ui.set_live_cache_pct(0.0);
@@ -3179,6 +3180,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_context_pct(0.0);
                     ui.set_live_cache_hit_text("缓存命中率 0.0%".into());
                     ui.set_live_step_text("步数 #0".into());
+                    ui.set_live_compact_text("压缩 0 次".into());
                     ui.set_live_is_hovering_bar(false);
                     ui.set_live_hover_tag("".into());
                 }
