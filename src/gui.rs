@@ -990,6 +990,19 @@ enum PendingPatchAction {
     ToggleProxy,
 }
 
+fn interruptible_sleep(ms: u64, shutdown: &std::sync::atomic::AtomicBool) {
+    const STEP_MS: u64 = 100;
+    let mut left = ms;
+    while left > 0 {
+        if shutdown.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let chunk = left.min(STEP_MS);
+        std::thread::sleep(std::time::Duration::from_millis(chunk));
+        left -= chunk;
+    }
+}
+
 pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let _ = LauncherConfig::ensure_all_sandboxes();
     let sub_pids = Arc::new(Mutex::new([None::<u32>; 4]));
@@ -2437,11 +2450,17 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
     let mon_bg = Arc::clone(&monitor);
     let qs_bg = Arc::clone(&quota_states);
     let qc_bg = Arc::clone(&quota_cache);
-    std::thread::spawn(move || {
+    let shutdown_quota = Arc::clone(&shutdown);
+    let quota_worker = std::thread::spawn(move || {
         loop {
+            if shutdown_quota.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
             let mut fetched_any = false;
             for idx in 0..5 {
                 let Some((ports, csrf)) = slot_rpc_ports(&mon_bg, idx) else {
@@ -2467,7 +2486,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             }
 
             let sleep_ms = if fetched_any { 3000 } else { 800 };
-            std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+            interruptible_sleep(sleep_ms, &shutdown_quota);
         }
     });
 
@@ -2479,8 +2498,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let bg_telem_worker = Arc::clone(&bg_telemetry);
     let sessions_store_worker = Arc::clone(&sessions_store);
     let mon_sessions_worker = Arc::clone(&monitor);
-    std::thread::spawn(move || {
+    let shutdown_sessions = Arc::clone(&shutdown);
+    let session_worker = std::thread::spawn(move || {
+        let mut idle_rounds = 0u32;
         loop {
+            if shutdown_sessions.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
             let host_home = LauncherConfig::resolve_host_user_dir();
             let host_sessions = if let Some(ref h) = host_home {
                 scan_sandbox_sessions(h)
@@ -2526,6 +2550,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
             }
 
+            let all_idle = snapshot
+                .iter()
+                .all(|s| s.total_sessions == 0 && !s.has_running);
+            idle_rounds = if all_idle { idle_rounds + 1 } else { 0 };
+
             {
                 let mut store = sessions_store_worker.lock().unwrap();
                 *store = snapshot;
@@ -2538,7 +2567,14 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 *telem = (patch, proxy);
             }
 
-            std::thread::sleep(std::time::Duration::from_millis(1500));
+            let scan_interval = if idle_rounds >= 6 {
+                10000
+            } else if idle_rounds >= 3 {
+                5000
+            } else {
+                1500
+            };
+            interruptible_sleep(scan_interval, &shutdown_sessions);
         }
     });
 
@@ -3352,5 +3388,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
     let _keep_floating_widget = floating_widget;
     let _ = slint::run_event_loop_until_quit();
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+    let _ = quota_worker.join();
+    let _ = session_worker.join();
     Ok(())
 }
