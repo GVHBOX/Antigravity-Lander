@@ -64,7 +64,6 @@ fn get_sqlite_funcs() -> Option<&'static SqliteFunctions> {
 }
 
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct SessionItem {
     pub id: String,
     pub title: String,
@@ -73,7 +72,6 @@ pub struct SessionItem {
     pub cache_read_tokens: u64,
     pub output_tokens: u64,
     pub context_tokens: u64,
-    pub cache_rate: f32,
     pub is_running: bool,
     pub last_updated_secs_ago: u64,
     pub context_str: String,
@@ -91,12 +89,10 @@ pub struct SessionItem {
     pub recent_turn_tokens: [u64; HISTORY_LEN],
     pub recent_turn_durations: [f32; HISTORY_LEN],
     pub recent_turn_indices: [u32; HISTORY_LEN],
-    pub compact_count: u32,
     pub compact_str: String,
 }
 
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct SessionGroup {
     pub project_name: String,
     pub sessions: Vec<SessionItem>,
@@ -105,9 +101,7 @@ pub struct SessionGroup {
 }
 
 #[derive(Clone, Debug, Default)]
-#[allow(dead_code)]
 pub struct InstanceSessions {
-    pub slot: u8,
     pub groups: Vec<SessionGroup>,
     pub total_sessions: usize,
     pub summary_text: String,
@@ -857,7 +851,7 @@ fn urlencoding_decode(s: &str) -> String {
     String::from_utf8_lossy(&bytes).to_string()
 }
 
-pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions {
+pub fn scan_sandbox_sessions(sandbox_home: &Path) -> InstanceSessions {
     let gemini_dir = sandbox_home.join(".gemini");
     let brain_dir = gemini_dir.join("antigravity").join("brain");
     let projects_dir = gemini_dir.join("config").join("projects");
@@ -865,7 +859,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
 
     if !brain_dir.is_dir() {
         return InstanceSessions {
-            slot,
             groups: Vec::new(),
             total_sessions: 0,
             summary_text: "无活动会话".to_string(),
@@ -969,7 +962,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             cache_read_tokens: tail.cache_read_tokens,
             output_tokens: tail.output_tokens,
             context_tokens: tail.context_tokens,
-            cache_rate: tail.cache_rate,
             is_running,
             last_updated_secs_ago: secs_ago,
             context_str,
@@ -987,7 +979,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
             recent_turn_tokens: tail.recent_turn_tokens,
             recent_turn_durations: tail.recent_turn_durations,
             recent_turn_indices: tail.recent_turn_indices,
-            compact_count,
             compact_str,
         });
     }
@@ -1042,7 +1033,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path, slot: u8) -> InstanceSessions 
     };
 
     InstanceSessions {
-        slot,
         groups,
         total_sessions,
         summary_text,

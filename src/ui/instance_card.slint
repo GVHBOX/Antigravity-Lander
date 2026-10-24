@@ -2,10 +2,15 @@ import { CompactButton, OutlineButton } from "buttons.slint";
 import { MiniMetricBox, UserProfileRow, SubQuotaCompactBox, SubScaleCacheRow } from "widgets.slint";
 import { SubSessionCardBox, SessionUiItem } from "session_items.slint";
 
-export component SubInstanceCard inherits Rectangle {
+export component InstanceCard inherits Rectangle {
     in property <int> slot: 1;
     in property <string> title_text: "分身 1";
     in property <string> instance_id_text: "instance_1";
+    in property <string> dir_button_text: "沙箱目录";
+    in property <float> card_stretch: 1;
+    in property <length> card_max_height: 100000px;
+    in property <length> content_padding_bottom: 6px;
+    in property <bool> content_fill: true;
     in property <bool> is_running: false;
     in property <string> pid_text: "--";
     in property <string> user_name: "--";
@@ -44,11 +49,12 @@ export component SubInstanceCard inherits Rectangle {
     callback launch();
     callback stop();
     callback clear_token();
-    callback open_sandbox();
+    callback open_dir();
 
-    horizontal-stretch: 1;
+    horizontal-stretch: root.card_stretch;
     min-width: 0px;
     preferred-width: 0px;
+    max-height: root.card_max_height;
     background: root.is_dark ? #090e1c : #f8fafc;
     border-color: root.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
     border-width: 1px;
@@ -59,7 +65,7 @@ export component SubInstanceCard inherits Rectangle {
         padding-left: 10px;
         padding-right: 10px;
         padding-top: 6px;
-        padding-bottom: 6px;
+        padding-bottom: root.content_padding_bottom;
         spacing: 3px;
 
         HorizontalLayout {
@@ -175,7 +181,7 @@ export component SubInstanceCard inherits Rectangle {
             clicked => { root.session_clicked(); }
         }
 
-        Rectangle { vertical-stretch: 1; }
+        if root.content_fill : Rectangle { vertical-stretch: 1; }
 
         VerticalLayout {
             spacing: 3px;
@@ -228,9 +234,9 @@ export component SubInstanceCard inherits Rectangle {
                 }
                 OutlineButton {
                     horizontal-stretch: 1;
-                    text: "沙箱目录";
+                    text: root.dir_button_text;
                     is_dark: root.is_dark;
-                    clicked => { root.open_sandbox(); }
+                    clicked => { root.open_dir(); }
                 }
             }
         }

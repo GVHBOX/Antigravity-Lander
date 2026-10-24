@@ -30,16 +30,56 @@ fn default_sound_on_done() -> bool {
     true
 }
 
+#[cfg(target_os = "windows")]
+fn default_widget_position() -> (i32, i32) {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, SystemParametersInfoW, SM_CXSCREEN, SM_CYSCREEN, SPI_GETWORKAREA,
+    };
+
+    const WIDGET_WIDTH: i32 = 140;
+    const WIDGET_HEIGHT: i32 = 34;
+    const EDGE_MARGIN: i32 = 24;
+
+    let (work_right, work_bottom) = unsafe {
+        let mut rect: RECT = std::mem::zeroed();
+        if SystemParametersInfoW(
+            SPI_GETWORKAREA,
+            0,
+            &mut rect as *mut RECT as *mut core::ffi::c_void,
+            0,
+        ) != 0
+            && rect.right > rect.left + WIDGET_WIDTH
+            && rect.bottom > rect.top + WIDGET_HEIGHT
+        {
+            (rect.right, rect.bottom)
+        } else {
+            (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
+        }
+    };
+
+    (
+        work_right - WIDGET_WIDTH - EDGE_MARGIN,
+        work_bottom - WIDGET_HEIGHT - EDGE_MARGIN,
+    )
+}
+
+#[cfg(not(target_os = "windows"))]
+fn default_widget_position() -> (i32, i32) {
+    (24, 24)
+}
+
 impl Default for WidgetConfig {
     fn default() -> Self {
+        let (pos_x, pos_y) = default_widget_position();
         Self {
             enabled: true,
             mode: WidgetMode::Smart,
             notify_on_done: true,
             sound_on_done: true,
             sound_file: None,
-            pos_x: 1680,
-            pos_y: 300,
+            pos_x,
+            pos_y,
             edge_snap: true,
         }
     }
@@ -190,10 +230,6 @@ impl StateTransitionDetector {
 
     pub fn has_any_running(&self) -> bool {
         self.slots.iter().any(|s| s.is_running)
-    }
-
-    pub fn get_slot_state(&self, slot: u8) -> Option<&SlotRuntimeRecord> {
-        self.slots.get(slot as usize)
     }
 }
 

@@ -1854,27 +1854,20 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    main_window.on_action_open_sandbox({
+    main_window.on_action_open_dir({
         let ui_weak = main_window.as_weak();
         move |slot| {
-            if !(1..=4).contains(&slot) {
+            let Some(ui) = ui_weak.upgrade() else {
                 return;
-            }
-            if let Some(ui) = ui_weak.upgrade()
+            };
+            if slot == 0 {
+                let _ = LauncherConfig::open_app_dir_in_explorer();
+                ui.set_toast_message("已打开程序目录".into());
+            } else if (1..=4).contains(&slot)
                 && let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
                     let _ = conf.open_sandbox_in_explorer();
                     ui.set_toast_message(format!("已打开分身 {} 目录", slot).into());
                 }
-        }
-    });
-
-    main_window.on_action_open_app_dir({
-        let ui_weak = main_window.as_weak();
-        move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let _ = LauncherConfig::open_app_dir_in_explorer();
-                ui.set_toast_message("已打开程序目录".into());
-            }
         }
     });
 
@@ -2490,31 +2483,31 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         loop {
             let host_home = LauncherConfig::resolve_host_user_dir();
             let host_sessions = if let Some(ref h) = host_home {
-                scan_sandbox_sessions(h, 0)
+                scan_sandbox_sessions(h)
             } else {
                 InstanceSessions::default()
             };
             let sub1_home = LauncherConfig::slot_home_dir(1);
             let sub1_sessions = if let Some(ref h) = sub1_home {
-                scan_sandbox_sessions(h, 1)
+                scan_sandbox_sessions(h)
             } else {
                 InstanceSessions::default()
             };
             let sub2_home = LauncherConfig::slot_home_dir(2);
             let sub2_sessions = if let Some(ref h) = sub2_home {
-                scan_sandbox_sessions(h, 2)
+                scan_sandbox_sessions(h)
             } else {
                 InstanceSessions::default()
             };
             let sub3_home = LauncherConfig::slot_home_dir(3);
             let sub3_sessions = if let Some(ref h) = sub3_home {
-                scan_sandbox_sessions(h, 3)
+                scan_sandbox_sessions(h)
             } else {
                 InstanceSessions::default()
             };
             let sub4_home = LauncherConfig::slot_home_dir(4);
             let sub4_sessions = if let Some(ref h) = sub4_home {
-                scan_sandbox_sessions(h, 4)
+                scan_sandbox_sessions(h)
             } else {
                 InstanceSessions::default()
             };

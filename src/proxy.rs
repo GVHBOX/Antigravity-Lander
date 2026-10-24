@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
 use std::fs;
 use std::net::{SocketAddr, TcpStream};
@@ -93,28 +91,8 @@ pub struct ProxyStatus {
 }
 
 impl ProxyStatus {
-    pub fn is_any_deployed(&self) -> bool {
-        self.app_deployed
-    }
-
     pub fn is_fully_deployed(&self) -> bool {
         self.app_installed && self.app_deployed
-    }
-
-    pub fn pending_targets(&self) -> Vec<&'static str> {
-        let mut pending = Vec::new();
-        if self.app_installed && !self.app_deployed {
-            pending.push("桌面版");
-        }
-        pending
-    }
-
-    pub fn deployed_targets(&self) -> Vec<&'static str> {
-        let mut done = Vec::new();
-        if self.app_deployed {
-            done.push("桌面版");
-        }
-        done
     }
 
     pub fn status_text(&self) -> String {
