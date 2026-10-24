@@ -1,7 +1,9 @@
 #![windows_subsystem = "windows"]
 
+mod asar;
 mod gui;
 mod launcher;
+mod localize;
 mod monitor;
 mod proxy;
 mod quota;

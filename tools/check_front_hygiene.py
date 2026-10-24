@@ -5,6 +5,7 @@
 
 扫描范围：ui/*.slint 的界面文案 + src/*.rs 里给人看的字符串（toast / 状态条 / 标签）。
 诊断日志（append_log / add_log 的内容）不算界面，已排除。
+localize.rs 内是注入宿主应用的汉化译文，不是本项目界面文案，已排除。
 
 注意：这是关键词黑名单，只能挡住已知说法。新增文案仍要按铁律 2 人工过一遍。
 
@@ -25,6 +26,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGETS = ["src/**/*.slint", "src/**/*.rs"]
+EXCLUDED_FILES = ("localize.rs",)
 
 BANNED_WORDS = (
     "点击", "请选择", "您可以", "建议", "试试", "请注意",
@@ -44,6 +46,8 @@ def scan_hygiene(root: Path) -> list[str]:
     errors = []
     for pattern in TARGETS:
         for p in sorted(root.glob(pattern)):
+            if p.name in EXCLUDED_FILES:
+                continue
             text = p.read_text(encoding="utf-8", errors="replace")
             for line_no, line in enumerate(text.splitlines(), 1):
                 if any(m in line for m in LOG_MARKERS):

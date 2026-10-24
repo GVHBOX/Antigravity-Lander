@@ -313,37 +313,6 @@ impl LauncherConfig {
         }
     }
 
-    pub fn find_node_executable() -> Option<PathBuf> {
-        if let Ok(output) = Command::new("node")
-            .arg("-v")
-            .creation_flags(WIN32_DETACHED_FLAGS)
-            .output()
-            && output.status.success() {
-                return Some(PathBuf::from("node"));
-            }
-        for var in ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"] {
-            if let Ok(pf) = env::var(var) {
-                let p = PathBuf::from(pf).join("nodejs").join("node.exe");
-                if p.exists() {
-                    return Some(p);
-                }
-            }
-        }
-        if let Ok(local) = env::var("LOCALAPPDATA") {
-            let p = PathBuf::from(local).join("Programs").join("node").join("node.exe");
-            if p.exists() {
-                return Some(p);
-            }
-        }
-        if let Ok(appdata) = env::var("APPDATA") {
-            let p = PathBuf::from(appdata).join("nvm").join("nodejs").join("node.exe");
-            if p.exists() {
-                return Some(p);
-            }
-        }
-        None
-    }
-
 pub fn resolve_host_user_dir() -> Option<PathBuf> {
     if let (Ok(drive), Ok(path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
         let p = PathBuf::from(format!("{}{}", drive, path));
@@ -924,7 +893,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             fs::copy(&bak, asar)?;
             Ok(())
         } else {
-            Self::run_patch_engine("--restore")
+            anyhow::bail!("无同版本原版备份，无法还原汉化层")
         }
     }
 
@@ -942,7 +911,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                 fs::copy(&patch, asar)?;
                 Ok(())
             }
-            None => Self::run_patch_engine("--install"),
+            None => Self::install_ag2_native(asar, res_dir),
         }
     }
 
@@ -956,32 +925,84 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         }
     }
 
-    fn run_patch_engine(arg: &str) -> Result<()> {
-        let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let builder_dir = base.join("tools").join("patch_builder");
-        let engine_script = builder_dir.join("tools").join("engine.js");
-        if !engine_script.exists() {
-            anyhow::bail!("未找到汉化引擎 tools/patch_builder/tools/engine.js");
+    fn install_ag2_native(asar: &std::path::Path, res_dir: &std::path::Path) -> Result<()> {
+        let bak = res_dir.join("app.asar.bak");
+        if !bak.exists() {
+            fs::copy(asar, &bak)?;
         }
-        let Some(node_exe) = Self::find_node_executable() else {
-            anyhow::bail!("未检测到 Node.js 环境，无法构建汉化包");
-        };
-        let out = Command::new(&node_exe)
-            .arg(&engine_script)
-            .arg(arg)
-            .current_dir(&builder_dir)
-            .creation_flags(WIN32_DETACHED_FLAGS)
-            .output()
-            .with_context(|| format!("运行 Node.js 失败: {:?}", node_exe))?;
 
-        if out.status.success() {
-            Ok(())
-        } else {
-            let err = String::from_utf8_lossy(&out.stderr);
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let detail = if err.trim().is_empty() { stdout } else { err };
-            anyhow::bail!("{}", detail.trim())
+        let work = std::env::temp_dir().join("lander_ag2_patch");
+        let _ = fs::remove_dir_all(&work);
+        fs::create_dir_all(&work)?;
+
+        let extract_dir = crate::localize::extract_root(&work);
+        fs::create_dir_all(&extract_dir)?;
+
+        let archive = crate::asar::AsarArchive::open(asar)?;
+        let source_count = archive.file_count();
+        let source_unpacked = archive.unpacked_count();
+        archive.extract(&extract_dir)?;
+
+        let report = crate::localize::apply(&extract_dir)?;
+
+        let temp_asar = work.join("app.asar.temp");
+        let packed = crate::asar::pack(&extract_dir, &temp_asar)?;
+
+        let check = crate::asar::AsarArchive::open(&temp_asar)?;
+        let reject = |work: &std::path::Path, msg: String| -> Result<()> {
+            let _ = fs::remove_dir_all(work);
+            Err(anyhow::anyhow!(msg))
+        };
+        if check.read_file_text("package.json").is_none() {
+            return reject(&work, "汉化产物缺少可读的 package.json，拒绝写入".to_string());
         }
+        if check.file_count() != packed.file_count || check.file_count() != source_count {
+            return reject(
+                &work,
+                format!(
+                    "汉化产物条目数不符（原 {} / 打出 {} / 回读 {}），拒绝写入",
+                    source_count,
+                    packed.file_count,
+                    check.file_count()
+                ),
+            );
+        }
+        if packed.unpacked_count != source_unpacked {
+            return reject(
+                &work,
+                format!(
+                    "unpacked 条目数不符（原 {} / 打出 {}），拒绝写入",
+                    source_unpacked, packed.unpacked_count
+                ),
+            );
+        }
+        if check.unpacked_count() != source_unpacked {
+            return reject(
+                &work,
+                format!(
+                    "unpacked 条目数不符（原 {} / 回读 {}），拒绝写入",
+                    source_unpacked,
+                    check.unpacked_count()
+                ),
+            );
+        }
+
+        let _ = fs::remove_dir_all(crate::asar::unpacked_root(&temp_asar));
+        fs::copy(&temp_asar, asar)?;
+
+        if let Ok(base) = Self::resolve_base_dir() {
+            let cache_dir = base.join("data").join("patch");
+            if fs::create_dir_all(&cache_dir).is_ok() {
+                let _ = fs::copy(asar, cache_dir.join("app.asar"));
+            }
+        }
+
+        let _ = fs::remove_dir_all(&work);
+
+        if !report.is_empty() {
+            anyhow::bail!("汉化锚点失配: {}", report.misses.join("、"));
+        }
+        Ok(())
     }
 }
 
