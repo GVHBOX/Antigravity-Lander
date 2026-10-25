@@ -9,8 +9,6 @@
 *.exe
 __pycache__/
 *.pyc
-node_modules/
-tools/patch_builder/dist/
 
 # IDE and Editor files
 .vscode/
