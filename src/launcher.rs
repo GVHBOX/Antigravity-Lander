@@ -867,7 +867,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         let installed = get_pe_version(&exe);
 
         let result = if asar_has_injection_markers(&asar) {
-            Self::restore_ag2_from_same_version_backup(&asar, &res_dir, &installed)?;
+            Self::restore_ag2_official(&asar, &res_dir, &installed)?;
             Ok(false)
         } else {
             Self::install_ag2_from_cached_or_engine(&asar, &res_dir, &installed)?;
@@ -879,22 +879,108 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         result
     }
 
-    fn restore_ag2_from_same_version_backup(
+    fn reconcile_backup(asar: &std::path::Path, res_dir: &std::path::Path) -> Result<()> {
+        let bak = res_dir.join(BACKUP_NAME);
+        let live = asar_version(asar);
+        let patched = asar_has_injection_markers(asar);
+
+        if !bak.exists() {
+            if !patched {
+                fs::copy(asar, &bak)?;
+            }
+            return Ok(());
+        }
+
+        if live.is_some() && asar_version(&bak) == live {
+            return Ok(());
+        }
+
+        if patched {
+            let _ = fs::remove_file(&bak);
+        } else {
+            fs::copy(asar, &bak)?;
+        }
+        Ok(())
+    }
+
+    fn restore_ag2_official(
         asar: &std::path::Path,
         res_dir: &std::path::Path,
         installed: &Option<String>,
     ) -> Result<()> {
-        let bak = res_dir.join("app.asar.bak");
-        let backup_matches_host = match (installed, asar_version(&bak)) {
-            (Some(host), Some(bak)) => host == &bak,
+        let bak = res_dir.join(BACKUP_NAME);
+        let usable = match (installed, asar_version(&bak)) {
+            (Some(host), Some(ver)) => host == &ver,
             _ => false,
         };
-        if backup_matches_host {
+        if usable {
             fs::copy(&bak, asar)?;
-            Ok(())
-        } else {
-            anyhow::bail!("无同版本原版备份，无法还原汉化层")
+            if !asar_has_injection_markers(asar) {
+                return Ok(());
+            }
         }
+        Self::restore_ag2_by_strip(asar, installed)
+    }
+
+    fn restore_ag2_by_strip(asar: &std::path::Path, installed: &Option<String>) -> Result<()> {
+        let work = std::env::temp_dir().join("lander_ag2_strip");
+        let _ = fs::remove_dir_all(&work);
+        fs::create_dir_all(&work)?;
+
+        let extract_dir = crate::localize::extract_root(&work);
+        fs::create_dir_all(&extract_dir)?;
+
+        let archive = crate::asar::AsarArchive::open(asar)?;
+        let source_count = archive.file_count();
+        let source_unpacked = archive.unpacked_count();
+        archive.extract(&extract_dir)?;
+
+        crate::localize::strip(&extract_dir)?;
+
+        let temp_asar = work.join("app.asar.temp");
+        let packed = crate::asar::pack(&extract_dir, &temp_asar)?;
+        let check = crate::asar::AsarArchive::open(&temp_asar)?;
+
+        let reject = |msg: String| -> Result<()> {
+            let _ = fs::remove_dir_all(&work);
+            Err(anyhow::anyhow!(msg))
+        };
+
+        if check.read_file_text("package.json").is_none() {
+            return reject("剥离产物缺少可读的 package.json，已中止卸载".to_string());
+        }
+        if asar_has_injection_markers(&temp_asar) {
+            return reject("剥离后仍残留汉化标记，已中止卸载".to_string());
+        }
+        if check.file_count() != packed.file_count || check.file_count() != source_count {
+            return reject(format!(
+                "剥离产物条目数不符（源 {} / 打出 {} / 回读 {}），已中止卸载",
+                source_count,
+                packed.file_count,
+                check.file_count()
+            ));
+        }
+        if packed.unpacked_count != source_unpacked || check.unpacked_count() != source_unpacked {
+            return reject(format!(
+                "剥离产物 unpacked 条目数不符（源 {} / 打出 {} / 回读 {}），已中止卸载",
+                source_unpacked,
+                packed.unpacked_count,
+                check.unpacked_count()
+            ));
+        }
+        if let (Some(host), Some(packed_ver)) = (installed, asar_version(&temp_asar))
+            && host != &packed_ver
+        {
+            return reject(format!(
+                "剥离产物版本 {} 与宿主 {} 不一致，已中止卸载",
+                packed_ver, host
+            ));
+        }
+
+        let _ = fs::remove_dir_all(crate::asar::unpacked_root(&temp_asar));
+        fs::copy(&temp_asar, asar)?;
+        let _ = fs::remove_dir_all(&work);
+        Ok(())
     }
 
     fn install_ag2_from_cached_or_engine(
@@ -902,16 +988,18 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         res_dir: &std::path::Path,
         installed: &Option<String>,
     ) -> Result<()> {
+        Self::reconcile_backup(asar, res_dir)?;
         let cached = Self::cached_ag2_patch_path()
             .filter(|p| installed.as_ref().map(|v| cached_patch_matches_host_version(p, v)).unwrap_or(false));
         match cached {
             Some(patch) => {
-                let bak = res_dir.join("app.asar.bak");
-                fs::copy(asar, &bak)?;
+                if !asar_has_injection_markers(&patch) {
+                    anyhow::bail!("缓存补丁不含汉化标记，已拒绝写入");
+                }
                 fs::copy(&patch, asar)?;
                 Ok(())
             }
-            None => Self::install_ag2_native(asar, res_dir),
+            None => Self::install_ag2_native(asar),
         }
     }
 
@@ -925,12 +1013,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         }
     }
 
-    fn install_ag2_native(asar: &std::path::Path, res_dir: &std::path::Path) -> Result<()> {
-        let bak = res_dir.join("app.asar.bak");
-        if !bak.exists() {
-            fs::copy(asar, &bak)?;
-        }
-
+    fn install_ag2_native(asar: &std::path::Path) -> Result<()> {
         let work = std::env::temp_dir().join("lander_ag2_patch");
         let _ = fs::remove_dir_all(&work);
         fs::create_dir_all(&work)?;
@@ -1108,6 +1191,8 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
     }
     Ok(())
 }
+
+const BACKUP_NAME: &str = "app.asar.bak";
 
 const LOCALIZED_MARKERS: [&str; 3] = [
     "Antigravity 2.0 Web UI DOM Localization Engine",
@@ -1371,5 +1456,136 @@ mod tests {
         assert_eq!(parsed_extra.host, 140);
         assert_eq!(parsed_extra.sub1, 140);
         assert_eq!(parsed_extra.sub2, 110);
+    }
+
+    fn make_asar(
+        dir: &std::path::Path,
+        name: &str,
+        version: &str,
+        localized: bool,
+    ) -> std::path::PathBuf {
+        let src = dir.join(format!("{}-src", name));
+        let _ = std::fs::remove_dir_all(&src);
+        std::fs::create_dir_all(src.join("dist")).unwrap();
+        std::fs::write(
+            src.join("package.json"),
+            format!("{{\"name\":\"fixture\",\"version\":\"{}\"}}", version),
+        )
+        .unwrap();
+        std::fs::write(
+            src.join("dist").join("preload.js"),
+            if localized {
+                format!("{} {}\n", LOCALIZED_MARKERS[0], LOCALIZED_MARKERS[2])
+            } else {
+                "console.log(1);\n".to_string()
+            },
+        )
+        .unwrap();
+        let out = dir.join(format!("{}.asar", name));
+        crate::asar::pack(&src, &out).unwrap();
+        out
+    }
+
+    fn make_localized_asar(dir: &std::path::Path) -> std::path::PathBuf {
+        let src = dir.join("localized-src");
+        let _ = std::fs::remove_dir_all(&src);
+        std::fs::create_dir_all(src.join("dist")).unwrap();
+        std::fs::write(
+            src.join("package.json"),
+            "{\"name\":\"fixture\",\"version\":\"2.26.0\"}".to_string(),
+        )
+        .unwrap();
+        std::fs::write(src.join("dist").join("preload.js"), "console.log(1);\n").unwrap();
+        std::fs::write(
+            src.join("dist").join("main.js"),
+            "dialog.showMessageBox({ title: 'Confirm Quit', message: 'Are you sure you want to quit?', detail: 'There may be agents or background tasks running.' });\n",
+        )
+        .unwrap();
+        crate::localize::apply(&src).unwrap();
+        let out = dir.join("localized.asar");
+        crate::asar::pack(&src, &out).unwrap();
+        out
+    }
+
+    fn sandbox(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let root = std::env::temp_dir().join(name);
+        let _ = std::fs::remove_dir_all(&root);
+        let res = root.join("resources");
+        std::fs::create_dir_all(&res).unwrap();
+        (root, res)
+    }
+
+    #[test]
+    fn test_reconcile_backup_creates_when_missing() {
+        let (root, res) = sandbox("lander_reconcile_create");
+        let target = res.join("app.asar");
+        std::fs::copy(make_asar(&root, "app", "2.26.0", false), &target).unwrap();
+
+        LauncherConfig::reconcile_backup(&target, &res).unwrap();
+
+        let bak = res.join(BACKUP_NAME);
+        assert!(bak.exists(), "未汉化时应建立原版备份");
+        assert_eq!(asar_version(&bak).as_deref(), Some("2.26.0"));
+    }
+
+    #[test]
+    fn test_reconcile_backup_refreshes_stale() {
+        let (root, res) = sandbox("lander_reconcile_stale");
+        let target = res.join("app.asar");
+        std::fs::copy(make_asar(&root, "old", "2.25.0", false), &res.join(BACKUP_NAME)).unwrap();
+        std::fs::copy(make_asar(&root, "new", "2.26.0", false), &target).unwrap();
+
+        LauncherConfig::reconcile_backup(&target, &res).unwrap();
+
+        assert_eq!(
+            asar_version(&res.join(BACKUP_NAME)).as_deref(),
+            Some("2.26.0"),
+            "过期备份应被同版本原版刷新"
+        );
+    }
+
+    #[test]
+    fn test_reconcile_backup_drops_stale_when_localized() {
+        let (root, res) = sandbox("lander_reconcile_drop");
+        let target = res.join("app.asar");
+        std::fs::copy(make_asar(&root, "old", "2.25.0", false), &res.join(BACKUP_NAME)).unwrap();
+        std::fs::copy(make_asar(&root, "new", "2.26.0", true), &target).unwrap();
+
+        LauncherConfig::reconcile_backup(&target, &res).unwrap();
+
+        assert!(
+            !res.join(BACKUP_NAME).exists(),
+            "已汉化且备份过期时必须作废旧备份，否则还原会降级客户端"
+        );
+    }
+
+    #[test]
+    fn test_restore_with_stale_backup_still_uninstalls() {
+        let (root, res) = sandbox("lander_restore_stale_bak");
+        let target = res.join("app.asar");
+        std::fs::copy(make_asar(&root, "old", "2.25.0", false), &res.join(BACKUP_NAME)).unwrap();
+        std::fs::copy(make_localized_asar(&root), &target).unwrap();
+        assert!(asar_has_injection_markers(&target));
+
+        LauncherConfig::restore_ag2_official(&target, &res, &Some("2.26.0".to_string())).unwrap();
+
+        assert!(!asar_has_injection_markers(&target), "卸载后不应残留汉化标记");
+        assert_eq!(asar_version(&target).as_deref(), Some("2.26.0"), "不得降级客户端");
+    }
+
+    #[test]
+    fn test_restore_without_backup_falls_back_to_strip() {
+        let (root, res) = sandbox("lander_restore_strip");
+        let target = res.join("app.asar");
+        std::fs::copy(make_localized_asar(&root), &target).unwrap();
+        assert!(asar_has_injection_markers(&target));
+
+        LauncherConfig::restore_ag2_official(&target, &res, &Some("2.26.0".to_string())).unwrap();
+
+        assert!(!asar_has_injection_markers(&target), "卸载后不应残留汉化标记");
+        let check = crate::asar::AsarArchive::open(&target).unwrap();
+        let main = check.read_file_text("dist/main.js").unwrap();
+        assert!(main.contains("Confirm Quit"), "退出确认文案未还原: {}", main);
+        assert!(!main.contains("确认退出"), "仍残留中文: {}", main);
     }
 }
