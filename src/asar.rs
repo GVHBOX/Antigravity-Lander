@@ -7,6 +7,17 @@ use std::path::{Path, PathBuf};
 const HEADER_PREFIX_LEN: usize = 16;
 pub const UNPACK_MARKER: &str = "chrome-devtools-mcp";
 
+pub const INTEGRITY_BLOCK_SIZE: usize = 4_194_304;
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct AsarIntegrity {
+    pub algorithm: String,
+    pub hash: String,
+    #[serde(rename = "blockSize")]
+    pub block_size: u64,
+    pub blocks: Vec<String>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct AsarNode {
     #[serde(default, skip_serializing_if = "is_zero")]
@@ -17,6 +28,34 @@ pub struct AsarNode {
     pub unpacked: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub files: Option<BTreeMap<String, AsarNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub integrity: Option<AsarIntegrity>,
+}
+
+fn compute_integrity(content: &[u8]) -> AsarIntegrity {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(content);
+    let hash = format!("{:x}", hasher.finalize());
+
+    let mut blocks = Vec::new();
+    if content.is_empty() {
+        blocks.push(hash.clone());
+    } else {
+        for chunk in content.chunks(INTEGRITY_BLOCK_SIZE) {
+            let mut block_hasher = Sha256::new();
+            block_hasher.update(chunk);
+            blocks.push(format!("{:x}", block_hasher.finalize()));
+        }
+    }
+
+    AsarIntegrity {
+        algorithm: "SHA256".to_string(),
+        hash,
+        block_size: INTEGRITY_BLOCK_SIZE as u64,
+        blocks,
+    }
 }
 
 fn is_zero(v: &u64) -> bool {
@@ -253,6 +292,9 @@ pub fn pack(src_dir: &Path, out_path: &Path) -> Result<PackResult> {
     let mut unpacked_count = 0usize;
 
     for entry in &entries {
+        let content = fs::read(&entry.abs)?;
+        let integrity = compute_integrity(&content);
+
         if is_unpacked_rel(&entry.rel) {
             let dest = unpacked_root(out_path).join(&entry.rel);
             if let Some(parent) = dest.parent() {
@@ -264,15 +306,15 @@ pub fn pack(src_dir: &Path, out_path: &Path) -> Result<PackResult> {
                 &entry.rel,
                 AsarNode {
                     size: entry.size,
-                    offset: Some("0".to_string()),
+                    offset: None,
                     unpacked: true,
                     files: None,
+                    integrity: Some(integrity),
                 },
             );
             unpacked_count += 1;
             continue;
         }
-        let content = fs::read(&entry.abs)?;
         let offset = packed.len();
         packed.extend_from_slice(&content);
         insert_node(
@@ -283,6 +325,7 @@ pub fn pack(src_dir: &Path, out_path: &Path) -> Result<PackResult> {
                 offset: Some(offset.to_string()),
                 unpacked: false,
                 files: None,
+                integrity: Some(integrity),
             },
         );
     }
@@ -456,6 +499,40 @@ mod tests {
             "{\"version\":\"1.2.3\"}"
         );
         assert_eq!(again.read_file_text("dist/main.js").unwrap(), "main-code");
+    }
+
+    #[test]
+    fn test_pack_emits_integrity_for_every_entry() {
+        let base = work_dir("integrity");
+        let src = base.join("src");
+        fs::create_dir_all(src.join("node_modules").join(UNPACK_MARKER)).unwrap();
+        fs::write(src.join("big.bin"), vec![7u8; 5000]).unwrap();
+        fs::write(mcp_path(&src), b"tool").unwrap();
+
+        let asar_path = base.join("app.asar");
+        pack(&src, &asar_path).unwrap();
+
+        let raw = fs::read(&asar_path).unwrap();
+        let json_len = u32::from_le_bytes(raw[12..16].try_into().unwrap()) as usize;
+        let header: serde_json::Value =
+            serde_json::from_slice(&raw[16..16 + json_len]).unwrap();
+
+        let big = &header["files"]["big.bin"];
+        assert_eq!(big["integrity"]["algorithm"], "SHA256");
+        assert_eq!(big["integrity"]["blockSize"], INTEGRITY_BLOCK_SIZE);
+        assert!(big["integrity"]["hash"].as_str().unwrap().len() == 64);
+        assert!(big["integrity"]["blocks"][0].as_str().unwrap().len() == 64);
+        assert_eq!(big["offset"].as_str().is_some(), true);
+
+        let tool =
+            &header["files"]["node_modules"]["files"][UNPACK_MARKER]["files"]["tool.js"];
+        assert!(tool["integrity"]["hash"].as_str().unwrap().len() == 64);
+        assert_eq!(tool["unpacked"], true);
+        assert!(tool["offset"].is_null(), "unpacked 条目不应带 offset");
+    }
+
+    fn mcp_path(src: &Path) -> PathBuf {
+        src.join("node_modules").join(UNPACK_MARKER).join("tool.js")
     }
 
     #[test]
