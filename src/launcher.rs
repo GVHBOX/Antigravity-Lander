@@ -870,7 +870,8 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
             Self::restore_ag2_official(&asar, &res_dir, &installed)?;
             Ok(false)
         } else {
-            Self::install_ag2_from_cached_or_engine(&asar, &res_dir, &installed)?;
+            Self::reconcile_backup(&asar, &res_dir)?;
+            Self::install_ag2_patch(&asar)?;
             Ok(true)
         };
         if let Ok(mut guard) = ASAR_PATCH_CACHE.lock() {
@@ -983,37 +984,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(())
     }
 
-    fn install_ag2_from_cached_or_engine(
-        asar: &std::path::Path,
-        res_dir: &std::path::Path,
-        installed: &Option<String>,
-    ) -> Result<()> {
-        Self::reconcile_backup(asar, res_dir)?;
-        let cached = Self::cached_ag2_patch_path()
-            .filter(|p| installed.as_ref().map(|v| cached_patch_matches_host_version(p, v)).unwrap_or(false));
-        match cached {
-            Some(patch) => {
-                if !asar_has_injection_markers(&patch) {
-                    anyhow::bail!("缓存补丁不含汉化标记，已拒绝写入");
-                }
-                fs::copy(&patch, asar)?;
-                Ok(())
-            }
-            None => Self::install_ag2_native(asar),
-        }
-    }
-
-    fn cached_ag2_patch_path() -> Option<PathBuf> {
-        let base = Self::resolve_base_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let patch = base.join("data").join("patch").join("app.asar");
-        if patch.exists() {
-            Some(patch)
-        } else {
-            None
-        }
-    }
-
-    fn install_ag2_native(asar: &std::path::Path) -> Result<()> {
+    fn install_ag2_patch(asar: &std::path::Path) -> Result<()> {
         let work = std::env::temp_dir().join("lander_ag2_patch");
         let _ = fs::remove_dir_all(&work);
         fs::create_dir_all(&work)?;
@@ -1072,13 +1043,6 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
 
         let _ = fs::remove_dir_all(crate::asar::unpacked_root(&temp_asar));
         fs::copy(&temp_asar, asar)?;
-
-        if let Ok(base) = Self::resolve_base_dir() {
-            let cache_dir = base.join("data").join("patch");
-            if fs::create_dir_all(&cache_dir).is_ok() {
-                let _ = fs::copy(asar, cache_dir.join("app.asar"));
-            }
-        }
 
         let _ = fs::remove_dir_all(&work);
 
@@ -1326,13 +1290,6 @@ fn is_within(target: &std::path::Path, root: &std::path::Path) -> bool {
     match (fs::canonicalize(target), fs::canonicalize(root)) {
         (Ok(target_real), Ok(root_real)) => target_real.starts_with(root_real),
         _ => false,
-    }
-}
-
-fn cached_patch_matches_host_version(patch: &std::path::Path, installed: &str) -> bool {
-    match asar_version(patch) {
-        Some(v) => v == installed,
-        None => false,
     }
 }
 
