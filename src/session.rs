@@ -104,7 +104,6 @@ pub struct SessionGroup {
 pub struct InstanceSessions {
     pub groups: Vec<SessionGroup>,
     pub total_sessions: usize,
-    pub summary_text: String,
     pub has_running: bool,
 }
 
@@ -861,7 +860,6 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path) -> InstanceSessions {
         return InstanceSessions {
             groups: Vec::new(),
             total_sessions: 0,
-            summary_text: "无活动会话".to_string(),
             has_running: false,
         };
     }
@@ -1017,25 +1015,9 @@ pub fn scan_sandbox_sessions(sandbox_home: &Path) -> InstanceSessions {
         a.latest_secs_ago.cmp(&b.latest_secs_ago)
     });
 
-    let summary_text = if total_sessions == 0 {
-        "无活动会话".to_string()
-    } else {
-        let first_session = groups.first().and_then(|g| g.sessions.first());
-        if let Some(s) = first_session {
-            if has_running {
-                format!("运行中 · 最新 {} · {}", s.context_str, s.cache_rate_str)
-            } else {
-                format!("{}个会话 · 最新 {} · {}", total_sessions, s.context_str, s.cache_rate_str)
-            }
-        } else {
-            format!("{total_sessions}个会话")
-        }
-    };
-
     InstanceSessions {
         groups,
         total_sessions,
-        summary_text,
         has_running,
     }
 }

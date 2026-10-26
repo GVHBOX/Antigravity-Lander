@@ -7,13 +7,13 @@ component HistBarCol inherits Rectangle {
     callback unhovered();
 
     horizontal-stretch: 1;
-    height: 40px;
+    height: 72px;
 
     bar := Rectangle {
         y: parent.height - self.height;
         width: 4.5px;
         x: (parent.width - self.width) / 2;
-        height: Math.max(3.0, Math.min(40.0, root.bar_h)) * 1px;
+        height: Math.max(3.0, Math.min(72.0, root.bar_h)) * 1px;
         border-radius: 1.5px;
         background: ta.has-hover ? #38bdf8 : (root.is_latest ? #10b981 : (root.is_dark ? rgba(16, 185, 129, 0.38) : rgba(5, 150, 105, 0.42)));
     }
@@ -48,10 +48,16 @@ export component TelemetryCard inherits Rectangle {
     in property <[float]> live_bars: [];
 
     in property <string> live_session_context_text: "0 / 256K (0.0%)";
+    in property <float> live_session_context_pct: 0.0;
     in property <float> live_prompt_pct: 0.0;
     in property <float> live_cache_pct: 0.0;
     in property <float> live_output_pct: 0.0;
-    property <float> ctx_used_pct: Math.min(1.0, Math.max(0.0, root.live_prompt_pct + root.live_cache_pct + root.live_output_pct));
+    property <float> ctx_total_raw: Math.max(0.0, root.live_prompt_pct) + Math.max(0.0, root.live_cache_pct) + Math.max(0.0, root.live_output_pct);
+    property <float> ctx_scale: root.ctx_total_raw > 1.0 ? (1.0 / root.ctx_total_raw) : 1.0;
+    property <float> ctx_prompt_w: Math.max(0.0, root.live_prompt_pct) * root.ctx_scale;
+    property <float> ctx_cache_w: Math.max(0.0, root.live_cache_pct) * root.ctx_scale;
+    property <float> ctx_output_w: Math.max(0.0, root.live_output_pct) * root.ctx_scale;
+    property <float> ctx_used_pct: Math.min(1.0, Math.max(0.0, root.live_session_context_pct > 0.0 ? root.live_session_context_pct : root.ctx_total_raw));
     in property <string> live_prompt_text: "输入 0";
     in property <string> live_cache_legend: "缓存读取 0";
     in property <string> live_output_text: "输出 0";
@@ -72,7 +78,7 @@ export component TelemetryCard inherits Rectangle {
     horizontal-stretch: 3;
     min-width: 0px;
     preferred-width: 0px;
-    max-height: 310px;
+    max-height: 100000px;
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
     border-width: 1px;
@@ -80,8 +86,8 @@ export component TelemetryCard inherits Rectangle {
     clip: true;
 
     VerticalLayout {
-        padding: 10px;
-        spacing: 6px;
+        padding: 12px;
+        spacing: 8px;
 
         HorizontalLayout {
             alignment: space-between;
@@ -228,7 +234,7 @@ export component TelemetryCard inherits Rectangle {
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
             border-radius: 6px;
-            height: 80px;
+            height: 120px;
             HorizontalLayout {
                 padding-left: 10px;
                 padding-right: 10px;
@@ -274,7 +280,7 @@ export component TelemetryCard inherits Rectangle {
                         Text {
                             text: root.live_session_speed_text;
                             color: root.live_is_hovering_bar ? #38bdf8 : #10b981;
-                            font-size: 22px;
+                            font-size: 26px;
                             font-weight: 700;
                             font-family: "Cascadia Mono";
                         }
@@ -333,7 +339,7 @@ export component TelemetryCard inherits Rectangle {
                     }
 
                     Rectangle {
-                        height: 40px;
+                        height: 72px;
 
                         Rectangle {
                             y: parent.height - 1px;
@@ -439,7 +445,7 @@ export component TelemetryCard inherits Rectangle {
 
                     HorizontalLayout {
                         alignment: start;
-                        spacing: 14px;
+                        spacing: 16px;
 
                         HorizontalLayout {
                             alignment: start;
@@ -496,19 +502,19 @@ export component TelemetryCard inherits Rectangle {
 
                     Rectangle {
                         x: 0;
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
+                        width: bar_ctx.width * root.ctx_prompt_w;
                         height: 18px;
                         background: #45a8d8;
                     }
                     Rectangle {
-                        x: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_prompt_pct));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_cache_pct));
+                        x: bar_ctx.width * root.ctx_prompt_w;
+                        width: bar_ctx.width * root.ctx_cache_w;
                         height: 18px;
                         background: #2fa07d;
                     }
                     Rectangle {
-                        x: bar_ctx.width * (Math.min(1.0, Math.max(0.0, root.live_prompt_pct)) + Math.min(1.0, Math.max(0.0, root.live_cache_pct)));
-                        width: bar_ctx.width * Math.min(1.0, Math.max(0.0, root.live_output_pct));
+                        x: bar_ctx.width * (root.ctx_prompt_w + root.ctx_cache_w);
+                        width: bar_ctx.width * root.ctx_output_w;
                         height: 18px;
                         background: #8a91e0;
                     }

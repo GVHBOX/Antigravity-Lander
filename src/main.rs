@@ -90,31 +90,10 @@ fn main() -> Result<()> {
             env::set_var("SLINT_BACKEND", "winit-software");
         }
     }
-    if env::var("SLINT_SCALE_FACTOR").is_err() {
-        let scale_str = {
-            use windows_sys::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, ReleaseDC, LOGPIXELSX};
-            let dpi = unsafe {
-                let hdc = GetDC(std::ptr::null_mut());
-                if !hdc.is_null() {
-                    let d = GetDeviceCaps(hdc, LOGPIXELSX as i32);
-                    ReleaseDC(std::ptr::null_mut(), hdc);
-                    d
-                } else {
-                    96
-                }
-            };
-            if dpi <= 108 {
-                "1.25"
-            } else {
-                ""
-            }
-        };
-
-        if !scale_str.is_empty() {
-            unsafe {
-                env::set_var("SLINT_SCALE_FACTOR", scale_str);
-            }
-        }
+    let scales = launcher::ScaleSettings::load_or_detect();
+    let scale_str = scales.cockpit_scale_str();
+    unsafe {
+        env::set_var("SLINT_SCALE_FACTOR", scale_str);
     }
     gui::run_gui(activation_event)
 }

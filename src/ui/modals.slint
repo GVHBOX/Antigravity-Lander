@@ -109,6 +109,7 @@ export component CleanCacheModal inherits Rectangle {
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
             border-radius: 8px;
+            clip: true;
 
             TouchArea {}
 
@@ -125,7 +126,9 @@ export component CleanCacheModal inherits Rectangle {
 
                 Text {
                     text: root.detail_text;
+                    width: 100%;
                     wrap: word-wrap;
+                    overflow: elide;
                     color: root.is_dark ? #cbd5e1 : #475569;
                     font-size: 12px;
                 }
@@ -193,6 +196,7 @@ export component PatchModal inherits Rectangle {
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
             border-radius: 8px;
+            clip: true;
 
             TouchArea {}
 
@@ -209,6 +213,9 @@ export component PatchModal inherits Rectangle {
 
                 Text {
                     text: root.msg_text;
+                    width: 100%;
+                    wrap: word-wrap;
+                    overflow: elide;
                     color: root.is_dark ? #94a3b8 : #64748b;
                     font-size: 12px;
                 }

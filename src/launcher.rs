@@ -47,6 +47,7 @@ pub struct ScaleSettings {
     pub sub2: u32,
     pub sub3: u32,
     pub sub4: u32,
+    pub cockpit: u32,
 }
 
 fn align_scale(val: u32) -> u32 {
@@ -61,6 +62,7 @@ impl Default for ScaleSettings {
             sub2: 100,
             sub3: 100,
             sub4: 100,
+            cockpit: 100,
         }
     }
 }
@@ -89,6 +91,21 @@ impl ScaleSettings {
             sub2: align_scale(self.sub2),
             sub3: align_scale(self.sub3),
             sub4: align_scale(self.sub4),
+            cockpit: if self.cockpit == 125 { 125 } else { 100 },
+        }
+    }
+
+    pub fn toggle_cockpit_scale(&mut self) -> u32 {
+        self.cockpit = if self.cockpit == 125 { 100 } else { 125 };
+        let _ = self.save();
+        self.cockpit
+    }
+
+    pub fn cockpit_scale_str(&self) -> &'static str {
+        if self.cockpit == 125 {
+            "1.25"
+        } else {
+            "1.0"
         }
     }
 

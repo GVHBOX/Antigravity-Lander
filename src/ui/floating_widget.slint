@@ -74,6 +74,25 @@ export component FloatingCapsule inherits Rectangle {
                 vertical-alignment: center;
             }
         }
+
+        if root.expanded : Rectangle {
+            width: 1px;
+            height: 14px;
+            y: (parent.height - 14px) / 2;
+            background: root.is_dark ? rgba(255, 255, 255, 0.16) : #cbd5e1;
+        }
+
+        if root.expanded : VerticalLayout {
+            alignment: center;
+            Text {
+                text: "CACHE " + root.cache_text;
+                color: #38bdf8;
+                font-size: 10.5px;
+                font-weight: 700;
+                font-family: "Cascadia Mono";
+                vertical-alignment: center;
+            }
+        }
     }
 
     ta := TouchArea {
@@ -144,6 +163,8 @@ export component FloatingDetailCard inherits Rectangle {
                 }
 
                 TouchArea {
+                    horizontal-stretch: 1;
+                    min-width: 12px;
                     mouse-cursor: pointer;
                     clicked => { root.activate_requested(); }
                 }
@@ -370,7 +391,7 @@ export component FloatingWidgetWindow inherits Window {
             cache_text: root.cache_rate_text;
             is_finished: root.is_finished;
             finished_text: root.finished_text;
-            clicked => {}
+            clicked => { root.clicked(); }
             drag_requested => { root.drag_requested(); }
         }
 

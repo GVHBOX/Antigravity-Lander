@@ -5,6 +5,7 @@ use crate::quota::InstanceQuotaState;
 use crate::session::{format_tokens, scan_sandbox_sessions, InstanceSessions};
 use anyhow::Result;
 use slint::{CloseRequestResponse, ComponentHandle, Timer, TimerMode};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 slint::include_modules!();
@@ -1043,6 +1044,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let mon_drag = Arc::clone(&monitor_view);
     let slot_tracker_drag = Arc::clone(&active_slot_tracker);
     let finish_info_drag = Arc::clone(&finish_info);
+    let gesture_handled_click = Arc::new(AtomicBool::new(false));
+    let gesture_handled_flag = Arc::clone(&gesture_handled_click);
     floating_widget.on_drag_requested(move || {
         #[cfg(target_os = "windows")]
         {
@@ -1052,6 +1055,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let is_click = track_floating_widget_gesture(hwnd, &mut cfg);
                 if is_click
                     && let Some(w) = widget_weak_drag.upgrade() {
+                        gesture_handled_flag.store(true, Ordering::SeqCst);
                         if w.get_is_finished() {
                             *finish_info_drag.lock().unwrap() = None;
                             w.set_is_finished(false);
@@ -1067,6 +1071,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             }
         }
     });
+    let widget_weak_click = floating_widget.as_weak();
+    let cfg_click = Arc::clone(&widget_config);
     let mon_act = Arc::clone(&monitor_view);
     let slot_tracker_act = Arc::clone(&active_slot_tracker);
     let finish_info_act = Arc::clone(&finish_info);
@@ -1079,8 +1085,27 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let slot = *slot_tracker_act.lock().unwrap();
         activate_instance_window(slot, &mon_act);
     });
+    floating_widget.on_clicked(move || {
+        if gesture_handled_click.load(Ordering::SeqCst) {
+            gesture_handled_click.store(false, Ordering::SeqCst);
+            return;
+        }
+        let _ = &cfg_click;
+        let Some(w) = widget_weak_click.upgrade() else { return; };
+        let next_expanded = !w.get_expanded();
+        w.set_expanded(next_expanded);
+        #[cfg(target_os = "windows")]
+        {
+            let hwnd = get_floating_widget_hwnd();
+            if hwnd.is_null() {
+                return;
+            }
+            let scale = w.window().scale_factor();
+            let mut cfg = cfg_click.lock().unwrap();
+            update_widget_geometry(hwnd, next_expanded, scale, &mut cfg);
+        }
+    });
     floating_widget.on_toggle_expanded(move || {});
-    floating_widget.on_clicked(move || {});
 
     main_window.set_is_dark(true);
     main_window.set_live_session_target_slot(-1);
@@ -1093,21 +1118,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         main_window.set_sub2_scale_text(format!("{}%", scales.get_sub_scale(2)).into());
         main_window.set_sub3_scale_text(format!("{}%", scales.get_sub_scale(3)).into());
         main_window.set_sub4_scale_text(format!("{}%", scales.get_sub_scale(4)).into());
+        main_window.set_cockpit_scale_text(format!("{:.2}x", (scales.cockpit as f32) / 100.0).into());
     }
 
-    let (initial_mode_text, initial_mode_key, initial_sound_on) = {
+    let (initial_mode_key, initial_sound_on) = {
         let cfg = widget_config.lock().unwrap();
-        let (text, key) = if !cfg.enabled {
-            ("悬浮球: 关闭", "hidden")
+        let key = if !cfg.enabled {
+            "hidden"
         } else {
             match cfg.mode {
-                crate::widget_state::WidgetMode::Smart => ("悬浮球: 智能", "smart"),
-                crate::widget_state::WidgetMode::Always => ("悬浮球: 常驻", "always"),
+                crate::widget_state::WidgetMode::Smart => "smart",
+                crate::widget_state::WidgetMode::Always => "always",
             }
         };
-        (text, key, cfg.sound_on_done)
+        (key, cfg.sound_on_done)
     };
-    main_window.set_widget_mode_text(initial_mode_text.into());
     main_window.set_widget_mode(initial_mode_key.into());
     main_window.set_sound_on(initial_sound_on);
 
@@ -1223,7 +1248,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
                         ui.set_widget_mode("smart".into());
-                        ui.set_widget_mode_text("悬浮球: 智能".into());
                         ui.set_toast_message("悬浮球模式: 智能感知".into());
                     }
                 });
@@ -1239,7 +1263,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
                         ui.set_widget_mode("always".into());
-                        ui.set_widget_mode_text("悬浮球: 常驻".into());
                         ui.set_toast_message("悬浮球模式: 常驻显示".into());
                     }
                     if let Some(w) = w_w.upgrade() {
@@ -1257,7 +1280,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
                         ui.set_widget_mode("hidden".into());
-                        ui.set_widget_mode_text("悬浮球: 关闭".into());
                         ui.set_toast_message("悬浮球已停用".into());
                     }
                     if let Some(w) = w_w.upgrade() {
@@ -1393,88 +1415,37 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    let widget_cfg_toggle = Arc::clone(&widget_config);
-    let main_weak_toggle = main_window.as_weak();
-    let widget_weak_toggle = floating_widget.as_weak();
-    main_window.on_toggle_widget_mode(move || {
-        let (btn_txt, mode_key, enabled, mode) = {
-            let mut cfg = widget_cfg_toggle.lock().unwrap();
-            if !cfg.enabled {
-                cfg.enabled = true;
-                cfg.mode = crate::widget_state::WidgetMode::Smart;
-            } else {
-                match cfg.mode {
-                    crate::widget_state::WidgetMode::Smart => {
-                        cfg.mode = crate::widget_state::WidgetMode::Always;
-                    }
-                    crate::widget_state::WidgetMode::Always => {
-                        cfg.enabled = false;
-                    }
-                }
-            }
-            let _ = cfg.save();
-            let (b, k) = if !cfg.enabled {
-                ("悬浮球: 关闭", "hidden")
-            } else {
-                match cfg.mode {
-                    crate::widget_state::WidgetMode::Smart => ("悬浮球: 智能", "smart"),
-                    crate::widget_state::WidgetMode::Always => ("悬浮球: 常驻", "always"),
-                }
-            };
-            (b, k, cfg.enabled, cfg.mode)
-        };
-        if let Some(ui) = main_weak_toggle.upgrade() {
-            ui.set_widget_mode_text(btn_txt.into());
-            ui.set_widget_mode(mode_key.into());
-        }
-        if let Some(w) = widget_weak_toggle.upgrade() {
-            if !enabled {
-                let _ = w.window().hide();
-            } else if mode == crate::widget_state::WidgetMode::Always {
-                let _ = w.window().show();
-                #[cfg(target_os = "windows")]
-                {
-                    let hwnd = get_floating_widget_hwnd();
-                    let scale = w.window().scale_factor();
-                    let is_expanded = w.get_expanded();
-                    let mut cfg = widget_cfg_toggle.lock().unwrap();
-                    update_widget_geometry(hwnd, is_expanded, scale, &mut cfg);
-                }
-            }
-        }
-    });
 
     let widget_cfg_set = Arc::clone(&widget_config);
     let main_weak_set = main_window.as_weak();
     let widget_weak_set = floating_widget.as_weak();
     main_window.on_set_widget_mode(move |mode_str| {
         let mode_key = mode_str.as_str();
-        let (btn_txt, toast_msg, enabled, mode) = {
+        let (toast_msg, enabled, mode) = {
             let mut cfg = widget_cfg_set.lock().unwrap();
             match mode_key {
                 "smart" => {
                     cfg.enabled = true;
                     cfg.mode = crate::widget_state::WidgetMode::Smart;
                     let _ = cfg.save();
-                    ("悬浮球: 智能", "悬浮窗模式: 干活时显示", true, cfg.mode)
+                    ("悬浮窗模式: 干活时显示", true, cfg.mode)
                 }
                 "always" => {
                     cfg.enabled = true;
                     cfg.mode = crate::widget_state::WidgetMode::Always;
                     let _ = cfg.save();
-                    ("悬浮球: 常驻", "悬浮窗模式: 常驻显示", true, cfg.mode)
+                    ("悬浮窗模式: 常驻显示", true, cfg.mode)
                 }
                 _ => {
                     cfg.enabled = false;
                     let _ = cfg.save();
-                    ("悬浮球: 关闭", "悬浮窗已停用", false, cfg.mode)
+                    ("悬浮窗已停用", false, cfg.mode)
                 }
             }
         };
 
         if let Some(ui) = main_weak_set.upgrade() {
             ui.set_widget_mode(mode_key.into());
-            ui.set_widget_mode_text(btn_txt.into());
             ui.set_toast_message(toast_msg.into());
         }
 
@@ -1615,45 +1586,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    main_window.on_action_open_clean_modal({
-        let ui_weak = main_window.as_weak();
-        let view_arc = Arc::clone(&monitor_view);
-        let cache_bytes = Arc::clone(&scanned_cache_bytes);
-        move || {
-            let running = {
-                let view = view_arc.lock().unwrap();
-                [
-                    view.subs[0].is_running,
-                    view.subs[1].is_running,
-                    view.subs[2].is_running,
-                    view.subs[3].is_running,
-                ]
-            };
-            let ui_w = ui_weak.clone();
-            let cache_bytes = Arc::clone(&cache_bytes);
-            std::thread::spawn(move || {
-                let found = LauncherConfig::scan_sandbox_cache(&running);
-                let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
-                *cache_bytes.lock().unwrap() = total_bytes;
-                let (detail, total_text) = cache_report_text(&found);
-                let summary = format!("Cache / Code / GPU ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0));
-                let empty = found.is_empty();
-                let _ = slint::invoke_from_event_loop(move || {
-                    let Some(ui) = ui_w.upgrade() else {
-                        return;
-                    };
-                    if empty {
-                        ui.set_toast_message("没有可清理的缓存".into());
-                        return;
-                    }
-                    ui.set_cache_detail_text(detail.into());
-                    ui.set_cache_total_text(total_text.into());
-                    ui.set_cache_summary_text(summary.into());
-                    ui.set_clean_modal_visible(true);
-                });
-            });
-        }
-    });
 
     main_window.on_action_launch_sub({
         let ui_weak = main_window.as_weak();
@@ -2245,21 +2177,38 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
+    main_window.on_toggle_cockpit_scale({
+        let scales_lock = Arc::clone(&scale_settings);
+        move || {
+            {
+                let mut scales = scales_lock.lock().unwrap();
+                scales.toggle_cockpit_scale();
+            }
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                if let Ok(exe) = std::env::current_exe() {
+                    let exe_str = exe.to_string_lossy();
+                    let ps_cmd = format!("Start-Sleep -Milliseconds 600; Start-Process -FilePath '{}'", exe_str);
+                    let _ = std::process::Command::new("powershell")
+                        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &ps_cmd])
+                        .creation_flags(0x08000000)
+                        .spawn();
+                }
+                std::process::exit(0);
+            }
+        }
+    });
+
     let sessions_store_modal = Arc::clone(&sessions_store);
     main_window.on_show_session_modal({
         let ui_weak = main_window.as_weak();
         move |slot| {
             if let Some(ui) = ui_weak.upgrade() {
                 let slot_idx = (slot as usize).clamp(0, 4);
-                let title = if slot == 0 {
-                    "主账号 会话监视".to_string()
-                } else {
-                    format!("分身 {} 会话监视", slot)
-                };
                 let store = sessions_store_modal.lock().unwrap();
                 let model = to_session_ui_model(&store[slot_idx].groups);
                 ui.set_session_modal_slot(slot);
-                ui.set_session_modal_title(title.into());
                 ui.set_session_modal_items(model);
                 ui.set_session_modal_visible(true);
             }
@@ -2709,9 +2658,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
             ui.set_host_running(mon.host.is_running);
             ui.set_host_pid(mon.host.electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_host_cpu(mon.host.cpu_usage);
             ui.set_host_cpu_text(format!("{:.1}%", mon.host.cpu_usage).into());
-            ui.set_host_ram(mon.host.memory_rss_mb as f32);
             ui.set_host_ram_text(format!("{:.0} MB", mon.host.memory_rss_mb).into());
             ui.set_host_port(mon.host.ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
 
@@ -2726,7 +2673,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             } else {
                 "--".to_string()
             };
-            ui.set_host_uptime_text(uptime_str.into());
             ui.set_host_token_present(LauncherConfig::is_host_token_present());
 
             ui.set_sub1_running(mon.subs[0].is_running);
@@ -2930,14 +2876,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let sub_mb: f64 = mon.subs.iter().map(|s| s.memory_rss_mb).sum();
             let total_mb = mon.total_memory_mb;
             ui.set_total_mem_text(format!("{:.0} MB", total_mb).into());
-            ui.set_mem_breakdown_text(format!("主号 {:.0}M · 分身 {:.0}M", host_mb, sub_mb).into());
-            let pct = if mon.system_total_ram_mb > 0.0 {
-                (total_mb / mon.system_total_ram_mb) as f32
-            } else {
-                0.0
-            };
-            ui.set_total_mem_pct(pct.clamp(0.0, 1.0));
-
             let sys_ram = if mon.system_total_ram_mb > 0.0 { mon.system_total_ram_mb } else { 32768.0 };
             let host_mem_pct = (host_mb / sys_ram) as f32;
             let subs_mem_pct = (sub_mb / sys_ram) as f32;
@@ -2962,7 +2900,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     running_count += 1;
                 }
             }
-            ui.set_global_summary_text(format!("{} 个实例运行中 · 内存占用 {:.0} MB · 端口正常", running_count, total_mb).into());
+            ui.set_global_summary_text(format!("{} 个实例运行中 · 内存占用 {:.0} MB · 主进程已运行 {}", running_count, total_mb, uptime_str).into());
             let proxy_badge = if p_status.is_fully_deployed() {
                 if p_status.port_online {
                     "系统代理 127.0.0.1:7890".to_string()
@@ -2979,7 +2917,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 (store[0].clone(), store[1].clone(), store[2].clone(), store[3].clone(), store[4].clone())
             };
 
-            ui.set_host_summary_text(host_sessions.summary_text.as_str().into());
             ui.set_host_has_running(host_sessions.has_running);
             ui.set_host_has_sessions(host_sessions.total_sessions > 0);
             ui.set_host_session_count_text(if host_sessions.total_sessions > 0 { format!("{} 个", host_sessions.total_sessions).into() } else { "--".into() });
@@ -2990,7 +2927,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_recent_time(h_time.into());
             ui.set_host_session_items(to_recent_session_model(&host_sessions, 16));
 
-            ui.set_sub1_summary_text(sub1_sessions.summary_text.as_str().into());
             ui.set_sub1_has_running(sub1_sessions.has_running);
             ui.set_sub1_has_sessions(sub1_sessions.total_sessions > 0);
             ui.set_sub1_session_count_text(if sub1_sessions.total_sessions > 0 { format!("{} 个", sub1_sessions.total_sessions).into() } else { "--".into() });
@@ -3001,7 +2937,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub1_recent_time(s1_time.into());
             ui.set_sub1_session_items(to_recent_session_model(&sub1_sessions, 16));
 
-            ui.set_sub2_summary_text(sub2_sessions.summary_text.as_str().into());
             ui.set_sub2_has_running(sub2_sessions.has_running);
             ui.set_sub2_has_sessions(sub2_sessions.total_sessions > 0);
             ui.set_sub2_session_count_text(if sub2_sessions.total_sessions > 0 { format!("{} 个", sub2_sessions.total_sessions).into() } else { "--".into() });
@@ -3012,7 +2947,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub2_recent_time(s2_time.into());
             ui.set_sub2_session_items(to_recent_session_model(&sub2_sessions, 16));
 
-            ui.set_sub3_summary_text(sub3_sessions.summary_text.as_str().into());
             ui.set_sub3_has_running(sub3_sessions.has_running);
             ui.set_sub3_has_sessions(sub3_sessions.total_sessions > 0);
             ui.set_sub3_session_count_text(if sub3_sessions.total_sessions > 0 { format!("{} 个", sub3_sessions.total_sessions).into() } else { "--".into() });
@@ -3023,7 +2957,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub3_recent_time(s3_time.into());
             ui.set_sub3_session_items(to_recent_session_model(&sub3_sessions, 16));
 
-            ui.set_sub4_summary_text(sub4_sessions.summary_text.as_str().into());
             ui.set_sub4_has_running(sub4_sessions.has_running);
             ui.set_sub4_has_sessions(sub4_sessions.total_sessions > 0);
             ui.set_sub4_session_count_text(if sub4_sessions.total_sessions > 0 { format!("{} 个", sub4_sessions.total_sessions).into() } else { "--".into() });

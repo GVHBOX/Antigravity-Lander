@@ -35,6 +35,9 @@ export component MainWindow inherits Window {
             }
             if event.text == Key.Escape {
                 root.session_modal_visible = false;
+                root.confirm_modal_visible = false;
+                root.clean_modal_visible = false;
+                root.patch_modal_visible = false;
                 accept
             }
             reject
@@ -43,15 +46,20 @@ export component MainWindow inherits Window {
 
     in-out property <bool> is_dark: true;
     in-out property <int> redraw_tick: 0;
-    in property <string> toast_message: "就绪";
+    in-out property <string> toast_message: "";
+    in-out property <bool> toast_visible: false;
+    changed toast_message => {
+        if (root.toast_message != "") {
+            root.toast_visible = true;
+            toast_timer.restart();
+        }
+    }
 
     in property <bool> host_running: false;
     in property <bool> host_token_present: false;
     in property <string> host_pid: "--";
     in property <string> host_port: "--";
-    in property <float> host_cpu: 0.0;
     in property <string> host_cpu_text: "0.0%";
-    in property <float> host_ram: 0.0;
     in property <string> host_ram_text: "0 MB";
     in property <string> host_scale_text: "158%";
     in property <string> host_user_name: "--";
@@ -67,7 +75,6 @@ export component MainWindow inherits Window {
     in property <image> host_five_h_ring;
     in property <bool> host_quota_refreshing: false;
     in property <angle> quota_spin_angle: 0deg;
-    in property <string> host_summary_text: "无活动会话";
     in property <bool> host_has_running: false;
     in property <bool> host_has_sessions: false;
 
@@ -77,8 +84,6 @@ export component MainWindow inherits Window {
     in property <string> proxy_status_text: "未注入";
 
     in property <string> total_mem_text: "0.0 MB";
-    in property <float> total_mem_pct: 0.2;
-    in property <string> mem_breakdown_text: "主号 0M · 分身 0M";
 
     in property <bool> sub1_running: false;
     in property <string> sub1_pid: "--";
@@ -99,7 +104,6 @@ export component MainWindow inherits Window {
     in property <string> sub1_five_h_reset: "";
     in property <image> sub1_five_h_ring;
     in property <bool> sub1_quota_refreshing: false;
-    in property <string> sub1_summary_text: "无活动会话";
     in property <bool> sub1_has_running: false;
     in property <bool> sub1_has_sessions: false;
 
@@ -122,7 +126,6 @@ export component MainWindow inherits Window {
     in property <string> sub2_five_h_reset: "";
     in property <image> sub2_five_h_ring;
     in property <bool> sub2_quota_refreshing: false;
-    in property <string> sub2_summary_text: "无活动会话";
     in property <bool> sub2_has_running: false;
     in property <bool> sub2_has_sessions: false;
 
@@ -145,7 +148,6 @@ export component MainWindow inherits Window {
     in property <string> sub3_five_h_reset: "";
     in property <image> sub3_five_h_ring;
     in property <bool> sub3_quota_refreshing: false;
-    in property <string> sub3_summary_text: "无活动会话";
     in property <bool> sub3_has_running: false;
     in property <bool> sub3_has_sessions: false;
 
@@ -168,7 +170,6 @@ export component MainWindow inherits Window {
     in property <string> sub4_five_h_reset: "";
     in property <image> sub4_five_h_ring;
     in property <bool> sub4_quota_refreshing: false;
-    in property <string> sub4_summary_text: "无活动会话";
     in property <bool> sub4_has_running: false;
     in property <bool> sub4_has_sessions: false;
 
@@ -184,7 +185,6 @@ export component MainWindow inherits Window {
 
     in-out property <bool> session_modal_visible: false;
     in-out property <int> session_modal_slot: 0;
-    in property <string> session_modal_title: "会话实时监视";
     in property <[SessionUiItem]> session_modal_items: [];
     callback show_session_modal(int);
 
@@ -237,18 +237,17 @@ export component MainWindow inherits Window {
     callback reset_sub_scale(int);
     callback action_refresh_quota(int);
 
+    in-out property <string> cockpit_scale_text: "1.00x";
+    callback toggle_cockpit_scale();
+
     in-out property <bool> is_pinned: false;
     callback toggle_pin_window();
 
     in property <string> global_summary_text: "0 个实例运行中 · 内存占用 0 MB · 端口正常";
     in property <string> proxy_badge_text: "系统代理 127.0.0.1:7890 (8ms)";
-    callback action_open_clean_modal();
-    in property <string> widget_mode_text: "悬浮球: 智能";
     in property <string> widget_mode: "smart";
-    callback toggle_widget_mode();
     callback set_widget_mode(string);
 
-    in property <string> host_uptime_text: "--";
     callback action_stop_host();
     callback preview_sound();
     in property <bool> sound_on: true;
@@ -313,23 +312,192 @@ export component MainWindow inherits Window {
             vertical-stretch: 1;
 
             Rectangle {
-                vertical-stretch: 0;
-                min-height: 310px;
-                max-height: 310px;
-                preferred-height: 310px;
+                vertical-stretch: 1;
+                min-height: 270px;
+                preferred-height: 340px;
 
                 HorizontalLayout {
                     spacing: 8px;
+
+                    ComponentsCard {
+                        horizontal-stretch: 5;
+                        patch_ag2_installed: root.patch_ag2_installed;
+                        patch_ag2_version: root.patch_ag2_version;
+                        proxy_injected: root.proxy_injected;
+                        proxy_status_text: root.proxy_status_text;
+                        total_mem_text: root.total_mem_text;
+                        mem_host_pct: root.mem_host_pct;
+                        mem_subs_pct: root.mem_subs_pct;
+                        mem_detail_text: root.mem_detail_text;
+                        cache_summary_text: root.cache_summary_text;
+                        is_dark: root.is_dark;
+
+                        toggle_patch_ag2 => { root.toggle_patch_ag2(); }
+                        toggle_proxy => { root.toggle_proxy(); }
+                        scan_cache => { root.action_scan_cache(); }
+                    }
+
+                    TelemetryCard {
+                        horizontal-stretch: 7;
+                        live_session_is_running: root.live_session_is_running;
+                        live_session_target_text: root.live_session_target_text;
+                        live_session_target_slot: root.live_session_target_slot;
+                        live_session_project: root.live_session_project;
+                        live_session_status_text: root.live_session_status_text;
+                        live_session_title: root.live_session_title;
+                        live_session_speed_text: root.live_session_speed_text;
+                        live_session_speed_sub: root.live_session_speed_sub;
+                        live_hover_tag: root.live_hover_tag;
+                        live_is_hovering_bar: root.live_is_hovering_bar;
+                        live_peak_tps_text: root.live_peak_tps_text;
+                        live_avg_tps_text: root.live_avg_tps_text;
+                        live_avg_line_pct: root.live_avg_line_pct;
+                        live_bars: root.live_bars;
+                        live_session_context_text: root.live_session_context_text;
+                        live_session_context_pct: root.live_session_context_pct;
+                        live_prompt_pct: root.live_prompt_pct;
+                        live_cache_pct: root.live_cache_pct;
+                        live_output_pct: root.live_output_pct;
+                        live_prompt_text: root.live_prompt_text;
+                        live_cache_legend: root.live_cache_legend;
+                        live_output_text: root.live_output_text;
+                        live_cache_hit_text: root.live_cache_hit_text;
+                        live_step_text: root.live_step_text;
+                        live_compact_text: root.live_compact_text;
+                        live_model_name: root.live_model_name;
+                        live_model_level: root.live_model_level;
+                        is_dark: root.is_dark;
+                        widget_mode: root.widget_mode;
+
+                        switch_target(target) => { root.switch_live_session_target(target); }
+                        set_widget_mode(m) => { root.set_widget_mode(m); }
+                        bar_hover(idx) => { root.bar_hover(idx); }
+                        bar_leave() => { root.bar_leave(); }
+                    }
+                }
+            }
+
+        Rectangle {
+            vertical-stretch: 1;
+            preferred-height: 350px;
+            min-height: 320px;
+            background: root.is_dark ? #0d1527 : #ffffff;
+            border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
+            border-width: 1px;
+            border-radius: 10px;
+            clip: true;
+
+            VerticalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+                spacing: 6px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    height: 26px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Text {
+                            text: "账号与额度看板";
+                            color: root.is_dark ? #f8fafc : #0f172a;
+                            font-size: 14px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+
+                        Rectangle {
+                            width: 50px;
+                            height: 26px;
+                            border-radius: 5px;
+                            border-color: scale_ta.has_hover ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #1e293b : #cbd5e1);
+                            border-width: 1px;
+                            background: scale_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
+
+                            scale_ta := TouchArea {
+                                clicked => { root.toggle_cockpit_scale(); }
+                                mouse-cursor: pointer;
+                            }
+
+                            Text {
+                                text: root.cockpit_scale_text;
+                                color: root.is_dark ? (scale_ta.has_hover ? #38bdf8 : #cbd5e1) : (scale_ta.has_hover ? #0284c7 : #334155);
+                                font-size: 11px;
+                                font-family: "Cascadia Mono";
+                                font-weight: 700;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 26px;
+                            height: 26px;
+                            border-radius: 5px;
+                            border-color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
+                            border-width: 1px;
+                            background: root.is_pinned ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.16)) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
+
+                            pin_ta := TouchArea {
+                                clicked => { root.toggle_pin_window(); }
+                                mouse-cursor: pointer;
+                            }
+
+                            PinIcon {
+                                icon_color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8));
+                                x: (parent.width - 12px) / 2;
+                                y: (parent.height - 12px) / 2;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 26px;
+                            height: 26px;
+                            border-radius: 5px;
+                            border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
+                            border-width: 1px;
+                            background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
+
+                            theme_ta := TouchArea {
+                                clicked => { root.toggle_theme(); }
+                                mouse-cursor: pointer;
+                            }
+
+                            if root.is_dark : SunIcon {
+                                icon_color: theme_ta.has_hover ? #f8fafc : #94a3b8;
+                                x: (parent.width - 13px) / 2;
+                                y: (parent.height - 13px) / 2;
+                            }
+                            if !root.is_dark : MoonIcon {
+                                icon_color: theme_ta.has_hover ? #0f172a : #64748b;
+                                x: (parent.width - 13px) / 2;
+                                y: (parent.height - 13px) / 2;
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    vertical-stretch: 1;
 
                     InstanceCard {
                         slot: 0;
                         title_text: "主账号";
                         instance_id_text: "host";
                         dir_button_text: "程序目录";
-                        card_stretch: 2;
-                        card_max_height: 310px;
-                        content_padding_bottom: 8px;
-                        content_fill: false;
+                        card_stretch: 1;
+                        card_max_height: 100000px;
+                        content_padding_bottom: 6px;
+                        content_fill: true;
                         is_running: root.host_running;
                         pid_text: root.host_pid;
                         user_name: root.host_user_name;
@@ -378,154 +546,14 @@ export component MainWindow inherits Window {
                         open_dir => { root.action_open_dir(0); }
                     }
 
-                    ComponentsCard {
-                        patch_ag2_installed: root.patch_ag2_installed;
-                        patch_ag2_version: root.patch_ag2_version;
-                        proxy_injected: root.proxy_injected;
-                        proxy_status_text: root.proxy_status_text;
-                        total_mem_text: root.total_mem_text;
-                        mem_host_pct: root.mem_host_pct;
-                        mem_subs_pct: root.mem_subs_pct;
-                        mem_detail_text: root.mem_detail_text;
-                        cache_summary_text: root.cache_summary_text;
-                        is_dark: root.is_dark;
-
-                        toggle_patch_ag2 => { root.toggle_patch_ag2(); }
-                        toggle_proxy => { root.toggle_proxy(); }
-                        scan_cache => { root.action_scan_cache(); }
-                    }
-
-                    TelemetryCard {
-                        live_session_is_running: root.live_session_is_running;
-                        live_session_target_text: root.live_session_target_text;
-                        live_session_target_slot: root.live_session_target_slot;
-                        live_session_project: root.live_session_project;
-                        live_session_status_text: root.live_session_status_text;
-                        live_session_title: root.live_session_title;
-                        live_session_speed_text: root.live_session_speed_text;
-                        live_session_speed_sub: root.live_session_speed_sub;
-                        live_hover_tag: root.live_hover_tag;
-                        live_is_hovering_bar: root.live_is_hovering_bar;
-                        live_peak_tps_text: root.live_peak_tps_text;
-                        live_avg_tps_text: root.live_avg_tps_text;
-                        live_avg_line_pct: root.live_avg_line_pct;
-                        live_bars: root.live_bars;
-                        live_session_context_text: root.live_session_context_text;
-                        live_prompt_pct: root.live_prompt_pct;
-                        live_cache_pct: root.live_cache_pct;
-                        live_output_pct: root.live_output_pct;
-                        live_prompt_text: root.live_prompt_text;
-                        live_cache_legend: root.live_cache_legend;
-                        live_output_text: root.live_output_text;
-                        live_cache_hit_text: root.live_cache_hit_text;
-                        live_step_text: root.live_step_text;
-                        live_compact_text: root.live_compact_text;
-                        live_model_name: root.live_model_name;
-                        live_model_level: root.live_model_level;
-                        is_dark: root.is_dark;
-                        widget_mode: root.widget_mode;
-
-                        switch_target(target) => { root.switch_live_session_target(target); }
-                        set_widget_mode(m) => { root.set_widget_mode(m); }
-                        bar_hover(idx) => { root.bar_hover(idx); }
-                        bar_leave() => { root.bar_leave(); }
-                    }
-                }
-            }
-
-        Rectangle {
-            vertical-stretch: 50;
-            preferred-height: 380px;
-            min-height: 360px;
-            max-height: 720px;
-                background: root.is_dark ? #0d1527 : #ffffff;
-                border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
-                border-width: 1px;
-                border-radius: 10px;
-                clip: true;
-
-                VerticalLayout {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    spacing: 6px;
-
-                    HorizontalLayout {
-                        alignment: space-between;
-                        height: 26px;
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: start;
-                            Text {
-                                text: "分身管理";
-                                color: root.is_dark ? #f8fafc : #0f172a;
-                                font-size: 14px;
-                                font-weight: 700;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: end;
-
-                            Rectangle {
-                                width: 26px;
-                                height: 26px;
-                                border-radius: 5px;
-                                border-color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
-                                border-width: 1px;
-                                background: root.is_pinned ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.16)) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
-
-                                pin_ta := TouchArea {
-                                    clicked => { root.toggle_pin_window(); }
-                                    mouse-cursor: pointer;
-                                }
-
-                                PinIcon {
-                                    icon_color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8));
-                                    x: (parent.width - 12px) / 2;
-                                    y: (parent.height - 12px) / 2;
-                                }
-                            }
-
-                            Rectangle {
-                                width: 26px;
-                                height: 26px;
-                                border-radius: 5px;
-                                border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
-                                border-width: 1px;
-                                background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
-
-                                theme_ta := TouchArea {
-                                    clicked => { root.toggle_theme(); }
-                                    mouse-cursor: pointer;
-                                }
-
-                                if root.is_dark : SunIcon {
-                                    icon_color: theme_ta.has_hover ? #f8fafc : #94a3b8;
-                                    x: (parent.width - 13px) / 2;
-                                    y: (parent.height - 13px) / 2;
-                                }
-                                if !root.is_dark : MoonIcon {
-                                    icon_color: theme_ta.has_hover ? #0f172a : #64748b;
-                                    x: (parent.width - 13px) / 2;
-                                    y: (parent.height - 13px) / 2;
-                                }
-                            }
-                        }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-                        vertical-stretch: 1;
-
                         InstanceCard {
                             slot: 1;
                             title_text: "分身 1";
                             instance_id_text: "instance_1";
+                            card_stretch: 1;
+                            card_max_height: 100000px;
+                            content_padding_bottom: 6px;
+                            content_fill: true;
                             is_running: root.sub1_running;
                             pid_text: root.sub1_pid;
                             user_name: root.sub1_user_name;
@@ -578,6 +606,10 @@ export component MainWindow inherits Window {
                             slot: 2;
                             title_text: "分身 2";
                             instance_id_text: "instance_2";
+                            card_stretch: 1;
+                            card_max_height: 100000px;
+                            content_padding_bottom: 6px;
+                            content_fill: true;
                             is_running: root.sub2_running;
                             pid_text: root.sub2_pid;
                             user_name: root.sub2_user_name;
@@ -630,6 +662,10 @@ export component MainWindow inherits Window {
                             slot: 3;
                             title_text: "分身 3";
                             instance_id_text: "instance_3";
+                            card_stretch: 1;
+                            card_max_height: 100000px;
+                            content_padding_bottom: 6px;
+                            content_fill: true;
                             is_running: root.sub3_running;
                             pid_text: root.sub3_pid;
                             user_name: root.sub3_user_name;
@@ -682,6 +718,10 @@ export component MainWindow inherits Window {
                             slot: 4;
                             title_text: "分身 4";
                             instance_id_text: "instance_4";
+                            card_stretch: 1;
+                            card_max_height: 100000px;
+                            content_padding_bottom: 6px;
+                            content_fill: true;
                             is_running: root.sub4_running;
                             pid_text: root.sub4_pid;
                             user_name: root.sub4_user_name;
@@ -733,7 +773,6 @@ export component MainWindow inherits Window {
                 }
             }
 
-            Rectangle { vertical-stretch: 1; }
         }
 
         HorizontalLayout {
@@ -745,9 +784,53 @@ export component MainWindow inherits Window {
                 horizontal-stretch: 1;
                 is_dark: root.is_dark;
                 sound_on: root.sound_on;
+                global_summary_text: root.global_summary_text;
+                proxy_badge_text: root.proxy_badge_text;
+                sub_running_count_text: root.sub_running_count_text;
                 preview_sound => { root.preview_sound(); }
                 toggle_sound => { root.toggle_sound(); }
             }
+        }
+    }
+
+    VerticalLayout {
+        y: root.height - 78px;
+        x: 0;
+        width: 100%;
+        height: 28px;
+        alignment: center;
+
+        Rectangle {
+            visible: root.toast_visible;
+            max-width: root.width - 60px;
+            height: 28px;
+            border-radius: 7px;
+            background: root.is_dark ? rgba(9, 14, 28, 0.96) : rgba(255, 255, 255, 0.96);
+            border-color: root.is_dark ? rgba(56, 189, 248, 0.45) : rgba(2, 132, 199, 0.4);
+            border-width: 1px;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                alignment: center;
+                Text {
+                    text: root.toast_message;
+                    max-width: root.width - 84px;
+                    overflow: elide;
+                    color: root.is_dark ? #f8fafc : #0f172a;
+                    font-size: 12px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    toast_timer := Timer {
+        interval: 2600ms;
+        triggered => {
+            root.toast_message = "";
+            root.toast_visible = false;
         }
     }
 

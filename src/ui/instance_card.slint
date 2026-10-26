@@ -42,6 +42,8 @@ export component InstanceCard inherits Rectangle {
     in property <string> scale_text: "100%";
     in property <bool> is_dark: true;
 
+    property <bool> show_menu: false;
+
     callback refresh_quota();
     callback session_clicked();
     callback adjust_scale(int);
@@ -62,11 +64,11 @@ export component InstanceCard inherits Rectangle {
     clip: true;
 
     VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 8px;
+        padding-right: 8px;
         padding-top: 6px;
         padding-bottom: root.content_padding_bottom;
-        spacing: 3px;
+        spacing: 4px;
 
         HorizontalLayout {
             alignment: space-between;
@@ -95,11 +97,13 @@ export component InstanceCard inherits Rectangle {
                     height: 16px;
                     y: (parent.height - 16px) / 2;
                     HorizontalLayout {
-                        padding-left: 5px;
-                        padding-right: 5px;
+                        padding-left: 4px;
+                        padding-right: 4px;
                         alignment: center;
                         Text {
-                            text: root.instance_id_text;
+                            text: root.session_count_text == "" || root.session_count_text == "--" ? root.instance_id_text : (root.instance_id_text + " · " + root.session_count_text);
+                            max-width: 104px;
+                            overflow: elide;
                             color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
                             font-size: 10px;
                             font-family: "Cascadia Mono";
@@ -108,33 +112,63 @@ export component InstanceCard inherits Rectangle {
                     }
                 }
             }
-            if root.is_running : Rectangle {
-                background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
-                border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
-                border-width: 1px;
-                border-radius: 4px;
-                height: 18px;
-                y: (parent.height - 18px) / 2;
-                HorizontalLayout {
-                    padding-left: 6px;
-                    padding-right: 6px;
-                    alignment: center;
-                    Text {
-                        text: "PID " + root.pid_text;
-                        color: root.is_dark ? #34d399 : #059669;
-                        font-size: 10.5px;
-                        font-family: "Cascadia Mono";
-                        font-weight: 700;
-                        vertical-alignment: center;
+
+            HorizontalLayout {
+                spacing: 5px;
+                alignment: end;
+
+                if root.is_running : Rectangle {
+                    background: root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15);
+                    border-color: root.is_dark ? rgba(16, 185, 129, 0.35) : rgba(16, 185, 129, 0.45);
+                    border-width: 1px;
+                    border-radius: 4px;
+                    height: 18px;
+                    y: (parent.height - 18px) / 2;
+                    HorizontalLayout {
+                        padding-left: 5px;
+                        padding-right: 5px;
+                        alignment: center;
+                        Text {
+                            text: "PID " + root.pid_text;
+                            color: root.is_dark ? #34d399 : #059669;
+                            font-size: 10px;
+                            font-family: "Cascadia Mono";
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
                     }
                 }
-            }
-            if !root.is_running : Text {
-                text: "未运行";
-                color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 10.5px;
-                font-family: "Cascadia Mono";
-                vertical-alignment: center;
+                if !root.is_running : Text {
+                    text: "未运行";
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    width: 20px;
+                    height: 18px;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: root.show_menu ? (root.is_dark ? #38bdf8 : #0284c7) : (menu_ta.has-hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
+                    background: root.show_menu ? (root.is_dark ? rgba(56, 189, 248, 0.2) : rgba(56, 189, 248, 0.15)) : (menu_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #f1f5f9));
+                    y: (parent.height - 18px) / 2;
+
+                    menu_ta := TouchArea {
+                        clicked => { root.show_menu = !root.show_menu; }
+                        mouse-cursor: pointer;
+                    }
+
+                    Text {
+                        text: "···";
+                        color: root.show_menu ? (root.is_dark ? #38bdf8 : #0284c7) : (menu_ta.has-hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #94a3b8 : #64748b));
+                        font-size: 11px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                    }
+                }
             }
         }
 
@@ -162,43 +196,77 @@ export component InstanceCard inherits Rectangle {
             refresh_clicked => { root.refresh_quota(); }
         }
 
-        HorizontalLayout {
-            spacing: 6px;
-            MiniMetricBox { horizontal-stretch: 1; label: "CPU"; val_text: root.cpu_text; val_color: root.is_running ? #34d399 : transparent; is_dark: root.is_dark; }
-            MiniMetricBox { horizontal-stretch: 1; label: "内存"; val_text: root.ram_text; val_color: root.is_running ? #38bdf8 : transparent; is_dark: root.is_dark; }
-            MiniMetricBox { horizontal-stretch: 1; label: "会话总数"; val_text: root.session_count_text; is_dark: root.is_dark; }
+        if root.is_running : Rectangle {
+            height: 24px;
+            border-radius: 4px;
+            background: root.is_dark ? #0d1527 : #f1f5f9;
+            border-color: root.is_dark ? #1e293b : #cbd5e1;
+            border-width: 1px;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                alignment: space-between;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    Text {
+                        text: "内存 " + root.ram_text;
+                        color: root.is_dark ? #38bdf8 : #0284c7;
+                        font-size: 10.5px;
+                        font-family: "Cascadia Mono";
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "CPU " + root.cpu_text;
+                        color: root.is_dark ? #34d399 : #059669;
+                        font-size: 10.5px;
+                        font-family: "Cascadia Mono";
+                        vertical-alignment: center;
+                    }
+                }
+                if root.port_text != "" : Text {
+                    text: ":" + root.port_text;
+                    color: root.is_dark ? #94a3b8 : #64748b;
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
         }
-
-        SubSessionCardBox {
-            project_name: root.recent_project;
-            session_title: root.recent_title;
-            tokens_text: root.recent_tokens;
-            time_text: root.recent_time;
-            is_running: root.is_running || root.has_running_session;
-            has_sessions: root.has_sessions;
-            items: root.session_items;
-            is_dark: root.is_dark;
-            clicked => { root.session_clicked(); }
+        if !root.is_running : Rectangle {
+            height: 24px;
+            border-radius: 4px;
+            background: root.is_dark ? rgba(15, 23, 42, 0.45) : rgba(241, 245, 249, 0.6);
+            border-color: root.is_dark ? rgba(30, 41, 59, 0.5) : rgba(226, 232, 240, 0.7);
+            border-width: 1px;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                alignment: start;
+                spacing: 6px;
+                Rectangle {
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 2.5px;
+                    background: root.is_dark ? #475569 : #94a3b8;
+                    y: (parent.height - 5px) / 2;
+                }
+                Text {
+                    text: root.slot == 0 ? "主进程就绪" : "沙箱就绪";
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10.5px;
+                    vertical-alignment: center;
+                }
+            }
         }
-
-        if root.content_fill : Rectangle { vertical-stretch: 1; }
 
         VerticalLayout {
-            spacing: 3px;
+            spacing: 4px;
             vertical-stretch: 0;
-
-            SubScaleCacheRow {
-                cache_text: root.cache_size_text;
-                scale_text: root.scale_text;
-                is_dark: root.is_dark;
-                dec_clicked => { root.adjust_scale(-10); }
-                inc_clicked => { root.adjust_scale(10); }
-                reset_clicked => { root.reset_scale(); }
-            }
 
             HorizontalLayout {
                 spacing: 6px;
-                height: 28px;
+                height: 32px;
                 if !root.is_running : CompactButton {
                     horizontal-stretch: 1;
                     text: "启动";
@@ -223,6 +291,98 @@ export component InstanceCard inherits Rectangle {
             }
 
             HorizontalLayout {
+                alignment: space-between;
+                height: 18px;
+                Text {
+                    text: root.cache_size_text;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.scale_text;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 10.5px;
+                    font-family: "Cascadia Mono";
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        SubSessionCardBox {
+            card_max_height: 100000px;
+            project_name: root.recent_project;
+            session_title: root.recent_title;
+            tokens_text: root.recent_tokens;
+            time_text: root.recent_time;
+            is_running: root.has_running_session;
+            has_sessions: root.has_sessions;
+            items: root.session_items;
+            is_dark: root.is_dark;
+            clicked => { root.session_clicked(); }
+        }
+    }
+
+    if root.show_menu : Rectangle {
+        background: root.is_dark ? #0d1527 : #ffffff;
+        border-color: root.is_dark ? #334155 : #cbd5e1;
+        border-width: 1px;
+        border-radius: 8px;
+        x: 4px;
+        y: 28px;
+        width: parent.width - 8px;
+        height: parent.height - 32px;
+
+        VerticalLayout {
+            padding: 8px;
+            spacing: 6px;
+
+            HorizontalLayout {
+                alignment: space-between;
+                height: 18px;
+                Text {
+                    text: "维护设置";
+                    color: root.is_dark ? #f8fafc : #0f172a;
+                    font-size: 11.5px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 3px;
+                    background: close_menu_ta.has-hover ? (root.is_dark ? #334155 : #cbd5e1) : transparent;
+                    close_menu_ta := TouchArea {
+                        clicked => { root.show_menu = false; }
+                        mouse-cursor: pointer;
+                    }
+                    Text {
+                        text: "×";
+                        color: root.is_dark ? #cbd5e1 : #475569;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: root.is_dark ? #1e293b : #e2e8f0;
+            }
+
+            SubScaleCacheRow {
+                cache_text: root.cache_size_text;
+                scale_text: root.scale_text;
+                is_dark: root.is_dark;
+                dec_clicked => { root.adjust_scale(-10); }
+                inc_clicked => { root.adjust_scale(10); }
+                reset_clicked => { root.reset_scale(); }
+            }
+
+            HorizontalLayout {
                 spacing: 6px;
                 height: 26px;
                 OutlineButton {
@@ -230,15 +390,23 @@ export component InstanceCard inherits Rectangle {
                     text: "清理凭据";
                     is_dark: root.is_dark;
                     is_disabled: root.is_running || !root.token_present;
-                    clicked => { root.clear_token(); }
+                    clicked => {
+                        root.show_menu = false;
+                        root.clear_token();
+                    }
                 }
                 OutlineButton {
                     horizontal-stretch: 1;
                     text: root.dir_button_text;
                     is_dark: root.is_dark;
-                    clicked => { root.open_dir(); }
+                    clicked => {
+                        root.show_menu = false;
+                        root.open_dir();
+                    }
                 }
             }
+
+            Rectangle { vertical-stretch: 1; }
         }
     }
 }

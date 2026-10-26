@@ -84,6 +84,9 @@ fn main() {
     println!("cargo:rerun-if-changed=src/ui");
     println!("cargo:rerun-if-changed=build.rs");
 
+    unsafe {
+        std::env::remove_var("SLINT_SCALE_FACTOR");
+    }
     slint_build::compile("src/cockpit.slint").expect("Failed to compile Slint UI specification");
 
     #[cfg(windows)]

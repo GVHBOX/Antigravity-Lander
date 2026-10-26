@@ -201,6 +201,7 @@ export component SubSessionCardBox inherits Rectangle {
     in property <bool> has_sessions: false;
     in property <[SessionUiItem]> items: [];
     in property <bool> is_dark: true;
+    in property <length> card_max_height: 260px;
     callback clicked();
 
     background: root.has_sessions && card_ta.has_hover ? (root.is_dark ? #131d33 : #f1f5f9) : (root.is_dark ? #0d1527 : #ffffff);
@@ -209,7 +210,7 @@ export component SubSessionCardBox inherits Rectangle {
     border-radius: 6px;
     min-height: 50px;
     preferred-height: root.items.length > 0 ? min(22px + root.items.length * 17px, 260px) : 50px;
-    max-height: 260px;
+    max-height: root.card_max_height;
     vertical-stretch: 1;
     clip: true;
 
