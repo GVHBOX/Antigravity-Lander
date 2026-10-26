@@ -1,6 +1,6 @@
 import { CompactButton, OutlineButton } from "buttons.slint";
 import { MiniMetricBox, UserProfileRow, SubQuotaCompactBox, SubScaleCacheRow } from "widgets.slint";
-import { SubSessionCardBox, SessionUiItem } from "session_items.slint";
+import { SessionUiItem } from "session_items.slint";
 
 export component InstanceCard inherits Rectangle {
     in property <int> slot: 1;
@@ -101,7 +101,7 @@ export component InstanceCard inherits Rectangle {
                         padding-right: 4px;
                         alignment: center;
                         Text {
-                            text: root.session_count_text == "" || root.session_count_text == "--" ? root.instance_id_text : (root.instance_id_text + " · " + root.session_count_text);
+                            text: root.instance_id_text;
                             max-width: 104px;
                             overflow: elide;
                             color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
@@ -260,6 +260,8 @@ export component InstanceCard inherits Rectangle {
             }
         }
 
+        Rectangle { vertical-stretch: 1; }
+
         VerticalLayout {
             spacing: 4px;
             vertical-stretch: 0;
@@ -310,18 +312,7 @@ export component InstanceCard inherits Rectangle {
             }
         }
 
-        SubSessionCardBox {
-            card_max_height: 100000px;
-            project_name: root.recent_project;
-            session_title: root.recent_title;
-            tokens_text: root.recent_tokens;
-            time_text: root.recent_time;
-            is_running: root.has_running_session;
-            has_sessions: root.has_sessions;
-            items: root.session_items;
-            is_dark: root.is_dark;
-            clicked => { root.session_clicked(); }
-        }
+
     }
 
     if root.show_menu : Rectangle {
