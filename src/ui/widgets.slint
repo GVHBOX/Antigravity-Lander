@@ -7,8 +7,8 @@ export component MiniMetricBox inherits Rectangle {
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
-    border-radius: 5px;
-    height: 32px;
+    border-radius: 8px;
+    height: 48px;
 
     VerticalLayout {
         alignment: center;
@@ -17,7 +17,7 @@ export component MiniMetricBox inherits Rectangle {
         Text {
             text: root.label;
             color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 10px;
+            font-size: 15px;
             font-family: "Cascadia Mono";
             horizontal-alignment: center;
         }
@@ -25,7 +25,7 @@ export component MiniMetricBox inherits Rectangle {
         Text {
             text: root.val_text;
             color: root.val_color != transparent ? root.val_color : (root.val_text == "--" ? (root.is_dark ? #475569 : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a));
-            font-size: 12px;
+            font-size: 18px;
             font-weight: 700;
             font-family: "Cascadia Mono";
             horizontal-alignment: center;
@@ -44,51 +44,51 @@ export component PatchItemRow inherits Rectangle {
     background: root.is_dark ? #090e1c : #f8fafc;
     border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
-    border-radius: 6px;
-    height: 46px;
+    border-radius: 9px;
+    height: 69px;
 
     HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: 18px;
+        padding-right: 18px;
         alignment: space-between;
 
         VerticalLayout {
             alignment: center;
-            spacing: 2px;
+            spacing: 3px;
 
             Text {
                 text: root.title;
                 color: root.is_dark ? #f8fafc : #0f172a;
-                font-size: 13px;
+                font-size: 20px;
                 font-weight: 600;
             }
 
             HorizontalLayout {
-                spacing: 5px;
+                spacing: 8px;
                 Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 5px;
                     background: root.is_installed ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                    y: (parent.height - 6px) / 2;
+                    y: (parent.height - 9px) / 2;
                 }
                 Text {
                     text: root.status_text;
                     color: root.is_installed ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 11px;
+                    font-size: 17px;
                     font-family: "Cascadia Mono";
                 }
             }
         }
 
         Rectangle {
-            width: 68px;
-            height: 28px;
-            y: (parent.height - 28px) / 2;
+            width: 102px;
+            height: 42px;
+            y: (parent.height - 42px) / 2;
             background: root.is_installed ? (ta.has_hover ? #f43f5e : rgba(244, 63, 94, 0.15)) : (ta.has_hover ? #34d399 : #10b981);
             border-color: root.is_installed ? #f43f5e : #10b981;
             border-width: 1px;
-            border-radius: 5px;
+            border-radius: 8px;
 
             animate background { duration: 150ms; easing: ease-out; }
 
@@ -100,7 +100,7 @@ export component PatchItemRow inherits Rectangle {
             Text {
                 text: root.btn_text;
                 color: root.is_installed ? (ta.has_hover ? #ffffff : #f43f5e) : #ffffff;
-                font-size: 11.5px;
+                font-size: 17px;
                 font-weight: 600;
                 vertical-alignment: center;
                 horizontal-alignment: center;
@@ -122,28 +122,28 @@ export component UserProfileRow inherits Rectangle {
     background: root.is_dark ? #090e1c : #f8fafc;
     border-color: root.is_dark ? #162032 : #e2e8f0;
     border-width: 1px;
-    border-radius: 6px;
-    height: 34px;
+    border-radius: 9px;
+    height: 51px;
 
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 2px;
-        padding-bottom: 2px;
-        spacing: 9px;
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 14px;
         alignment: space-between;
 
         HorizontalLayout {
-            spacing: 9px;
+            spacing: 14px;
             alignment: start;
 
             Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: 14px;
+                width: 42px;
+                height: 42px;
+                border-radius: 21px;
                 clip: true;
                 background: root.is_dark ? #141c2b : #e2e8f0;
-                y: (parent.height - 28px) / 2;
+                y: (parent.height - 42px) / 2;
 
                 if root.has_avatar : Image {
                     source: root.avatar;
@@ -152,7 +152,7 @@ export component UserProfileRow inherits Rectangle {
                 }
                 if !root.has_avatar : Text {
                     text: root.user_name != "" && root.user_name != "--" ? "ID" : "--";
-                    font-size: 11px;
+                    font-size: 17px;
                     color: root.is_dark ? #64748b : #94a3b8;
                     vertical-alignment: center;
                     horizontal-alignment: center;
@@ -164,13 +164,13 @@ export component UserProfileRow inherits Rectangle {
                 spacing: 1px;
 
                 HorizontalLayout {
-                    spacing: 5px;
+                    spacing: 8px;
                     alignment: start;
 
                     Text {
                         text: root.user_name == "--" ? "未登录账号" : root.user_name;
                         color: root.user_name == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                        font-size: 13px;
+                        font-size: 20px;
                         font-weight: 700;
                         overflow: elide;
                         vertical-alignment: center;
@@ -180,18 +180,18 @@ export component UserProfileRow inherits Rectangle {
                         background: root.is_dark ? rgba(16, 185, 129, 0.15) : rgba(16, 185, 129, 0.18);
                         border-color: root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4);
                         border-width: 1px;
-                        border-radius: 3px;
-                        height: 16px;
-                        y: (parent.height - 16px) / 2;
+                        border-radius: 5px;
+                        height: 24px;
+                        y: (parent.height - 24px) / 2;
 
                         HorizontalLayout {
-                            padding-left: 5px;
-                            padding-right: 5px;
+                            padding-left: 8px;
+                            padding-right: 8px;
                             alignment: center;
                             Text {
                                 text: root.tier;
                                 color: root.is_dark ? #34d399 : #059669;
-                                font-size: 10px;
+                                font-size: 15px;
                                 font-weight: 700;
                                 vertical-alignment: center;
                             }
@@ -201,10 +201,11 @@ export component UserProfileRow inherits Rectangle {
 
                 Text {
                     text: root.user_name == "--" ? "首次启动自动派生沙箱" : root.user_email;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 11px;
-                    font-family: root.user_name == "--" ? "" : "Cascadia Mono";
+                    max-width: 180px;
                     overflow: elide;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 17px;
+                    font-family: root.user_name == "--" ? "" : "Cascadia Mono";
                     vertical-alignment: center;
                 }
             }
@@ -213,7 +214,7 @@ export component UserProfileRow inherits Rectangle {
         Text {
             text: root.port_text != "" ? (":" + root.port_text) : ":--";
             color: root.port_text != "" ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
-            font-size: 11.5px;
+            font-size: 17px;
             font-family: "Cascadia Mono";
             font-weight: 600;
             vertical-alignment: center;
@@ -228,9 +229,9 @@ export component QuotaRefreshButton inherits Rectangle {
     in property <angle> spin_angle: 0deg;
     callback clicked();
 
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
+    width: 27px;
+    height: 27px;
+    border-radius: 6px;
     border-width: 1px;
     background: is_disabled ? (root.is_dark ? rgba(30, 41, 59, 0.4) : rgba(226, 232, 240, 0.5)) : (ta.has_hover && !root.is_refreshing ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
     border-color: is_disabled ? (root.is_dark ? rgba(51, 65, 85, 0.4) : rgba(203, 213, 225, 0.5)) : (root.is_dark ? #334155 : #cbd5e1);
@@ -245,8 +246,8 @@ export component QuotaRefreshButton inherits Rectangle {
     }
 
     Image {
-        width: 11px;
-        height: 11px;
+        width: 17px;
+        height: 17px;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         source: @image-url("../../assets/refresh.svg");
@@ -255,13 +256,18 @@ export component QuotaRefreshButton inherits Rectangle {
     }
 }
 
+export struct ModelQuotaRow {
+    name: string,
+    weekly_pct: string,
+    weekly_ring: image,
+    five_h_pct: string,
+    five_h_ring: image,
+    has_five_h: bool,
+    reset_text: string,
+}
+
 export component SubQuotaCompactBox inherits Rectangle {
-    in property <string> weekly_reset: "";
-    in property <string> weekly_pct: "--";
-    in property <image> weekly_ring;
-    in property <string> five_h_reset: "";
-    in property <string> five_h_pct: "--";
-    in property <image> five_h_ring;
+    in property <[ModelQuotaRow]> model_quotas: [];
     in property <bool> is_dark: true;
     in property <bool> is_refreshing: false;
     in property <bool> is_refresh_disabled: false;
@@ -271,25 +277,25 @@ export component SubQuotaCompactBox inherits Rectangle {
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
-    border-radius: 6px;
-    height: 78px;
+    border-radius: 9px;
+    height: 61px + Math.max(1, root.model_quotas.length) * 41px;
 
     VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 6px;
-        padding-bottom: 6px;
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-top: 9px;
+        padding-bottom: 9px;
         spacing: 3px;
 
         HorizontalLayout {
-            height: 18px;
+            height: 24px;
             alignment: start;
-            spacing: 6px;
+            spacing: 9px;
 
             Text {
-                text: "Gemini 模型";
+                text: "模型额度";
                 color: root.is_dark ? #94a3b8 : #64748b;
-                font-size: 11px;
+                font-size: 17px;
                 font-weight: 600;
                 vertical-alignment: center;
             }
@@ -304,101 +310,119 @@ export component SubQuotaCompactBox inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: space-between;
-            height: 18px;
+            height: 16px;
+            spacing: 12px;
 
-            HorizontalLayout {
-                spacing: 5px;
-                alignment: start;
-                Text {
-                    text: "每周限额";
-                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
-                    font-size: 11px;
-                    vertical-alignment: center;
-                }
-                if root.weekly_reset != "" : Text {
-                    text: root.weekly_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
-                if root.weekly_reset == "" && root.weekly_pct == "--" : Text {
-                    text: "等待同步";
-                    color: root.is_dark ? #334155 : #cbd5e1;
-                    font-size: 10px;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: "模型";
+                horizontal-stretch: 1;
+                color: root.is_dark ? #475569 : #94a3b8;
+                font-size: 13px;
+                vertical-alignment: center;
             }
-
             HorizontalLayout {
-                spacing: 6px;
-                alignment: end;
+                spacing: 4px;
                 Text {
-                    text: root.weekly_pct;
-                    color: root.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                    font-size: 12.5px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
+                    text: "每周";
+                    width: 44px;
+                    horizontal-alignment: right;
+                    color: root.is_dark ? #475569 : #94a3b8;
+                    font-size: 13px;
                     vertical-alignment: center;
                 }
-                Image {
-                    source: root.weekly_ring;
-                    width: 18px;
-                    height: 18px;
+                Rectangle { width: 24px; }
+            }
+            HorizontalLayout {
+                spacing: 4px;
+                Text {
+                    text: "5小时";
+                    width: 44px;
+                    horizontal-alignment: right;
+                    color: root.is_dark ? #475569 : #94a3b8;
+                    font-size: 13px;
                     vertical-alignment: center;
                 }
+                Rectangle { width: 24px; }
             }
         }
 
-        Rectangle {
-            height: 1px;
-            background: root.is_dark ? rgba(255, 255, 255, 0.05) : #e2e8f0;
+        if root.model_quotas.length == 0 : HorizontalLayout {
+            height: 38px;
+            spacing: 3px;
+
+            Text {
+                text: "等待同步";
+                horizontal-stretch: 1;
+                color: root.is_dark ? #475569 : #94a3b8;
+                font-size: 16px;
+                vertical-alignment: center;
+            }
         }
 
-        HorizontalLayout {
-            alignment: space-between;
-            height: 18px;
+        for row in root.model_quotas : VerticalLayout {
+            height: 38px;
+            spacing: 2px;
 
             HorizontalLayout {
-                spacing: 5px;
-                alignment: start;
+                height: 24px;
+                spacing: 12px;
+
                 Text {
-                    text: "5小时限额";
-                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #cbd5e1 : #334155);
-                    font-size: 11px;
+                    text: row.name;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    color: root.is_dark ? #cbd5e1 : #334155;
+                    font-size: 16px;
                     vertical-alignment: center;
                 }
-                if root.five_h_reset != "" : Text {
-                    text: root.five_h_reset;
-                    color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
-                    vertical-alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: row.weekly_pct;
+                        width: 44px;
+                        horizontal-alignment: right;
+                        color: row.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
+                        font-size: 17px;
+                        font-family: "Cascadia Mono";
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                    Image {
+                        source: row.weekly_ring;
+                        width: 24px;
+                        height: 24px;
+                        vertical-alignment: center;
+                    }
                 }
-                if root.five_h_reset == "" && root.five_h_pct == "--" : Text {
-                    text: "等待同步";
-                    color: root.is_dark ? #334155 : #cbd5e1;
-                    font-size: 10px;
-                    vertical-alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: row.has_five_h ? row.five_h_pct : "--";
+                        width: 44px;
+                        horizontal-alignment: right;
+                        color: row.has_five_h ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #475569 : #94a3b8);
+                        font-size: 17px;
+                        font-family: "Cascadia Mono";
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                    Image {
+                        source: row.five_h_ring;
+                        width: 24px;
+                        height: 24px;
+                        vertical-alignment: center;
+                    }
                 }
             }
 
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: end;
-                Text {
-                    text: root.five_h_pct;
-                    color: root.five_h_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                    font-size: 12.5px;
-                    font-family: "Cascadia Mono";
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                Image {
-                    source: root.five_h_ring;
-                    width: 18px;
-                    height: 18px;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: row.reset_text;
+                horizontal-stretch: 1;
+                overflow: elide;
+                color: root.is_dark ? #475569 : #94a3b8;
+                font-size: 12px;
+                font-family: "Cascadia Mono";
+                vertical-alignment: center;
             }
         }
     }
@@ -412,7 +436,7 @@ export component SubScaleCacheRow inherits Rectangle {
     callback inc_clicked();
     callback reset_clicked();
 
-    height: 20px;
+    height: 30px;
 
     HorizontalLayout {
         alignment: space-between;
@@ -420,30 +444,30 @@ export component SubScaleCacheRow inherits Rectangle {
         Text {
             text: root.cache_text;
             color: root.is_dark ? #64748b : #94a3b8;
-            font-size: 11px;
+            font-size: 17px;
             font-family: "Cascadia Mono";
             vertical-alignment: center;
         }
 
         HorizontalLayout {
-            spacing: 3px;
+            spacing: 5px;
             alignment: end;
 
             Text {
                 text: "界面";
                 color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 11px;
+                font-size: 17px;
                 vertical-alignment: center;
             }
 
             Rectangle {
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
+                width: 30px;
+                height: 30px;
+                border-radius: 6px;
                 background: b_dec.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
                 border-color: root.is_dark ? #334155 : #cbd5e1;
                 border-width: 1px;
-                y: (parent.height - 20px) / 2;
+                y: (parent.height - 30px) / 2;
                 b_dec := TouchArea {
                     clicked => { root.dec_clicked(); }
                     mouse-cursor: pointer;
@@ -451,7 +475,7 @@ export component SubScaleCacheRow inherits Rectangle {
                 Text {
                     text: "-";
                     color: root.is_dark ? #cbd5e1 : #334155;
-                    font-size: 12px;
+                    font-size: 18px;
                     font-weight: 700;
                     vertical-alignment: center;
                     horizontal-alignment: center;
@@ -459,24 +483,24 @@ export component SubScaleCacheRow inherits Rectangle {
             }
 
             Rectangle {
-                height: 20px;
-                border-radius: 4px;
+                height: 30px;
+                border-radius: 6px;
                 background: b_reset.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #0d1527 : #ffffff);
                 border-color: root.is_dark ? #334155 : #cbd5e1;
                 border-width: 1px;
-                y: (parent.height - 20px) / 2;
+                y: (parent.height - 30px) / 2;
                 b_reset := TouchArea {
                     clicked => { root.reset_clicked(); }
                     mouse-cursor: pointer;
                 }
                 HorizontalLayout {
-                    padding-left: 5px;
-                    padding-right: 5px;
+                    padding-left: 8px;
+                    padding-right: 8px;
                     alignment: center;
                     Text {
                         text: root.scale_text;
                         color: root.is_dark ? #38bdf8 : #0284c7;
-                        font-size: 11.5px;
+                        font-size: 17px;
                         font-family: "Cascadia Mono";
                         font-weight: 700;
                         vertical-alignment: center;
@@ -485,13 +509,13 @@ export component SubScaleCacheRow inherits Rectangle {
             }
 
             Rectangle {
-                width: 20px;
-                height: 20px;
-                border-radius: 4px;
+                width: 30px;
+                height: 30px;
+                border-radius: 6px;
                 background: b_inc.has_hover ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0);
                 border-color: root.is_dark ? #334155 : #cbd5e1;
                 border-width: 1px;
-                y: (parent.height - 20px) / 2;
+                y: (parent.height - 30px) / 2;
                 b_inc := TouchArea {
                     clicked => { root.inc_clicked(); }
                     mouse-cursor: pointer;
@@ -499,7 +523,7 @@ export component SubScaleCacheRow inherits Rectangle {
                 Text {
                     text: "+";
                     color: root.is_dark ? #cbd5e1 : #334155;
-                    font-size: 12px;
+                    font-size: 18px;
                     font-weight: 700;
                     vertical-alignment: center;
                     horizontal-alignment: center;

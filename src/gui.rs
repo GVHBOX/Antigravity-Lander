@@ -67,41 +67,79 @@ fn to_recent_session_model(inst: &crate::session::InstanceSessions, limit: usize
     std::rc::Rc::new(slint::VecModel::from(ui_vec)).into()
 }
 
+fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuotaRow> {
+    let Some(st) = state.filter(|s| s.is_available) else {
+        return Vec::new();
+    };
+    st.models
+        .iter()
+        .map(|m| {
+            let weekly_ring = if m.has_weekly && m.weekly.remaining_pct >= 0.0 {
+                crate::quota::render_quota_ring(m.weekly.remaining_pct, is_dark)
+            } else {
+                crate::quota::render_quota_ring(-1.0, is_dark)
+            };
+            let five_h_ring = if m.has_five_h && m.five_h.remaining_pct >= 0.0 {
+                crate::quota::render_quota_ring(m.five_h.remaining_pct, is_dark)
+            } else {
+                crate::quota::render_quota_ring(-1.0, is_dark)
+            };
+            let weekly_pct = if m.has_weekly && !m.weekly.pct_text.is_empty() {
+                m.weekly.pct_text.as_str().into()
+            } else {
+                "--".into()
+            };
+            let five_h_pct = if m.has_five_h && !m.five_h.pct_text.is_empty() {
+                m.five_h.pct_text.as_str().into()
+            } else {
+                "--".into()
+            };
+            let mut parts: Vec<String> = Vec::new();
+            if m.has_weekly && !m.weekly.reset_text.is_empty() {
+                parts.push(format!("周 {}", m.weekly.reset_text.replace("后重置", "")));
+            }
+            if m.has_five_h && !m.five_h.reset_text.is_empty() {
+                parts.push(format!("5h {}", m.five_h.reset_text.replace("后重置", "")));
+            }
+            let reset_text = if parts.is_empty() {
+                "--".to_string()
+            } else {
+                parts.join(" · ")
+            };
+            ModelQuotaRow {
+                name: m.short_name.as_str().into(),
+                weekly_pct,
+                weekly_ring,
+                five_h_pct,
+                five_h_ring,
+                has_five_h: m.has_five_h,
+                reset_text: reset_text.into(),
+            }
+        })
+        .collect()
+}
+
 fn apply_quota_to_ui(
     state: Option<&InstanceQuotaState>,
     is_dark: bool,
     set_profile: impl FnOnce(&str, &str, &str, Option<&std::path::Path>),
-    set_weekly: impl FnOnce(&str, &str, slint::Image),
-    set_five_h: impl FnOnce(&str, &str, slint::Image),
+    set_models: impl FnOnce(slint::ModelRc<ModelQuotaRow>),
 ) {
-    if let Some(st) = state
-        && st.is_available {
-            set_profile(
-                &st.profile.name,
-                &st.profile.email,
-                &st.profile.tier,
-                st.profile.avatar_path.as_deref(),
-            );
-            let weekly_ring = if st.weekly.remaining_pct >= 0.0 && !st.weekly.pct_text.is_empty() && st.weekly.pct_text != "--" {
-                crate::quota::render_quota_ring(st.weekly.remaining_pct, is_dark)
-            } else {
-                crate::quota::render_quota_ring(-1.0, is_dark)
-            };
-            let weekly_pct = if st.weekly.pct_text.is_empty() { "--" } else { &st.weekly.pct_text };
-            set_weekly(weekly_pct, &st.weekly.reset_text, weekly_ring);
-
-            let five_h_ring = if st.five_h.remaining_pct >= 0.0 && !st.five_h.pct_text.is_empty() && st.five_h.pct_text != "--" {
-                crate::quota::render_quota_ring(st.five_h.remaining_pct, is_dark)
-            } else {
-                crate::quota::render_quota_ring(-1.0, is_dark)
-            };
-            let five_h_pct = if st.five_h.pct_text.is_empty() { "--" } else { &st.five_h.pct_text };
-            set_five_h(five_h_pct, &st.five_h.reset_text, five_h_ring);
-            return;
-        }
+    if let Some(st) = state.filter(|s| s.is_available) {
+        set_profile(
+            &st.profile.name,
+            &st.profile.email,
+            &st.profile.tier,
+            st.profile.avatar_path.as_deref(),
+        );
+        let rows = quota_rows(state, is_dark);
+        set_models(slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(rows))));
+        return;
+    }
     set_profile("--", "--", "", None);
-    set_weekly("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
-    set_five_h("--", "", crate::quota::render_quota_ring(-1.0, is_dark));
+    set_models(slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(
+        Vec::<ModelQuotaRow>::new(),
+    ))));
 }
 
 fn load_avatar_image(path: Option<&std::path::Path>) -> (slint::Image, bool) {
@@ -1004,6 +1042,61 @@ fn interruptible_sleep(ms: u64, shutdown: &std::sync::atomic::AtomicBool) {
     }
 }
 
+fn interruptible_sleep_wake(
+    ms: u64,
+    shutdown: &std::sync::atomic::AtomicBool,
+    wake: &std::sync::atomic::AtomicBool,
+) {
+    const STEP_MS: u64 = 100;
+    let mut left = ms;
+    while left > 0 {
+        if shutdown.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        if wake.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+        let chunk = left.min(STEP_MS);
+        std::thread::sleep(std::time::Duration::from_millis(chunk));
+        left -= chunk;
+    }
+}
+
+fn collect_session_snapshot(
+    mon: &Arc<Mutex<TelemetryMonitor>>,
+    enrich: bool,
+) -> [InstanceSessions; 5] {
+    let mut snapshot = [
+        InstanceSessions::default(),
+        InstanceSessions::default(),
+        InstanceSessions::default(),
+        InstanceSessions::default(),
+        InstanceSessions::default(),
+    ];
+    let homes = [
+        LauncherConfig::resolve_host_user_dir(),
+        LauncherConfig::slot_home_dir(1),
+        LauncherConfig::slot_home_dir(2),
+        LauncherConfig::slot_home_dir(3),
+        LauncherConfig::slot_home_dir(4),
+    ];
+    for (idx, home) in homes.iter().enumerate() {
+        if let Some(h) = home {
+            snapshot[idx] = scan_sandbox_sessions(h);
+        }
+    }
+    if enrich {
+        for (slot, inst) in snapshot.iter_mut().enumerate() {
+            if let Some((ports, csrf)) = slot_rpc_ports(mon, slot)
+                && let Some(&port) = ports.first()
+            {
+                crate::session::enrich_active_session(inst, port, &csrf);
+            }
+        }
+    }
+    snapshot
+}
+
 pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let _ = LauncherConfig::ensure_all_sandboxes();
     let sub_pids = Arc::new(Mutex::new([None::<u32>; 4]));
@@ -1118,7 +1211,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         main_window.set_sub2_scale_text(format!("{}%", scales.get_sub_scale(2)).into());
         main_window.set_sub3_scale_text(format!("{}%", scales.get_sub_scale(3)).into());
         main_window.set_sub4_scale_text(format!("{}%", scales.get_sub_scale(4)).into());
-        main_window.set_cockpit_scale_text(format!("{:.2}x", (scales.cockpit as f32) / 100.0).into());
     }
 
     let (initial_mode_key, initial_sound_on) = {
@@ -2177,29 +2269,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     });
 
-    main_window.on_toggle_cockpit_scale({
-        let scales_lock = Arc::clone(&scale_settings);
-        move || {
-            {
-                let mut scales = scales_lock.lock().unwrap();
-                scales.toggle_cockpit_scale();
-            }
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                if let Ok(exe) = std::env::current_exe() {
-                    let exe_str = exe.to_string_lossy();
-                    let ps_cmd = format!("Start-Sleep -Milliseconds 600; Start-Process -FilePath '{}'", exe_str);
-                    let _ = std::process::Command::new("powershell")
-                        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &ps_cmd])
-                        .creation_flags(0x08000000)
-                        .spawn();
-                }
-                std::process::exit(0);
-            }
-        }
-    });
-
     let sessions_store_modal = Arc::clone(&sessions_store);
     main_window.on_show_session_modal({
         let ui_weak = main_window.as_weak();
@@ -2448,56 +2517,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let sessions_store_worker = Arc::clone(&sessions_store);
     let mon_sessions_worker = Arc::clone(&monitor);
     let shutdown_sessions = Arc::clone(&shutdown);
+    let wake_sessions = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let wake_sessions_timer = Arc::clone(&wake_sessions);
+    {
+        let warm = collect_session_snapshot(&monitor, false);
+        *sessions_store.lock().unwrap() = warm;
+    }
     let session_worker = std::thread::spawn(move || {
         let mut idle_rounds = 0u32;
         loop {
             if shutdown_sessions.load(std::sync::atomic::Ordering::Relaxed) {
                 break;
             }
-            let host_home = LauncherConfig::resolve_host_user_dir();
-            let host_sessions = if let Some(ref h) = host_home {
-                scan_sandbox_sessions(h)
-            } else {
-                InstanceSessions::default()
-            };
-            let sub1_home = LauncherConfig::slot_home_dir(1);
-            let sub1_sessions = if let Some(ref h) = sub1_home {
-                scan_sandbox_sessions(h)
-            } else {
-                InstanceSessions::default()
-            };
-            let sub2_home = LauncherConfig::slot_home_dir(2);
-            let sub2_sessions = if let Some(ref h) = sub2_home {
-                scan_sandbox_sessions(h)
-            } else {
-                InstanceSessions::default()
-            };
-            let sub3_home = LauncherConfig::slot_home_dir(3);
-            let sub3_sessions = if let Some(ref h) = sub3_home {
-                scan_sandbox_sessions(h)
-            } else {
-                InstanceSessions::default()
-            };
-            let sub4_home = LauncherConfig::slot_home_dir(4);
-            let sub4_sessions = if let Some(ref h) = sub4_home {
-                scan_sandbox_sessions(h)
-            } else {
-                InstanceSessions::default()
-            };
-
-            let mut snapshot = [
-                host_sessions,
-                sub1_sessions,
-                sub2_sessions,
-                sub3_sessions,
-                sub4_sessions,
-            ];
-            for (slot, inst) in snapshot.iter_mut().enumerate() {
-                if let Some((ports, csrf)) = slot_rpc_ports(&mon_sessions_worker, slot)
-                    && let Some(&port) = ports.first() {
-                        crate::session::enrich_active_session(inst, port, &csrf);
-                    }
-            }
+            let snapshot = collect_session_snapshot(&mon_sessions_worker, true);
 
             let all_idle = snapshot
                 .iter()
@@ -2517,13 +2549,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             }
 
             let scan_interval = if idle_rounds >= 6 {
-                10000
+                3000
             } else if idle_rounds >= 3 {
-                5000
+                2000
             } else {
                 1500
             };
-            interruptible_sleep(scan_interval, &shutdown_sessions);
+            interruptible_sleep_wake(scan_interval, &shutdown_sessions, &wake_sessions);
         }
     });
 
@@ -2585,6 +2617,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         } == 0
         {
             show_cockpit_from_tray(&ui_weak_restore);
+            wake_sessions_timer.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
         if cached_hwnd.is_null()
@@ -2621,6 +2654,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let cur = ui.get_redraw_tick();
             ui.set_redraw_tick(if cur == 0 { 1 } else { 0 });
             ui.window().request_redraw();
+            wake_sessions_timer.store(true, std::sync::atomic::Ordering::Relaxed);
         }
         was_iconic = is_iconic;
     });
@@ -2652,14 +2686,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         cfg.enabled && cfg.mode == crate::widget_state::WidgetMode::Always
     };
     let mut widget_was_shown = initial_widget_shown;
-    timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
+    let mut ui_tick = move || {
         if let Some(ui) = ui_weak_mon.upgrade() {
             let mon = monitor_view_timer.lock().unwrap().clone();
 
             ui.set_host_running(mon.host.is_running);
             ui.set_host_pid(mon.host.electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_host_cpu_text(format!("{:.1}%", mon.host.cpu_usage).into());
-            ui.set_host_ram_text(format!("{:.0} MB", mon.host.memory_rss_mb).into());
             ui.set_host_port(mon.host.ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
 
             let uptime_str = if let Some(secs) = mon.host_uptime_secs {
@@ -2678,29 +2710,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub1_running(mon.subs[0].is_running);
             ui.set_sub1_pid(mon.subs[0].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub1_port(mon.subs[0].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_sub1_cpu_text(if mon.subs[0].is_running { format!("{:.1}%", mon.subs[0].cpu_usage).into() } else { "--".into() });
-            ui.set_sub1_ram_text(if mon.subs[0].is_running { format!("{:.0} MB", mon.subs[0].memory_rss_mb).into() } else { "--".into() });
             ui.set_sub1_token_present(LauncherConfig::is_slot_token_present(1));
 
             ui.set_sub2_running(mon.subs[1].is_running);
             ui.set_sub2_pid(mon.subs[1].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub2_port(mon.subs[1].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_sub2_cpu_text(if mon.subs[1].is_running { format!("{:.1}%", mon.subs[1].cpu_usage).into() } else { "--".into() });
-            ui.set_sub2_ram_text(if mon.subs[1].is_running { format!("{:.0} MB", mon.subs[1].memory_rss_mb).into() } else { "--".into() });
             ui.set_sub2_token_present(LauncherConfig::is_slot_token_present(2));
 
             ui.set_sub3_running(mon.subs[2].is_running);
             ui.set_sub3_pid(mon.subs[2].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub3_port(mon.subs[2].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_sub3_cpu_text(if mon.subs[2].is_running { format!("{:.1}%", mon.subs[2].cpu_usage).into() } else { "--".into() });
-            ui.set_sub3_ram_text(if mon.subs[2].is_running { format!("{:.0} MB", mon.subs[2].memory_rss_mb).into() } else { "--".into() });
             ui.set_sub3_token_present(LauncherConfig::is_slot_token_present(3));
 
             ui.set_sub4_running(mon.subs[3].is_running);
             ui.set_sub4_pid(mon.subs[3].electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub4_port(mon.subs[3].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
-            ui.set_sub4_cpu_text(if mon.subs[3].is_running { format!("{:.1}%", mon.subs[3].cpu_usage).into() } else { "--".into() });
-            ui.set_sub4_ram_text(if mon.subs[3].is_running { format!("{:.0} MB", mon.subs[3].memory_rss_mb).into() } else { "--".into() });
             ui.set_sub4_token_present(LauncherConfig::is_slot_token_present(4));
 
             let running_sub_count = mon.subs.iter().filter(|s| s.is_running).count();
@@ -2732,15 +2756,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_host_avatar(img);
                     ui.set_host_has_avatar(has_img);
                 },
-                |pct, reset, ring| {
-                    ui.set_host_weekly_text(pct.into());
-                    ui.set_host_weekly_reset(reset.into());
-                    ui.set_host_weekly_ring(ring);
-                },
-                |pct, reset, ring| {
-                    ui.set_host_five_h_text(pct.into());
-                    ui.set_host_five_h_reset(reset.into());
-                    ui.set_host_five_h_ring(ring);
+                |rows| {
+                    ui.set_host_model_quotas(rows);
                 },
             );
 
@@ -2764,15 +2781,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_sub1_avatar(img);
                     ui.set_sub1_has_avatar(has_img);
                 },
-                |pct, reset, ring| {
-                    ui.set_sub1_weekly_text(pct.into());
-                    ui.set_sub1_weekly_reset(reset.into());
-                    ui.set_sub1_weekly_ring(ring);
-                },
-                |pct, reset, ring| {
-                    ui.set_sub1_five_h_text(pct.into());
-                    ui.set_sub1_five_h_reset(reset.into());
-                    ui.set_sub1_five_h_ring(ring);
+                |rows| {
+                    ui.set_sub1_model_quotas(rows);
                 },
             );
 
@@ -2796,15 +2806,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_sub2_avatar(img);
                     ui.set_sub2_has_avatar(has_img);
                 },
-                |pct, reset, ring| {
-                    ui.set_sub2_weekly_text(pct.into());
-                    ui.set_sub2_weekly_reset(reset.into());
-                    ui.set_sub2_weekly_ring(ring);
-                },
-                |pct, reset, ring| {
-                    ui.set_sub2_five_h_text(pct.into());
-                    ui.set_sub2_five_h_reset(reset.into());
-                    ui.set_sub2_five_h_ring(ring);
+                |rows| {
+                    ui.set_sub2_model_quotas(rows);
                 },
             );
 
@@ -2828,15 +2831,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_sub3_avatar(img);
                     ui.set_sub3_has_avatar(has_img);
                 },
-                |pct, reset, ring| {
-                    ui.set_sub3_weekly_text(pct.into());
-                    ui.set_sub3_weekly_reset(reset.into());
-                    ui.set_sub3_weekly_ring(ring);
-                },
-                |pct, reset, ring| {
-                    ui.set_sub3_five_h_text(pct.into());
-                    ui.set_sub3_five_h_reset(reset.into());
-                    ui.set_sub3_five_h_ring(ring);
+                |rows| {
+                    ui.set_sub3_model_quotas(rows);
                 },
             );
 
@@ -2860,15 +2856,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_sub4_avatar(img);
                     ui.set_sub4_has_avatar(has_img);
                 },
-                |pct, reset, ring| {
-                    ui.set_sub4_weekly_text(pct.into());
-                    ui.set_sub4_weekly_reset(reset.into());
-                    ui.set_sub4_weekly_ring(ring);
-                },
-                |pct, reset, ring| {
-                    ui.set_sub4_five_h_text(pct.into());
-                    ui.set_sub4_five_h_reset(reset.into());
-                    ui.set_sub4_five_h_ring(ring);
+                |rows| {
+                    ui.set_sub4_model_quotas(rows);
                 },
             );
 
@@ -3067,14 +3056,8 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
 
                     let max_tps = s.recent_tps.iter().copied().fold(0.0f32, f32::max).max(10.0);
-                    let calc_h = |tps: f32| -> f32 {
-                        if tps <= 0.0 {
-                            3.0
-                        } else {
-                            (3.0 + (tps / max_tps) * 37.0).clamp(3.0, 40.0)
-                        }
-                    };
-                    let bars: Vec<f32> = s.recent_tps.iter().map(|&v| calc_h(v)).collect();
+                    let calc_ratio = |tps: f32| -> f32 { (tps / max_tps).clamp(0.0, 1.0) };
+                    let bars: Vec<f32> = s.recent_tps.iter().map(|&v| calc_ratio(v)).collect();
                     ui.set_live_bars(std::rc::Rc::new(slint::VecModel::from(bars)).into());
 
                     ui.set_live_peak_tps_text(format!("峰值 {:.1}", s.peak_tps).into());
@@ -3128,7 +3111,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_avg_tps_text("Avg 0".into());
                     ui.set_live_avg_line_pct(0.5);
 
-                    ui.set_live_bars(std::rc::Rc::new(slint::VecModel::from(vec![3.0f32; crate::session::HISTORY_LEN])).into());
+                    ui.set_live_bars(std::rc::Rc::new(slint::VecModel::from(vec![0.0f32; crate::session::HISTORY_LEN])).into());
 
                     ui.set_live_session_is_running(false);
                     ui.set_live_session_status_text("".into());
@@ -3295,9 +3278,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
             }
         }
-    });
+    };
 
     main_window.show()?;
+    ui_tick();
+    timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), ui_tick);
     #[cfg(target_os = "windows")]
     {
         let hwnd = get_cockpit_hwnd();

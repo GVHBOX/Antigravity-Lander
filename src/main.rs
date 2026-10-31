@@ -90,10 +90,8 @@ fn main() -> Result<()> {
             env::set_var("SLINT_BACKEND", "winit-software");
         }
     }
-    let scales = launcher::ScaleSettings::load_or_detect();
-    let scale_str = scales.cockpit_scale_str();
     unsafe {
-        env::set_var("SLINT_SCALE_FACTOR", scale_str);
+        env::set_var("SLINT_SCALE_FACTOR", "1.0");
     }
     gui::run_gui(activation_event)
 }

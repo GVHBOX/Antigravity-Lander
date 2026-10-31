@@ -56,9 +56,10 @@
 ## 项目纪律与架构边界
 
 - **槽位与沙箱目录 1:1 对齐**：分身 1~4 严格对应 `data/instance_1` ~ `instance_4`，禁止槽位编号错位。
-- **界面缩放调节**：缩放控制统一标识为【界面调节】，支持 80%~200%（步长 10%）及重置，启动时通过 `--force-device-scale-factor` 注入。
+- **界面缩放调节**：缩放控制统一标识为【界面调节】，走固定档位表 `SCALE_STEPS`（`src/launcher.rs`）：80/90/100/110/120/125/130/140/150/160/170/180/190/200，按钮按档位索引逐格移动（非算术相加），支持重置，启动时通过 `--force-device-scale-factor` 注入。
+- **Cockpit 自身缩放**：`SLINT_SCALE_FACTOR` 恒定写死 `1.0`（`src/main.rs`），不可切换。界面观感为 1.5x，系设计尺寸原生放大所得，非运行时缩放因子。任何 UI px 修改均按 1:1 物理像素书写，禁止引入运行时缩放。
 - **视口与窗口特性**：
-  - 基准尺寸：宽 1500px、高 870px（最小 1200×870），适配 1080P 并深度兼容 2K 高分屏。
+  - 基准尺寸：宽 2250px、高 1305px（最小 1800×1080），面向 2K 屏（2560×1440）设计。1080P 屏无法容纳完整高度。
   - 窗口置顶：置顶图钉（📌）与 Win32 `SetWindowPos(HWND_TOPMOST / HWND_NOTOPMOST)` 物理状态联动。
   - 窗口可见性必须调用 Slint 的 `window.hide()` 与 `window.show()`，严禁直接调用 Win32 `ShowWindow`，避免绕过脏矩形增量重绘导致透明黑屏。
   - 主循环必须使用 `slint::run_event_loop_until_quit()`，避免托盘隐藏时生命周期异常终止。
@@ -94,6 +95,7 @@
   python tools/check_front_hygiene.py         # 铁律 2 界面文案白描检查
 
   # 3. 实机原画取证（输出至 .scratch/shots/）
-  slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
-  slint-viewer --screenshot .scratch/shots/preview_2k.png --size 2560x1440 src/cockpit.slint -I assets
+  SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
   ```
+
+  **截图一致性规则**：取证必须显式前置 `SLINT_SCALE_FACTOR=1.0`，与运行时 `main.rs` 的写死值对齐，保证截图所见即用户所见（1:1 物理像素，原生 2250×1305）。**禁止**使用 `--size` 强制拉伸视口——那会产生非原生比例的失真图，据此修改 px 必然写错值。

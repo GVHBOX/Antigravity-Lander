@@ -50,8 +50,38 @@ pub struct ScaleSettings {
     pub cockpit: u32,
 }
 
-fn align_scale(val: u32) -> u32 {
-    (((val.clamp(80, 200) + 5) / 10) * 10).clamp(80, 200)
+const SCALE_STEPS: [u32; 14] = [
+    80, 90, 100, 110, 120, 125, 130, 140, 150, 160, 170, 180, 190, 200,
+];
+
+fn snap_scale(val: u32) -> u32 {
+    let clamped = val.clamp(80, 200);
+    let mut best = SCALE_STEPS[0];
+    let mut best_distance = u32::MAX;
+    for step in SCALE_STEPS {
+        let distance = if step >= clamped {
+            step - clamped
+        } else {
+            clamped - step
+        };
+        if distance <= best_distance {
+            best_distance = distance;
+            best = step;
+        }
+    }
+    best
+}
+
+fn shift_scale(cur: u32, delta: i32) -> u32 {
+    let current = snap_scale(cur);
+    let Some(index) = SCALE_STEPS.iter().position(|step| *step == current) else {
+        return current;
+    };
+    match delta.signum() {
+        1 => SCALE_STEPS[(index + 1).min(SCALE_STEPS.len() - 1)],
+        -1 => SCALE_STEPS[index.saturating_sub(1)],
+        _ => current,
+    }
 }
 
 impl Default for ScaleSettings {
@@ -86,26 +116,12 @@ impl ScaleSettings {
 
     fn normalized(self) -> Self {
         Self {
-            host: align_scale(self.host),
-            sub1: align_scale(self.sub1),
-            sub2: align_scale(self.sub2),
-            sub3: align_scale(self.sub3),
-            sub4: align_scale(self.sub4),
-            cockpit: if self.cockpit == 125 { 125 } else { 100 },
-        }
-    }
-
-    pub fn toggle_cockpit_scale(&mut self) -> u32 {
-        self.cockpit = if self.cockpit == 125 { 100 } else { 125 };
-        let _ = self.save();
-        self.cockpit
-    }
-
-    pub fn cockpit_scale_str(&self) -> &'static str {
-        if self.cockpit == 125 {
-            "1.25"
-        } else {
-            "1.0"
+            host: snap_scale(self.host),
+            sub1: snap_scale(self.sub1),
+            sub2: snap_scale(self.sub2),
+            sub3: snap_scale(self.sub3),
+            sub4: snap_scale(self.sub4),
+            cockpit: self.cockpit,
         }
     }
 
@@ -120,7 +136,7 @@ impl ScaleSettings {
     }
 
     pub fn set_sub_scale(&mut self, slot: usize, val: u32) {
-        let val = align_scale(val);
+        let val = snap_scale(val);
         match slot {
             1 => self.sub1 = val,
             2 => self.sub2 = val,
@@ -132,18 +148,17 @@ impl ScaleSettings {
     }
 
     pub fn set_host_scale(&mut self, val: u32) {
-        self.host = align_scale(val);
+        self.host = snap_scale(val);
         let _ = self.save();
     }
 
     pub fn adjust_host(&mut self, delta: i32) {
-        let cur = self.host as i32 + delta;
-        self.set_host_scale(cur.clamp(80, 200) as u32);
+        self.set_host_scale(shift_scale(self.host, delta));
     }
 
     pub fn adjust_sub(&mut self, slot: usize, delta: i32) {
-        let cur = self.get_sub_scale(slot) as i32 + delta;
-        self.set_sub_scale(slot, cur.clamp(80, 200) as u32);
+        let next = shift_scale(self.get_sub_scale(slot), delta);
+        self.set_sub_scale(slot, next);
     }
 
     pub fn save(&self) -> Result<()> {
@@ -1419,17 +1434,35 @@ mod tests {
         let invalid = "not json at all";
         assert!(ScaleSettings::parse_json(invalid).is_none());
 
-        assert_eq!(align_scale(144), 140);
-        assert_eq!(align_scale(158), 160);
-        assert_eq!(align_scale(196), 200);
-        assert_eq!(align_scale(80), 80);
-        assert_eq!(align_scale(200), 200);
+        assert_eq!(snap_scale(144), 140);
+        assert_eq!(snap_scale(158), 160);
+        assert_eq!(snap_scale(196), 200);
+        assert_eq!(snap_scale(80), 80);
+        assert_eq!(snap_scale(200), 200);
+        assert_eq!(snap_scale(125), 125);
+        assert_eq!(snap_scale(70), 80);
+        assert_eq!(snap_scale(210), 200);
+
+        assert_eq!(shift_scale(120, 10), 125);
+        assert_eq!(shift_scale(125, 10), 130);
+        assert_eq!(shift_scale(125, -10), 120);
+        assert_eq!(shift_scale(130, -10), 125);
+        assert_eq!(shift_scale(110, 10), 120);
+        assert_eq!(shift_scale(200, 10), 200);
+        assert_eq!(shift_scale(80, -10), 80);
+        assert_eq!(shift_scale(125, 0), 125);
 
         let extra_fields = r#"{"host":140,"unknown_extra":"ignored","sub2":110}"#;
         let parsed_extra = ScaleSettings::parse_json(extra_fields).unwrap();
         assert_eq!(parsed_extra.host, 140);
         assert_eq!(parsed_extra.sub1, 140);
         assert_eq!(parsed_extra.sub2, 110);
+
+        let with_125 = r#"{"host":125,"sub1":125,"cockpit":125}"#;
+        let parsed_125 = ScaleSettings::parse_json(with_125).unwrap().normalized();
+        assert_eq!(parsed_125.host, 125);
+        assert_eq!(parsed_125.sub1, 125);
+        assert_eq!(parsed_125.cockpit, 125);
     }
 
     fn make_asar(

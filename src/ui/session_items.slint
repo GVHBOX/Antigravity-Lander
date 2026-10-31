@@ -20,51 +20,51 @@ export component SessionGroupHeader inherits Rectangle {
     in property <bool> has_running: false;
     in property <bool> is_dark: true;
 
-    height: 38px;
+    height: 57px;
     background: root.is_dark ? #141c2b : #f1f5f9;
     border-color: root.is_dark ? #1e293b : #cbd5e1;
     border-width: 1px;
-    border-radius: 6px;
+    border-radius: 9px;
 
     HorizontalLayout {
-        padding-left: 14px;
-        padding-right: 14px;
-        spacing: 10px;
+        padding-left: 21px;
+        padding-right: 21px;
+        spacing: 15px;
         alignment: space-between;
 
         HorizontalLayout {
-            spacing: 10px;
+            spacing: 15px;
             alignment: start;
 
             Rectangle {
-                width: 4px;
-                height: 16px;
-                border-radius: 2px;
+                width: 6px;
+                height: 24px;
+                border-radius: 3px;
                 background: #38bdf8;
-                y: (parent.height - 16px) / 2;
+                y: (parent.height - 24px) / 2;
             }
 
             Text {
                 text: root.group_name;
                 color: root.is_dark ? #f8fafc : #0f172a;
-                font-size: 15px;
+                font-size: 23px;
                 font-weight: 700;
                 vertical-alignment: center;
             }
 
             if root.has_running : Rectangle {
-                width: 7px;
-                height: 7px;
-                border-radius: 3.5px;
+                width: 11px;
+                height: 11px;
+                border-radius: 5px;
                 background: #10b981;
-                y: (parent.height - 7px) / 2;
+                y: (parent.height - 11px) / 2;
             }
         }
 
         Text {
             text: root.count_str;
             color: root.is_dark ? #94a3b8 : #64748b;
-            font-size: 13px;
+            font-size: 20px;
             font-weight: 600;
             vertical-alignment: center;
         }
@@ -78,37 +78,37 @@ export component SessionModalRow inherits Rectangle {
     background: root.is_dark ? #0d1527 : #f8fafc;
     border-color: root.item.is_running ? rgba(16, 185, 129, 0.45) : (root.is_dark ? #162032 : #e2e8f0);
     border-width: 1px;
-    border-radius: 6px;
-    height: 58px;
+    border-radius: 9px;
+    height: 87px;
 
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 14px;
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 21px;
         alignment: space-between;
 
         HorizontalLayout {
-            spacing: 12px;
+            spacing: 18px;
             alignment: start;
             horizontal-stretch: 1;
 
             Rectangle {
-                width: 10px;
-                height: 10px;
-                border-radius: 5px;
+                width: 15px;
+                height: 15px;
+                border-radius: 8px;
                 background: root.item.is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                y: (parent.height - 10px) / 2;
+                y: (parent.height - 15px) / 2;
             }
 
             VerticalLayout {
                 alignment: center;
-                spacing: 2px;
+                spacing: 3px;
                 horizontal-stretch: 1;
 
                 Text {
                     text: root.item.title;
                     color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 15px;
+                    font-size: 23px;
                     font-weight: 600;
                     overflow: elide;
                 }
@@ -116,7 +116,7 @@ export component SessionModalRow inherits Rectangle {
                 Text {
                     text: root.item.id;
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
+                    font-size: 18px;
                     font-family: "Cascadia Mono";
                     overflow: elide;
                 }
@@ -124,24 +124,24 @@ export component SessionModalRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            spacing: 22px;
+            spacing: 33px;
             alignment: end;
 
             VerticalLayout {
                 alignment: center;
                 spacing: 1px;
-                min-width: 100px;
+                min-width: 150px;
 
                 Text {
                     text: "上下文";
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
+                    font-size: 17px;
                     horizontal-alignment: right;
                 }
                 Text {
                     text: root.item.context_str;
                     color: root.is_dark ? #38bdf8 : #0284c7;
-                    font-size: 15px;
+                    font-size: 23px;
                     font-weight: 700;
                     font-family: "Cascadia Mono";
                     horizontal-alignment: right;
@@ -151,18 +151,18 @@ export component SessionModalRow inherits Rectangle {
             VerticalLayout {
                 alignment: center;
                 spacing: 1px;
-                min-width: 90px;
+                min-width: 135px;
 
                 Text {
                     text: "缓存率";
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
+                    font-size: 17px;
                     horizontal-alignment: right;
                 }
                 Text {
                     text: root.item.cache_rate_str;
                     color: root.is_dark ? #34d399 : #059669;
-                    font-size: 15px;
+                    font-size: 23px;
                     font-weight: 700;
                     font-family: "Cascadia Mono";
                     horizontal-alignment: right;
@@ -172,18 +172,18 @@ export component SessionModalRow inherits Rectangle {
             VerticalLayout {
                 alignment: center;
                 spacing: 1px;
-                min-width: 85px;
+                min-width: 128px;
 
                 Text {
                     text: "更新";
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 11.5px;
+                    font-size: 17px;
                     horizontal-alignment: right;
                 }
                 Text {
                     text: root.item.time_ago_str;
                     color: root.is_dark ? #cbd5e1 : #64748b;
-                    font-size: 12.5px;
+                    font-size: 19px;
                     font-family: "Cascadia Mono";
                     horizontal-alignment: right;
                 }
@@ -201,15 +201,15 @@ export component SubSessionCardBox inherits Rectangle {
     in property <bool> has_sessions: false;
     in property <[SessionUiItem]> items: [];
     in property <bool> is_dark: true;
-    in property <length> card_max_height: 260px;
+    in property <length> card_max_height: 390px;
     callback clicked();
 
     background: root.has_sessions && card_ta.has_hover ? (root.is_dark ? #131d33 : #f1f5f9) : (root.is_dark ? #0d1527 : #ffffff);
     border-color: root.has_sessions && card_ta.has_hover ? rgba(56, 189, 248, 0.45) : (root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0);
     border-width: 1px;
-    border-radius: 6px;
-    min-height: 50px;
-    preferred-height: root.items.length > 0 ? min(22px + root.items.length * 17px, 260px) : 50px;
+    border-radius: 9px;
+    min-height: 75px;
+    preferred-height: root.items.length > 0 ? min(33px + root.items.length * 26px, 390px) : 75px;
     max-height: root.card_max_height;
     vertical-stretch: 1;
     clip: true;
@@ -227,7 +227,7 @@ export component SubSessionCardBox inherits Rectangle {
     header_ta := TouchArea {
         y: 0;
         width: parent.width;
-        height: 18px;
+        height: 27px;
         enabled: root.has_sessions;
         clicked => {
             if root.has_sessions {
@@ -238,27 +238,27 @@ export component SubSessionCardBox inherits Rectangle {
     }
 
     VerticalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        padding-top: 4px;
-        padding-bottom: 4px;
-        spacing: 2px;
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 3px;
 
         HorizontalLayout {
             alignment: space-between;
-            height: 14px;
+            height: 21px;
 
             HorizontalLayout {
-                spacing: 4px;
+                spacing: 6px;
                 alignment: start;
                 FolderIcon {
                     icon_color: root.has_sessions ? (card_ta.has_hover ? #38bdf8 : (root.is_dark ? #38bdf8 : #0284c7)) : (root.is_dark ? #64748b : #94a3b8);
-                    y: (parent.height - 11px) / 2;
+                    y: (parent.height - 17px) / 2;
                 }
                 Text {
                     text: root.has_sessions ? root.project_name : "暂无活动会话";
                     color: root.has_sessions ? (card_ta.has_hover ? (root.is_dark ? #ffffff : #0f172a) : (root.is_dark ? #e2e8f0 : #1e293b)) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 11.5px;
+                    font-size: 17px;
                     font-weight: 600;
                     overflow: elide;
                     vertical-alignment: center;
@@ -268,7 +268,7 @@ export component SubSessionCardBox inherits Rectangle {
             Text {
                 text: root.has_sessions ? (root.tokens_text != "" ? root.tokens_text : "--") : "0 会话";
                 color: root.has_sessions ? (card_ta.has_hover ? #7dd3fc : #38bdf8) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 10.5px;
+                font-size: 16px;
                 font-family: "Cascadia Mono";
                 font-weight: 600;
                 vertical-alignment: center;
@@ -279,19 +279,19 @@ export component SubSessionCardBox inherits Rectangle {
             vertical-stretch: 1;
 
             VerticalLayout {
-                spacing: 2px;
-                padding-right: 8px;
+                spacing: 3px;
+                padding-right: 12px;
 
             for item in root.items : HorizontalLayout {
-                height: 15px;
-                spacing: 6px;
+                height: 23px;
+                spacing: 9px;
 
                 Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 5px;
                     background: item.is_running ? #10b981 : (root.is_dark ? #475569 : #94a3b8);
-                    y: (parent.height - 6px) / 2;
+                    y: (parent.height - 9px) / 2;
                 }
 
                 Text {
@@ -299,14 +299,14 @@ export component SubSessionCardBox inherits Rectangle {
                     horizontal-stretch: 1;
                     overflow: elide;
                     color: item.is_running ? (root.is_dark ? #e2e8f0 : #1e293b) : (root.is_dark ? #94a3b8 : #64748b);
-                    font-size: 11px;
+                    font-size: 17px;
                     vertical-alignment: center;
                 }
 
                 Text {
                     text: item.time_ago_str;
                     color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 10px;
+                    font-size: 15px;
                     font-family: "Cascadia Mono";
                     vertical-alignment: center;
                 }
@@ -322,26 +322,26 @@ export component SubSessionCardBox inherits Rectangle {
             Text {
                 text: root.has_sessions ? (root.session_title != "" ? root.session_title : "标准会话") : "等待沙箱任务调度";
                 color: root.has_sessions ? (root.is_dark ? #94a3b8 : #64748b) : (root.is_dark ? #475569 : #94a3b8);
-                font-size: 11px;
+                font-size: 17px;
                 overflow: elide;
                 vertical-alignment: center;
             }
 
             HorizontalLayout {
-                spacing: 4px;
-                height: 14px;
+                spacing: 6px;
+                height: 21px;
 
                 if root.is_running : Rectangle {
-                    width: 6px;
-                    height: 6px;
-                    border-radius: 3px;
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 5px;
                     background: #10b981;
-                    y: (parent.height - 6px) / 2;
+                    y: (parent.height - 9px) / 2;
                 }
                 Text {
                     text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");
                     color: root.is_running ? (root.is_dark ? #34d399 : #059669) : (root.is_dark ? #64748b : #94a3b8);
-                    font-size: 10.5px;
+                    font-size: 16px;
                     font-family: "Cascadia Mono";
                     vertical-alignment: center;
                 }

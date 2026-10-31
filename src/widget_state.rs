@@ -37,9 +37,9 @@ fn default_widget_position() -> (i32, i32) {
         GetSystemMetrics, SystemParametersInfoW, SM_CXSCREEN, SM_CYSCREEN, SPI_GETWORKAREA,
     };
 
-    const WIDGET_WIDTH: i32 = 140;
-    const WIDGET_HEIGHT: i32 = 34;
-    const EDGE_MARGIN: i32 = 24;
+    const WIDGET_WIDTH: i32 = 210;
+    const WIDGET_HEIGHT: i32 = 51;
+    const EDGE_MARGIN: i32 = 36;
 
     let (work_right, work_bottom) = unsafe {
         let mut rect: RECT = std::mem::zeroed();

@@ -24,11 +24,36 @@ pub struct QuotaWindow {
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ModelQuotaGroup {
+    pub display_name: String,
+    pub short_name: String,
+    pub weekly: QuotaWindow,
+    pub five_h: QuotaWindow,
+    pub has_weekly: bool,
+    pub has_five_h: bool,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct InstanceQuotaState {
     pub is_available: bool,
     pub profile: AccountProfile,
     pub weekly: QuotaWindow,
     pub five_h: QuotaWindow,
+    #[serde(default)]
+    pub models: Vec<ModelQuotaGroup>,
+}
+
+pub fn short_model_name(full: &str) -> String {
+    let lower = full.to_lowercase();
+    if lower.contains("argon") {
+        "Argon".to_string()
+    } else if lower.contains("claude") {
+        "Claude / GPT".to_string()
+    } else if lower.contains("gemini") {
+        "Gemini".to_string()
+    } else {
+        full.to_string()
+    }
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -209,6 +234,19 @@ fn window_core_changed(a: &QuotaWindow, b: &QuotaWindow) -> bool {
         || a.reset_time_rfc3339 != b.reset_time_rfc3339
 }
 
+fn model_groups_changed(a: &[ModelQuotaGroup], b: &[ModelQuotaGroup]) -> bool {
+    if a.len() != b.len() {
+        return true;
+    }
+    a.iter().zip(b.iter()).any(|(x, y)| {
+        x.display_name != y.display_name
+            || x.has_weekly != y.has_weekly
+            || x.has_five_h != y.has_five_h
+            || window_core_changed(&x.weekly, &y.weekly)
+            || window_core_changed(&x.five_h, &y.five_h)
+    })
+}
+
 pub fn quota_state_changed(cached: Option<&InstanceQuotaState>, fresh: &InstanceQuotaState) -> bool {
     let Some(old) = cached else {
         return true;
@@ -217,6 +255,7 @@ pub fn quota_state_changed(cached: Option<&InstanceQuotaState>, fresh: &Instance
         || old.profile != fresh.profile
         || window_core_changed(&old.weekly, &fresh.weekly)
         || window_core_changed(&old.five_h, &fresh.five_h)
+        || model_groups_changed(&old.models, &fresh.models)
 }
 
 pub fn compute_offline_state(
@@ -272,6 +311,26 @@ pub fn compute_offline_state(
     }
     if !state.five_h.reset_time_rfc3339.is_empty() {
         state.five_h = compute_window_offline(&state.five_h, 5 * 3600);
+    }
+    for m in state.models.iter_mut() {
+        if m.has_weekly && !m.weekly.reset_time_rfc3339.is_empty() {
+            m.weekly = compute_window_offline(&m.weekly, 7 * 24 * 3600);
+        }
+        if m.has_five_h && !m.five_h.reset_time_rfc3339.is_empty() {
+            m.five_h = compute_window_offline(&m.five_h, 5 * 3600);
+        }
+    }
+    if state.models.is_empty()
+        && (!state.weekly.pct_text.is_empty() || !state.five_h.pct_text.is_empty())
+    {
+        state.models.push(ModelQuotaGroup {
+            display_name: "Gemini Models".to_string(),
+            short_name: "Gemini".to_string(),
+            weekly: state.weekly.clone(),
+            five_h: state.five_h.clone(),
+            has_weekly: !state.weekly.pct_text.is_empty(),
+            has_five_h: !state.five_h.pct_text.is_empty(),
+        });
     }
     Some(state)
 }
@@ -566,42 +625,57 @@ pub fn fetch_instance_quota(candidates: &[u16], csrf: &str, tag: &str) -> Instan
         && let Ok(quota_resp) = serde_json::from_str::<QuotaSummaryResponse>(&quota_json)
             && let Some(inner) = quota_resp.response
                 && let Some(groups) = inner.groups {
+                    let mut models: Vec<ModelQuotaGroup> = Vec::new();
                     for group in groups {
-                        let is_gemini = group.display_name.as_deref().unwrap_or("").to_lowercase().contains("gemini");
-                        if is_gemini {
-                            if let Some(buckets) = group.buckets {
-                                for bucket in buckets {
-                                    let is_weekly = bucket.window.as_deref() == Some("weekly")
-                                        || bucket.bucket_id.as_deref().unwrap_or("").ends_with("-weekly");
-                                    let is_5h = bucket.window.as_deref() == Some("5h")
-                                        || bucket.bucket_id.as_deref().unwrap_or("").ends_with("-5h");
+                        let full_name = group.display_name.unwrap_or_default();
+                        let mut model = ModelQuotaGroup {
+                            short_name: short_model_name(&full_name),
+                            display_name: full_name,
+                            ..Default::default()
+                        };
+                        if let Some(buckets) = group.buckets {
+                            for bucket in buckets {
+                                let is_weekly = bucket.window.as_deref() == Some("weekly")
+                                    || bucket.bucket_id.as_deref().unwrap_or("").ends_with("-weekly");
+                                let is_5h = bucket.window.as_deref() == Some("5h")
+                                    || bucket.bucket_id.as_deref().unwrap_or("").ends_with("-5h");
 
-                                    let fraction = bucket.remaining_fraction.unwrap_or(0.0) as f32;
-                                    let pct_clamped = fraction.clamp(0.0, 1.0);
-                                    let pct_text = format!("{:.0}%", pct_clamped * 100.0);
-                                    let reset_rfc = bucket.reset_time.as_deref().unwrap_or("").to_string();
-                                    let reset_text = bucket.reset_time.as_deref().map(format_reset_time).unwrap_or_default();
+                                let fraction = bucket.remaining_fraction.unwrap_or(0.0) as f32;
+                                let pct_clamped = fraction.clamp(0.0, 1.0);
+                                let pct_text = format!("{:.0}%", pct_clamped * 100.0);
+                                let reset_rfc = bucket.reset_time.as_deref().unwrap_or("").to_string();
+                                let reset_text = bucket.reset_time.as_deref().map(format_reset_time).unwrap_or_default();
+                                let window_state = QuotaWindow {
+                                    remaining_pct: pct_clamped,
+                                    pct_text,
+                                    reset_text,
+                                    reset_time_rfc3339: reset_rfc,
+                                };
 
-                                    if is_weekly {
-                                        state.weekly = QuotaWindow {
-                                            remaining_pct: pct_clamped,
-                                            pct_text,
-                                            reset_text,
-                                            reset_time_rfc3339: reset_rfc,
-                                        };
-                                    } else if is_5h {
-                                        state.five_h = QuotaWindow {
-                                            remaining_pct: pct_clamped,
-                                            pct_text,
-                                            reset_text,
-                                            reset_time_rfc3339: reset_rfc,
-                                        };
-                                    }
+                                if is_weekly {
+                                    model.weekly = window_state;
+                                    model.has_weekly = true;
+                                } else if is_5h {
+                                    model.five_h = window_state;
+                                    model.has_five_h = true;
                                 }
                             }
-                            break;
                         }
+                        models.push(model);
                     }
+
+                    if let Some(g) = models
+                        .iter()
+                        .find(|m| {
+                            let lower = m.display_name.to_lowercase();
+                            lower.contains("gemini") && !lower.contains("argon")
+                        })
+                        .cloned()
+                    {
+                        state.weekly = g.weekly;
+                        state.five_h = g.five_h;
+                    }
+                    state.models = models;
                 }
 
     state

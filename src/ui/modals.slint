@@ -25,47 +25,47 @@ export component ConfirmModal inherits Rectangle {
         }
 
         Rectangle {
-            width: 350px;
-            height: 154px;
+            width: 525px;
+            height: 231px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: root.is_dark ? #0f172a : #ffffff;
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
-            border-radius: 8px;
+            border-radius: 12px;
 
             TouchArea {}
 
             VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
+                padding: 24px;
+                spacing: 18px;
 
                 Text {
                     text: "清理凭据";
                     color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
+                    font-size: 21px;
                     font-weight: 700;
                 }
 
                 Text {
                     text: root.slot == 0 ? "主账号 登录凭据" : ("分身 " + root.slot + " 登录凭据");
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
+                    font-size: 18px;
                 }
 
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: 12px;
                     alignment: end;
 
                     OutlineButton {
-                        width: 76px;
+                        width: 114px;
                         text: "取消";
                         is_dark: root.is_dark;
                         clicked => { root.cancel(); }
                     }
 
                     CompactButton {
-                        width: 84px;
+                        width: 126px;
                         text: "清理";
                         btn_color: #f43f5e;
                         is_dark: root.is_dark;
@@ -101,26 +101,26 @@ export component CleanCacheModal inherits Rectangle {
         }
 
         Rectangle {
-            width: 400px;
-            height: 236px;
+            width: 600px;
+            height: 354px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: root.is_dark ? #0f172a : #ffffff;
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
-            border-radius: 8px;
+            border-radius: 12px;
             clip: true;
 
             TouchArea {}
 
             VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
+                padding: 24px;
+                spacing: 15px;
 
                 Text {
                     text: "清理缓存";
                     color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
+                    font-size: 21px;
                     font-weight: 700;
                 }
 
@@ -130,28 +130,28 @@ export component CleanCacheModal inherits Rectangle {
                     wrap: word-wrap;
                     overflow: elide;
                     color: root.is_dark ? #cbd5e1 : #475569;
-                    font-size: 12px;
+                    font-size: 18px;
                 }
 
                 Text {
                     text: root.total_text;
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
+                    font-size: 18px;
                 }
 
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: 12px;
                     alignment: end;
 
                     OutlineButton {
-                        width: 76px;
+                        width: 114px;
                         text: "取消";
                         is_dark: root.is_dark;
                         clicked => { root.cancel(); }
                     }
 
                     CompactButton {
-                        width: 84px;
+                        width: 126px;
                         text: "清理";
                         btn_color: #f43f5e;
                         is_dark: root.is_dark;
@@ -188,26 +188,26 @@ export component PatchModal inherits Rectangle {
         }
 
         Rectangle {
-            width: 360px;
-            height: 160px;
+            width: 540px;
+            height: 240px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: root.is_dark ? #0f172a : #ffffff;
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
-            border-radius: 8px;
+            border-radius: 12px;
             clip: true;
 
             TouchArea {}
 
             VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
+                padding: 24px;
+                spacing: 18px;
 
                 Text {
                     text: root.title_text;
                     color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 14px;
+                    font-size: 21px;
                     font-weight: 700;
                 }
 
@@ -217,22 +217,22 @@ export component PatchModal inherits Rectangle {
                     wrap: word-wrap;
                     overflow: elide;
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 12px;
+                    font-size: 18px;
                 }
 
                 HorizontalLayout {
-                    spacing: 8px;
+                    spacing: 12px;
                     alignment: end;
 
                     OutlineButton {
-                        width: 76px;
+                        width: 114px;
                         text: "取消";
                         is_dark: root.is_dark;
                         clicked => { root.cancel(); }
                     }
 
                     CompactButton {
-                        width: 100px;
+                        width: 150px;
                         text: root.btn_text;
                         btn_color: #f43f5e;
                         is_dark: root.is_dark;
@@ -267,51 +267,51 @@ export component SessionListModal inherits Rectangle {
         }
 
         Rectangle {
-            width: Math.min(parent.width - 80px, 1080px);
-            height: Math.min(parent.height - 60px, 760px);
+            width: Math.min(parent.width - 120px, 1620px);
+            height: Math.min(parent.height - 90px, 1140px);
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: root.is_dark ? #0f172a : #ffffff;
             border-color: root.is_dark ? #334155 : #cbd5e1;
             border-width: 1px;
-            border-radius: 12px;
+            border-radius: 18px;
             clip: true;
 
             TouchArea {}
 
             VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
+                padding: 24px;
+                spacing: 15px;
 
                 HorizontalLayout {
                     alignment: space-between;
-                    height: 32px;
+                    height: 48px;
 
                     HorizontalLayout {
-                        spacing: 8px;
+                        spacing: 12px;
                         alignment: start;
 
                         Rectangle {
-                            width: 9px;
-                            height: 9px;
-                            border-radius: 4.5px;
+                            width: 14px;
+                            height: 14px;
+                            border-radius: 7px;
                             background: #38bdf8;
-                            y: (parent.height - 9px) / 2;
+                            y: (parent.height - 14px) / 2;
                         }
 
                         Text {
                             text: root.slot == 0 ? "主账号 会话监视" : ("分身 " + root.slot + " 会话监视");
                             color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 17px;
+                            font-size: 26px;
                             font-weight: 700;
                             vertical-alignment: center;
                         }
                     }
 
                     Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        border-radius: 5px;
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 8px;
                         background: close_ta.has_hover ? (root.is_dark ? #1e293b : #e2e8f0) : transparent;
 
                         close_ta := TouchArea {
@@ -322,7 +322,7 @@ export component SessionListModal inherits Rectangle {
                         Text {
                             text: "×";
                             color: root.is_dark ? #94a3b8 : #64748b;
-                            font-size: 20px;
+                            font-size: 30px;
                             font-weight: 700;
                             vertical-alignment: center;
                             horizontal-alignment: center;
@@ -335,7 +335,7 @@ export component SessionListModal inherits Rectangle {
                     Text {
                         text: "当前无活动会话记录";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 13.5px;
+                        font-size: 20px;
                         vertical-alignment: center;
                         horizontal-alignment: center;
                     }
@@ -345,9 +345,9 @@ export component SessionListModal inherits Rectangle {
                     vertical-stretch: 1;
 
                     VerticalLayout {
-                        padding-right: 20px;
-                        padding-bottom: 8px;
-                        spacing: 5px;
+                        padding-right: 30px;
+                        padding-bottom: 12px;
+                        spacing: 8px;
                         for item in root.items : VerticalLayout {
                             if item.is_group_header : SessionGroupHeader {
                                 group_name: item.group_name;

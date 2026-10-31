@@ -5,7 +5,6 @@ use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 pub struct ProcessStats {
     pub is_running: bool,
     pub electron_pid: Option<u32>,
-    pub cpu_usage: f32,
     pub memory_rss_mb: f64,
     pub ls_pid: Option<u32>,
     pub ls_port: Option<u16>,
@@ -18,7 +17,6 @@ impl Default for ProcessStats {
         Self {
             is_running: false,
             electron_pid: None,
-            cpu_usage: 0.0,
             memory_rss_mb: 0.0,
             ls_pid: None,
             ls_port: None,
@@ -269,12 +267,10 @@ impl TelemetryMonitor {
         let sub_electron_pids = active_sub_pids;
         let mut sub_ls_pids = [None, None, None, None];
         let mut sub_ls_csrfs = [None, None, None, None];
-        let mut sub_cpus = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
         let mut sub_mem_bytes = [0u64, 0u64, 0u64, 0u64];
 
         let mut host_ls_pid = None;
         let mut host_ls_csrf = None;
-        let mut host_cpu = 0.0f32;
         let mut host_mem_bytes = 0u64;
 
         for (pid, proc) in self.sys.processes() {
@@ -320,7 +316,6 @@ impl TelemetryMonitor {
                     sub_ls_pids[slot] = Some(pid_u32);
                     sub_ls_csrfs[slot] = extract_csrf_token(proc.cmd());
                 }
-                sub_cpus[slot] += proc.cpu_usage();
                 sub_mem_bytes[slot] += proc.memory();
             } else {
                 let is_host_main = host_electron_pid == Some(pid_u32);
@@ -333,7 +328,6 @@ impl TelemetryMonitor {
                         host_ls_pid = Some(pid_u32);
                         host_ls_csrf = extract_csrf_token(proc.cmd());
                     }
-                    host_cpu += proc.cpu_usage();
                     host_mem_bytes += proc.memory();
                 }
             }
@@ -410,15 +404,9 @@ impl TelemetryMonitor {
             }
         }
 
-        let num_cpus = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1)
-            .max(1) as f32;
-
         self.host = ProcessStats {
             is_running: host_electron_pid.is_some(),
             electron_pid: host_electron_pid,
-            cpu_usage: (host_cpu / num_cpus).min(100.0),
             memory_rss_mb: (host_mem_bytes as f64) / (1024.0 * 1024.0),
             ls_pid: self.cached_host_ls_pid,
             ls_port: self.cached_host_port,
@@ -430,7 +418,6 @@ impl TelemetryMonitor {
             self.subs[slot] = ProcessStats {
                 is_running: sub_electron_pids[slot].is_some(),
                 electron_pid: sub_electron_pids[slot],
-                cpu_usage: (sub_cpus[slot] / num_cpus).min(100.0),
                 memory_rss_mb: (sub_mem_bytes[slot] as f64) / (1024.0 * 1024.0),
                 ls_pid: self.cached_sub_ls_pids[slot],
                 ls_port: self.cached_sub_ports[slot],

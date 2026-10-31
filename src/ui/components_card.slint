@@ -24,23 +24,23 @@ export component ComponentsCard inherits Rectangle {
     horizontal-stretch: 3;
     min-width: 0px;
     preferred-width: 0px;
-    max-height: 100000px;
+    max-height: 150000px;
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
     border-width: 1px;
-    border-radius: 10px;
+    border-radius: 15px;
     clip: true;
 
     VerticalLayout {
-        padding: 14px;
-        spacing: 10px;
+        padding: 21px;
+        spacing: 15px;
 
         HorizontalLayout {
-            height: 22px;
+            height: 33px;
             Text {
                 text: "内置组件";
                 color: root.is_dark ? #f8fafc : #0f172a;
-                font-size: 14px;
+                font-size: 21px;
                 font-weight: 700;
                 vertical-alignment: center;
             }
@@ -68,44 +68,44 @@ export component ComponentsCard inherits Rectangle {
             background: root.is_dark ? #090e1c : #f8fafc;
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
-            border-radius: 6px;
-            height: 68px;
+            border-radius: 9px;
+            height: 102px;
             VerticalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
-                padding-top: 5px;
-                padding-bottom: 5px;
-                spacing: 4px;
+                padding-left: 18px;
+                padding-right: 18px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+                spacing: 6px;
                 HorizontalLayout {
                     alignment: space-between;
                     Text {
                         text: "总物理内存占用";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 11px;
+                        font-size: 17px;
                     }
                     Text {
                         text: root.total_mem_text;
                         color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 13.5px;
+                        font-size: 20px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                     }
                 }
                 bar_mem := Rectangle {
-                    height: 6px;
+                    height: 9px;
                     background: root.is_dark ? #141c2b : #e2e8f0;
-                    border-radius: 3px;
+                    border-radius: 5px;
                     clip: true;
                     Rectangle {
                         x: 0;
                         width: bar_mem.width * root.mem_host_w;
-                        height: 6px;
+                        height: 9px;
                         background: #38bdf8;
                     }
                     Rectangle {
                         x: bar_mem.width * root.mem_host_w;
                         width: bar_mem.width * root.mem_subs_w;
-                        height: 6px;
+                        height: 9px;
                         background: #10b981;
                     }
                 }
@@ -114,7 +114,7 @@ export component ComponentsCard inherits Rectangle {
                     Text {
                         text: root.mem_detail_text;
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 10.5px;
+                        font-size: 16px;
                         font-family: "Cascadia Mono";
                     }
                 }
@@ -125,33 +125,33 @@ export component ComponentsCard inherits Rectangle {
             background: root.is_dark ? #090e1c : #f8fafc;
             border-color: root.is_dark ? #162032 : #e2e8f0;
             border-width: 1px;
-            border-radius: 6px;
-            height: 60px;
+            border-radius: 9px;
+            height: 90px;
             HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
+                padding-left: 18px;
+                padding-right: 18px;
                 alignment: space-between;
                 VerticalLayout {
                     alignment: center;
-                    spacing: 2px;
+                    spacing: 3px;
                     Text {
                         text: "沙箱运行时磁盘缓存";
                         color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 12px;
+                        font-size: 18px;
                         font-weight: 600;
                     }
                     Text {
                         text: root.cache_summary_text;
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 10.5px;
+                        font-size: 16px;
                         font-family: "Cascadia Mono";
                     }
                 }
                 OutlineButton {
                     text: "清理缓存";
-                    width: 68px;
-                    btn_height: 28px;
-                    y: (parent.height - 28px) / 2;
+                    width: 102px;
+                    btn_height: 42px;
+                    y: (parent.height - 42px) / 2;
                     is_dark: root.is_dark;
                     clicked => { root.scan_cache(); }
                 }

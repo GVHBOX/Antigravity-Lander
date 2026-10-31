@@ -10,26 +10,26 @@ export component FloatingCapsule inherits Rectangle {
     callback clicked();
     callback drag_requested();
 
-    width: root.expanded ? 260px : 140px;
-    height: 34px;
+    width: root.expanded ? 390px : 210px;
+    height: 51px;
     background: root.is_dark ? #0b1120.darker(0.1) : #ffffff;
     border-color: root.is_running ? #10b981 : (root.is_dark ? rgba(255, 255, 255, 0.12) : #cbd5e1);
-    border-width: 1.5px;
-    border-radius: root.expanded ? 10px : 17px;
+    border-width: 2px;
+    border-radius: root.expanded ? 15px : 26px;
     clip: true;
 
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 6px;
+        padding-left: 15px;
+        padding-right: 15px;
+        spacing: 9px;
         alignment: center;
 
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
+                width: 12px;
+                height: 12px;
+                border-radius: 6px;
                 background: root.is_running ? #10b981 : (root.is_finished ? #38bdf8 : #64748b);
             }
         }
@@ -37,15 +37,15 @@ export component FloatingCapsule inherits Rectangle {
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 24px;
-                height: 18px;
-                border-radius: 9px;
+                width: 36px;
+                height: 27px;
+                border-radius: 14px;
                 background: root.is_running ? rgba(16, 185, 129, 0.2) : (root.is_dark ? rgba(255, 255, 255, 0.08) : #e2e8f0);
 
                 Text {
                     text: root.slot_badge;
                     color: root.is_running ? #10b981 : (root.is_dark ? #cbd5e1 : #334155);
-                    font-size: 10px;
+                    font-size: 15px;
                     font-weight: 700;
                     font-family: "Cascadia Mono";
                     horizontal-alignment: center;
@@ -59,7 +59,7 @@ export component FloatingCapsule inherits Rectangle {
             if !root.is_finished: Text {
                 text: root.is_running ? (root.tps_text + " T/s") : "IDLE";
                 color: root.is_running ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #64748b : #94a3b8);
-                font-size: 11px;
+                font-size: 17px;
                 font-weight: 700;
                 font-family: "Cascadia Mono";
                 vertical-alignment: center;
@@ -68,7 +68,7 @@ export component FloatingCapsule inherits Rectangle {
             if root.is_finished: Text {
                 text: root.finished_text;
                 color: #10b981;
-                font-size: 10px;
+                font-size: 15px;
                 font-weight: 700;
                 font-family: "Cascadia Mono";
                 vertical-alignment: center;
@@ -77,8 +77,8 @@ export component FloatingCapsule inherits Rectangle {
 
         if root.expanded : Rectangle {
             width: 1px;
-            height: 14px;
-            y: (parent.height - 14px) / 2;
+            height: 21px;
+            y: (parent.height - 21px) / 2;
             background: root.is_dark ? rgba(255, 255, 255, 0.16) : #cbd5e1;
         }
 
@@ -87,7 +87,7 @@ export component FloatingCapsule inherits Rectangle {
             Text {
                 text: "CACHE " + root.cache_text;
                 color: #38bdf8;
-                font-size: 10.5px;
+                font-size: 16px;
                 font-weight: 700;
                 font-family: "Cascadia Mono";
                 vertical-alignment: center;
@@ -120,29 +120,29 @@ export component FloatingDetailCard inherits Rectangle {
     in property <bool> is_running: false;
     callback activate_requested();
 
-    width: 260px;
-    height: 160px;
+    width: 390px;
+    height: 240px;
     background: root.is_dark ? #0b1120 : #ffffff;
     border-color: root.is_dark ? rgba(255, 255, 255, 0.14) : #cbd5e1;
     border-width: 1px;
-    border-radius: 10px;
+    border-radius: 15px;
     clip: true;
 
     VerticalLayout {
-        padding: 10px;
-        spacing: 8px;
+        padding: 15px;
+        spacing: 12px;
 
         HorizontalLayout {
             alignment: space-between;
 
             HorizontalLayout {
-                spacing: 6px;
+                spacing: 9px;
                 alignment: start;
 
                 Rectangle {
-                    width: 7px;
-                    height: 7px;
-                    border-radius: 3.5px;
+                    width: 11px;
+                    height: 11px;
+                    border-radius: 5px;
                     background: root.is_running ? #10b981 : #64748b;
                     y: (parent.height - self.height) / 2;
                 }
@@ -150,21 +150,21 @@ export component FloatingDetailCard inherits Rectangle {
                 Text {
                     text: root.slot_name;
                     color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 12px;
+                    font-size: 18px;
                     font-weight: 700;
                 }
 
                 Text {
                     text: "· " + root.project_name;
                     color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 11px;
+                    font-size: 17px;
                     overflow: elide;
-                    max-width: 120px;
+                    max-width: 180px;
                 }
 
                 TouchArea {
                     horizontal-stretch: 1;
-                    min-width: 12px;
+                    min-width: 18px;
                     mouse-cursor: pointer;
                     clicked => { root.activate_requested(); }
                 }
@@ -173,37 +173,37 @@ export component FloatingDetailCard inherits Rectangle {
             Text {
                 text: root.is_running ? "RUNNING" : "IDLE";
                 color: root.is_running ? #10b981 : #64748b;
-                font-size: 10px;
+                font-size: 15px;
                 font-weight: 700;
                 font-family: "Cascadia Mono";
             }
         }
 
         HorizontalLayout {
-            spacing: 6px;
+            spacing: 9px;
 
             Rectangle {
                 horizontal-stretch: 1;
-                height: 40px;
+                height: 60px;
                 background: root.is_dark ? #070d19 : #f8fafc;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1px;
                 border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
 
                 VerticalLayout {
                     alignment: center;
-                    spacing: 2px;
+                    spacing: 3px;
                     Text {
                         text: "TPS";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 9px;
+                        font-size: 14px;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
                     }
                     Text {
                         text: root.tps_text;
                         color: root.is_running ? #10b981 : (root.is_dark ? #f8fafc : #0f172a);
-                        font-size: 13px;
+                        font-size: 20px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
@@ -213,26 +213,26 @@ export component FloatingDetailCard inherits Rectangle {
 
             Rectangle {
                 horizontal-stretch: 1;
-                height: 40px;
+                height: 60px;
                 background: root.is_dark ? #070d19 : #f8fafc;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1px;
                 border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
 
                 VerticalLayout {
                     alignment: center;
-                    spacing: 2px;
+                    spacing: 3px;
                     Text {
                         text: "CACHE";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 9px;
+                        font-size: 14px;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
                     }
                     Text {
                         text: root.cache_rate_text;
                         color: #38bdf8;
-                        font-size: 13px;
+                        font-size: 20px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
@@ -242,26 +242,26 @@ export component FloatingDetailCard inherits Rectangle {
 
             Rectangle {
                 horizontal-stretch: 1;
-                height: 40px;
+                height: 60px;
                 background: root.is_dark ? #070d19 : #f8fafc;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1px;
                 border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
 
                 VerticalLayout {
                     alignment: center;
-                    spacing: 2px;
+                    spacing: 3px;
                     Text {
                         text: "CONTEXT";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 9px;
+                        font-size: 14px;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
                     }
                     Text {
                         text: root.context_text;
                         color: #a855f7;
-                        font-size: 13px;
+                        font-size: 20px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                         horizontal-alignment: center;
@@ -271,30 +271,30 @@ export component FloatingDetailCard inherits Rectangle {
         }
 
         HorizontalLayout {
-            spacing: 6px;
+            spacing: 9px;
 
             Rectangle {
                 horizontal-stretch: 1;
-                height: 34px;
+                height: 51px;
                 background: root.is_dark ? #070d19 : #f8fafc;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1px;
                 border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
 
                 HorizontalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
+                    padding-left: 12px;
+                    padding-right: 12px;
                     alignment: space-between;
                     Text {
                         text: "5H 额度";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 10px;
+                        font-size: 15px;
                         vertical-alignment: center;
                     }
                     Text {
                         text: root.quota_5h_text;
                         color: #10b981;
-                        font-size: 11px;
+                        font-size: 17px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                         vertical-alignment: center;
@@ -304,26 +304,26 @@ export component FloatingDetailCard inherits Rectangle {
 
             Rectangle {
                 horizontal-stretch: 1;
-                height: 34px;
+                height: 51px;
                 background: root.is_dark ? #070d19 : #f8fafc;
-                border-radius: 5px;
+                border-radius: 8px;
                 border-width: 1px;
                 border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
 
                 HorizontalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
+                    padding-left: 12px;
+                    padding-right: 12px;
                     alignment: space-between;
                     Text {
                         text: "周额度";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 10px;
+                        font-size: 15px;
                         vertical-alignment: center;
                     }
                     Text {
                         text: root.quota_weekly_text;
                         color: #10b981;
-                        font-size: 11px;
+                        font-size: 17px;
                         font-weight: 700;
                         font-family: "Cascadia Mono";
                         vertical-alignment: center;
@@ -337,13 +337,13 @@ export component FloatingDetailCard inherits Rectangle {
             Text {
                 text: "轮次耗时 " + root.duration_text;
                 color: root.is_dark ? #475569 : #94a3b8;
-                font-size: 10px;
+                font-size: 15px;
                 font-family: "Cascadia Mono";
             }
             Text {
                 text: "产出 " + root.tokens_text + " Tokens";
                 color: root.is_dark ? #475569 : #94a3b8;
-                font-size: 10px;
+                font-size: 15px;
                 font-family: "Cascadia Mono";
             }
         }
@@ -375,11 +375,11 @@ export component FloatingWidgetWindow inherits Window {
     title: "";
     no-frame: true;
     background: transparent;
-    preferred-width: root.expanded ? 260px : 140px;
-    preferred-height: root.expanded ? 202px : 34px;
+    preferred-width: root.expanded ? 390px : 210px;
+    preferred-height: root.expanded ? 303px : 51px;
 
     VerticalLayout {
-        spacing: 6px;
+        spacing: 9px;
         alignment: start;
 
         FloatingCapsule {

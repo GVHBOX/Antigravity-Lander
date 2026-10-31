@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
 
-pub const HISTORY_LEN: usize = 32;
+pub const HISTORY_LEN: usize = 64;
 
 type OpenFn = unsafe extern "C" fn(*const c_char, *mut *mut c_void, i32, *const c_char) -> i32;
 type PrepareFn = unsafe extern "C" fn(*mut c_void, *const c_char, i32, *mut *mut c_void, *mut *const c_char) -> i32;
@@ -63,7 +63,7 @@ fn get_sqlite_funcs() -> Option<&'static SqliteFunctions> {
     }).as_ref()
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct SessionItem {
     pub id: String,
     pub title: String,
@@ -90,6 +90,38 @@ pub struct SessionItem {
     pub recent_turn_durations: [f32; HISTORY_LEN],
     pub recent_turn_indices: [u32; HISTORY_LEN],
     pub compact_str: String,
+}
+
+impl Default for SessionItem {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            title: String::new(),
+            project_name: String::new(),
+            input_tokens: 0,
+            cache_read_tokens: 0,
+            output_tokens: 0,
+            context_tokens: 0,
+            is_running: false,
+            last_updated_secs_ago: 0,
+            context_str: String::new(),
+            cache_rate_str: String::new(),
+            time_ago_str: String::new(),
+            step_count: 0,
+            model_name: String::new(),
+            thinking_level: String::new(),
+            round_duration_secs: 0.0,
+            ttft_secs: 0.0,
+            round_tps: 0.0,
+            peak_tps: 0.0,
+            avg_tps: 0.0,
+            recent_tps: [0.0; HISTORY_LEN],
+            recent_turn_tokens: [0; HISTORY_LEN],
+            recent_turn_durations: [0.0; HISTORY_LEN],
+            recent_turn_indices: [0; HISTORY_LEN],
+            compact_str: String::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -131,7 +163,7 @@ struct TailStep {
     output_tokens: Option<u64>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct TailMetrics {
     input_tokens: u64,
     cache_read_tokens: u64,
@@ -149,6 +181,29 @@ struct TailMetrics {
     recent_turn_durations: [f32; HISTORY_LEN],
     recent_turn_indices: [u32; HISTORY_LEN],
     file_step_count: u32,
+}
+
+impl Default for TailMetrics {
+    fn default() -> Self {
+        Self {
+            input_tokens: 0,
+            cache_read_tokens: 0,
+            output_tokens: 0,
+            context_tokens: 0,
+            cache_rate: 0.0,
+            is_running: false,
+            round_duration_secs: 0.0,
+            ttft_secs: 0.0,
+            round_tps: 0.0,
+            peak_tps: 0.0,
+            avg_tps: 0.0,
+            recent_tps: [0.0; HISTORY_LEN],
+            recent_turn_tokens: [0; HISTORY_LEN],
+            recent_turn_durations: [0.0; HISTORY_LEN],
+            recent_turn_indices: [0; HISTORY_LEN],
+            file_step_count: 0,
+        }
+    }
 }
 
 type CachedTailEntry = (u64, SystemTime, TailMetrics);
