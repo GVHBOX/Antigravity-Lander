@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::os::windows::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::SystemTime;
@@ -745,7 +745,7 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                     .unwrap_or(false);
 
                 if is_trash {
-                    if fs::remove_dir_all(&dir).is_err() {
+                    if recycle_or_remove_dir(&dir).is_err() {
                         has_locked_files = true;
                     }
                     continue;
@@ -761,13 +761,13 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                         .unwrap_or_default()
                 );
                 let trash = parent.join(trash_name);
-                let _ = fs::remove_dir_all(&trash);
+                let _ = recycle_or_remove_dir(&trash);
 
                 if fs::rename(&dir, &trash).is_err() {
                     has_locked_files = true;
                     continue;
                 }
-                if fs::remove_dir_all(&trash).is_err() {
+                if recycle_or_remove_dir(&trash).is_err() {
                     has_locked_files = true;
                 }
             }
@@ -1325,6 +1325,53 @@ fn is_within(target: &std::path::Path, root: &std::path::Path) -> bool {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn recycle_or_remove_dir(dir: &Path) -> Result<()> {
+    if fs::symlink_metadata(dir).is_err() {
+        return Ok(());
+    }
+
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::UI::Shell::{
+        SHFileOperationW, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT,
+        FO_DELETE, SHFILEOPSTRUCTW,
+    };
+
+    let abs_path = if dir.is_absolute() {
+        dir.to_path_buf()
+    } else {
+        std::env::current_dir().map(|cwd| cwd.join(dir)).unwrap_or_else(|_| dir.to_path_buf())
+    };
+    let path_str = abs_path.to_string_lossy();
+    let clean_path = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str);
+    let mut wide: Vec<u16> = std::ffi::OsStr::new(clean_path)
+        .encode_wide()
+        .collect();
+    wide.push(0);
+    wide.push(0);
+
+    let mut op: SHFILEOPSTRUCTW = unsafe { std::mem::zeroed() };
+    op.wFunc = FO_DELETE;
+    op.pFrom = wide.as_ptr();
+    op.fFlags = (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT) as u16;
+
+    let ret = unsafe { SHFileOperationW(&mut op) };
+    if ret == 0 && op.fAnyOperationsAborted == 0 && fs::symlink_metadata(dir).is_err() {
+        return Ok(());
+    }
+    fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn recycle_or_remove_dir(dir: &Path) -> Result<()> {
+    if fs::symlink_metadata(dir).is_err() {
+        return Ok(());
+    }
+    fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
 #[cfg(windows)]
 fn get_pe_version(path: &std::path::Path) -> Option<String> {
     use std::os::windows::ffi::OsStrExt;
@@ -1409,6 +1456,23 @@ mod tests {
         assert!(dirs.iter().any(|d| d.ends_with("GPUCache.lander_trash")));
         assert!(dirs.iter().any(|d| d.ends_with("Cache")));
         assert!(dirs[0].to_string_lossy().ends_with(".lander_trash"));
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_recycle_or_remove_dir() {
+        let temp = std::env::temp_dir().join("lander_test_recycle_or_remove");
+        let _ = fs::remove_dir_all(&temp);
+        let sub_dir = temp.join("sub_cache");
+        fs::create_dir_all(&sub_dir).unwrap();
+        fs::write(sub_dir.join("test.dat"), b"data").unwrap();
+        assert!(sub_dir.exists());
+
+        recycle_or_remove_dir(&sub_dir).unwrap();
+        assert!(!sub_dir.exists());
+
+        assert!(recycle_or_remove_dir(&temp.join("not_existing_dir")).is_ok());
 
         let _ = fs::remove_dir_all(&temp);
     }
