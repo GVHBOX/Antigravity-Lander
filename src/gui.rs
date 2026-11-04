@@ -942,12 +942,12 @@ fn center_and_scale_cockpit_window(hwnd: windows_sys::Win32::Foundation::HWND, s
     let s = if scale > 0.0 { scale } else { 1.0 };
     let work_w = work_right - work_left;
     let work_h = work_bottom - work_top;
-    let ideal_w = (1500.0 * s).round() as i32;
-    let ideal_h = (870.0 * s).round() as i32;
-    let min_w = (1200.0 * s).round() as i32;
-    let min_h = (720.0 * s).round() as i32;
-    let target_w = (work_w - 20).min(ideal_w).max(min_w.min(work_w - 20));
-    let target_h = (work_h - 20).min(ideal_h).max(min_h.min(work_h - 20));
+    let ideal_w = (2250.0 * s).round() as i32;
+    let ideal_h = (1305.0 * s).round() as i32;
+    let min_w = (2050.0 * s).round() as i32;
+    let min_h = (1160.0 * s).round() as i32;
+    let target_w = (work_w - 20).min(ideal_w).max(min_w);
+    let target_h = (work_h - 20).min(ideal_h).max(min_h);
     let x = work_left + ((work_w - target_w) / 2).max(0);
     let y = work_top + ((work_h - target_h) / 2).max(0);
     unsafe {
