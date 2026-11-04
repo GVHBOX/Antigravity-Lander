@@ -97,6 +97,8 @@
   python tools/check_slint_bindings.py --selfcheck # 回调检查器校准
   python tools/check_sandbox_health.py        # 沙箱 Junction 与红线隔离健康巡检
   python tools/check_sandbox_health.py --selfcheck # 沙箱巡检器校准
+  python tools/check_architecture_boundaries.py # Rust 模块分层与依赖单向性检查
+  python tools/check_architecture_boundaries.py --selfcheck # 架构检查器校准
 
   # 3. 实机原画取证（输出至 .scratch/shots/）
   SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
