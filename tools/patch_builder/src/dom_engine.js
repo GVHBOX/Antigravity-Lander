@@ -268,6 +268,18 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       return text.replace(trimmed, fixed);
     }
 
+    if (/^No\s+(?:automations?|自动化)\s+yet[.。]?$/i.test(trimmed)) {
+      const fixed = '暂无自动化';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^Compacting(?:\.\.\.)?$/i.test(trimmed)) {
+      const fixed = trimmed.endsWith('...') ? '压缩中...' : '压缩中';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
     if (/^Search automations[…\.]*$/i.test(trimmed)) {
       const fixed = '搜索自动化...';
       if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
@@ -672,6 +684,18 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       dynamicMatch = dynamicMatch.replace(/^Edited (.*) \+(\d+) -(\d+)/i, '编辑 $1 (+$2 -$3)');
       isDynamic = true;
     }
+    if (/^(?:Found|找到)\s+(\d+)\s+(?:results?|matches?|处匹配|个结果)$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^(?:Found|找到)\s+(\d+)\s+(?:results?|matches?|处匹配|个结果)$/i, '找到 $1 个结果');
+      isDynamic = true;
+    }
+    if (/^Ran\s+(\d+)\s+terminal\s+commands?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Ran\s+(\d+)\s+terminal\s+commands?$/i, '已运行 $1 条终端命令');
+      isDynamic = true;
+    }
+    if (/^(?:Viewed|Read)\s+(\d+)\s+files?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^(?:Viewed|Read)\s+(\d+)\s+files?$/i, '已查看 $1 个文件');
+      isDynamic = true;
+    }
     if (/^Canceled taskkill/.test(trimmed)) {
       dynamicMatch = dynamicMatch.replace(/^Canceled (.*)/, '已取消 $1');
       isDynamic = true;
@@ -690,6 +714,11 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       else if (lower.includes('five') || lower.includes('5')) dynamicMatch = '5 小时限额剩余';
       else if (lower.includes('hourly')) dynamicMatch = '每小时限额剩余';
       else if (lower.includes('daily')) dynamicMatch = '每日限额剩余';
+      isDynamic = true;
+    }
+
+    if (/^(.+?)\s+Weekly\s+Limit$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^(.+?)\s+Weekly\s+Limit$/i, '$1 每周限额');
       isDynamic = true;
     }
 
@@ -713,6 +742,10 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       dynamicMatch = '在每个分组中，模型共享每周限额和 5 小时限额。配额按 token 成本比例消耗。因此，较短的任务或使用更具性价比的模型时，限额可持续更长时间。5 小时限额用于平滑总需求，以便在所有用户间公平分配全球容量，而每周限额则与您的个人等级直接挂钩。';
       isDynamic = true;
     }
+    if (/^Models\s+within\s+this\s+group:\s*(.+)$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Models\s+within\s+this\s+group:\s*/i, '该分组包含的模型：');
+      isDynamic = true;
+    }
 
     // 模型配额剩余动态匹配 (例如 "100% Remaining", "85.4% remaining")
     // 模型配额重置倒计时动态匹配 (例如 "Resets in 3h 6m", "Resets in 4h", "Resets in 1d 2h", "Resets in 45m", "Resets in 3 hours")
@@ -733,8 +766,8 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       isDynamic = true;
     }
 
-    if (/^(\d+(?:\.\d+)?%?)\s+remaining$/i.test(trimmed)) {
-      dynamicMatch = dynamicMatch.replace(/^(\d+(?:\.\d+)?%?)\s+remaining$/i, '$1 剩余');
+    if (/^(\d+(?:\.\d+)?%?)\s+(?:remaining|left)$/i.test(trimmed)) {
+      dynamicMatch = dynamicMatch.replace(/^(\d+(?:\.\d+)?%?)\s+(?:remaining|left)$/i, '$1 剩余');
       isDynamic = true;
     }
     // 剩余时间刷新动态匹配 (例如 "15 minutes", "1 hour 26 minutes", "2 hours", "1 day")
@@ -990,6 +1023,21 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       dynamicMatch = '由智能体修改的文件';
       isDynamic = true;
     }
+    if (/^Modified\s+(?:Files|文件)(?:\s+\d+|\s*\(\d+\))?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Modified\s+(?:Files|文件)/i, '已修改文件');
+      isDynamic = true;
+    }
+    if (/(?:Modified|已修改)\s+in\s+([a-zA-Z0-9_\-\./]+)/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/(?:Modified|已修改)\s+in\s+([a-zA-Z0-9_\-\./]+)/gi, '已在 $1 中修改');
+      isDynamic = true;
+    }
+    if (/^(?:Permanently\s+(?:delete|删除)|永久删除)\s+(.+?)\s+(?:including|包括)\s*(\d+)\s+(?:active\s+conversations?|活跃对话)\s+(?:and|与|和)?\s*(\d+)\s+(?:archived\s+conversations?|已归档对话)[.。]?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(
+        /^(?:Permanently\s+(?:delete|删除)|永久删除)\s+(.+?)\s+(?:including|包括)\s*(\d+)\s+(?:active\s+conversations?|活跃对话)\s+(?:and|与|和)?\s*(\d+)\s+(?:archived\s+conversations?|已归档对话)[.。]?$/i,
+        '永久删除 $1，包含 $2 个活跃对话与 $3 个已归档对话。'
+      );
+      isDynamic = true;
+    }
     if (/^Staged Changes$/i.test(trimmed)) {
       dynamicMatch = '已暂存的更改';
       isDynamic = true;
@@ -1024,6 +1072,18 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     }
 
     // 快捷键组合菜单
+    if (/^Toggle\s+Maximize\s+Side\s+Panel(?:\s+(?:Ctrl|Cmd|Shift|Alt|\+)+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Toggle\s+Maximize\s+Side\s+Panel/i, '切换侧边栏最大化');
+      isDynamic = true;
+    }
+    if (/^Toggle\s+Side\s+Panel(?:\s+(?:Ctrl|Cmd|Shift|Alt|\+)+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Toggle\s+Side\s+Panel/i, '切换侧边栏');
+      isDynamic = true;
+    }
+    if (/^(?:Search|搜索)\s+shortcuts[…\.]*$/i.test(trimmed)) {
+      dynamicMatch = (trimmed.endsWith('...') || trimmed.endsWith('…')) ? '搜索快捷键...' : '搜索快捷键';
+      isDynamic = true;
+    }
     if (/^Open File(?:\s+(?:Ctrl|Cmd)\+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
       dynamicMatch = trimmed.replace(/^Open File/i, '打开文件');
       isDynamic = true;
@@ -1038,6 +1098,10 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     }
     if (/^Send\s+message(?:\s+Enter|\s*\(Enter\)|\s*\n\s*Enter)?$/i.test(trimmed)) {
       dynamicMatch = trimmed.replace(/^Send\s+message/i, '发送消息');
+      isDynamic = true;
+    }
+    if (/^Quote(?:\s+(?:Ctrl|Cmd|Shift|Alt|\+)+[a-zA-Z0-9]+)?$/i.test(trimmed)) {
+      dynamicMatch = trimmed.replace(/^Quote/i, '引用');
       isDynamic = true;
     }
     if (/^(?:Select|选择)\s+Environment(?:\s*\((?:Ctrl|Cmd)[^)]+\))?$/i.test(trimmed)) {
@@ -1174,6 +1238,10 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     if (/[\u4e00-\u9fa5]/.test(core)) {
       return text;
     }
+    // 路径防误伤保护：若文本包含路径分隔符（/ 或 \），严禁进入核心词单词拆解替换，防止路径目录名（如 tools/）被篡改
+    if (/[/\\]/.test(core)) {
+      return text;
+    }
     // This prevents long unmatched sentences from getting mangled into Chinglish.
     const wordsCount = core.split(/\s+/).filter(Boolean).length;
     if (wordsCount > 3) {
@@ -1263,6 +1331,12 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
 
   function shouldSkipNode(node) {
     if (!node) return true;
+
+    // 时间戳直通放行：无论是否处于用户输入容器中，相对时间戳一律不跳过汉化
+    const textVal = (node.nodeType === Node.TEXT_NODE ? (node.nodeValue || '') : (node.innerText || node.textContent || '')).trim();
+    if (textVal.length <= 30 && /^(?:just\s+now|\d+\s*(?:s|m|h|d|sec|secs|second|seconds|min|mins|minute|minutes|hour|hours|day|days)?\s*ago)$/i.test(textVal)) {
+      return false;
+    }
     
     // 如果是文本节点，我们检查其父元素；如果是属性/元素节点，检查自身
     const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
@@ -1303,7 +1377,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     // 3. 特殊特权放行：针对执行步骤的药丸标签（如 Ran, Explored, Edited, Viewed, Thought, Thinking, Working 等）
     // 无论其父级为 SPAN、CODE 还是 BUTTON，只要是系统执行药丸且不在用户提问气泡内，一律无条件放行汉化
     const textContent = (element.innerText || element.textContent || '').trim();
-    const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working|Review|Reviewed)$/i.test(textContent);
+    const isActionPill = textContent.length <= 25 && /^(Explored|Exploring|Ran|Running|Run|Viewed|Viewing|View|Edited|Editing|Edit|Thought|Thinking|Working|Review|Reviewed|Reviewing|Analyzing|Analyzed|Analyze|Searching|Searched|Search|Reading|Read|Writing|Written|Write|Checking|Checked|Check|Planning|Planned|Plan|Building|Built|Build|Testing|Tested|Test|Verifying|Verified|Verify|Listing|Listed|List|Loading|Loaded|Load|Executing|Executed|Execute|Compacting)$/i.test(textContent);
     if (isActionPill) {
       let inUserInput = false;
       let inThinkingContent = false;
@@ -1465,7 +1539,7 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     }
     if (tag === 'CODE') {
       const textContent = (element.innerText || element.textContent || '').trim();
-      const isActionPill = textContent.length <= 25 && /^(Explored|Ran|Viewed|Edited|Thought|Thinking|Working|Review|Reviewed)$/i.test(textContent);
+      const isActionPill = textContent.length <= 25 && /^(Explored|Exploring|Ran|Running|Run|Viewed|Viewing|View|Edited|Editing|Edit|Thought|Thinking|Working|Review|Reviewed|Reviewing|Analyzing|Analyzed|Analyze|Searching|Searched|Search|Reading|Read|Writing|Written|Write|Checking|Checked|Check|Planning|Planned|Plan|Building|Built|Build|Testing|Tested|Test|Verifying|Verified|Verify|Listing|Listed|List|Loading|Loaded|Load|Executing|Executed|Execute|Compacting)$/i.test(textContent);
       if (!isActionPill) return true;
     }
     if (element.getAttribute) {
@@ -1515,6 +1589,19 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
         if (/^\d+\s*of\s*\d+$/i.test(pText.trim())) {
           if (original.trim() === 'of') {
             node.nodeValue = original.replace(/of/i, '/');
+            translatedNodes.add(node);
+            return;
+          }
+        }
+        if (/^(?:No|暂无)\s*[\u4e00-\u9fa5a-zA-Z0-9_\-\s]*?\s*yet[.。]?$/i.test(pText.trim())) {
+          const t = original.trim();
+          if (t === 'No') {
+            node.nodeValue = '暂无';
+            translatedNodes.add(node);
+            return;
+          }
+          if (/^yet[.。]?$/i.test(t)) {
+            node.nodeValue = '';
             translatedNodes.add(node);
             return;
           }
@@ -1797,4 +1884,5 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
     startObserver();
   }
 
-})();
+
+})();
