@@ -2758,5 +2758,17 @@
   "Script execution failed": "脚本执行失败",
   "Script return value exceeded maximum size (": "脚本返回值超过最大限制 (",
   "Script return value is not JSON-serializable": "脚本返回值无法序列化为 JSON",
-  "Invalid Worker outcome": "工作进程执行结果无效"
+  "Invalid Worker outcome": "工作进程执行结果无效",
+  "Select a passkey account to continue:": "选择通行密钥账户以继续：",
+  "Passkey QR code": "通行密钥二维码",
+  "Data too long for QR code": "数据过长，无法生成二维码",
+  "Preparing download...": "正在准备下载...",
+  "Empty hostname": "主机名为空",
+  "Invalid URL": "无效的 URL",
+  "Startup failed": "启动失败",
+  "Language Server process is not running.": "语言服务进程未运行。",
+  "Antigravity opened on Windows instead.": "Antigravity 已改为在 Windows 中打开。",
+  "Script aborted by host": "脚本已被宿主中止",
+  "Worker execution failed": "工作进程执行失败",
+  "Too many redirects": "重定向次数过多"
 }
