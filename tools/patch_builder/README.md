@@ -34,7 +34,7 @@
 2. `cargo build`（编译期嵌入，不重新构建不生效）
 3. 在界面里点「安装」
 
-需要扫描官方新版未收录的生词时，从 git 历史取回旧版 `tools/extract_todo.js`。
+需要扫描官方新版未收录的生词时，直接运行 `python tools/extract_todo.py`（支持自动检测宿主 app.asar 或指定路径），提取候选生词至 `data/todo.json`。
 
 ## 官方更新后的行为
 

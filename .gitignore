@@ -20,5 +20,8 @@ Thumbs.db
 desktop.ini
 *.log
 
+# 临时生成的待翻译词条
+tools/patch_builder/data/todo.json
+
 # 发布压缩包
 *.zip
