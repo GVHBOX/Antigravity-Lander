@@ -104,37 +104,66 @@ def locate_lander_windows(pids: list[int]):
     """定位主视口窗口与悬浮球窗口的 HWND 与坐标"""
     main_win = None
     widget_win = None
+    target_desk_handle = None
 
-    h_desk = user32.OpenInputDesktop(0, False, 0x01FF)
-    if not h_desk:
-        return None, None
-
-    def enum_desk_proc(hwnd, lparam):
+    def scan_desktop(h_desk):
         nonlocal main_win, widget_win
-        pid = wintypes.DWORD()
-        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-        if pid.value in pids:
-            length = user32.GetWindowTextLengthW(hwnd)
-            buff = ctypes.create_unicode_buffer(length + 1)
-            user32.GetWindowTextW(hwnd, buff, length + 1)
-            class_buff = ctypes.create_unicode_buffer(64)
-            user32.GetClassNameW(hwnd, class_buff, 64)
 
-            rect = wintypes.RECT()
-            user32.GetWindowRect(hwnd, ctypes.byref(rect))
-            w = rect.right - rect.left
-            h = rect.bottom - rect.top
+        def enum_desk_proc(hwnd, lparam):
+            nonlocal main_win, widget_win
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if pid.value in pids:
+                length = user32.GetWindowTextLengthW(hwnd)
+                buff = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
+                class_buff = ctypes.create_unicode_buffer(64)
+                user32.GetClassNameW(hwnd, class_buff, 64)
 
-            if class_buff.value == "Window Class":
-                if "Lander" in buff.value:
-                    main_win = (hwnd, (rect.left, rect.top, w, h), buff.value)
-                elif w < 800 and w > 0 and h > 0:
-                    widget_win = (hwnd, (rect.left, rect.top, w, h), "FloatingWidget")
-        return True
+                rect = wintypes.RECT()
+                user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                w = rect.right - rect.left
+                h = rect.bottom - rect.top
 
-    DESKENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    user32.EnumDesktopWindows(h_desk, DESKENUMPROC(enum_desk_proc), 0)
-    user32.CloseDesktop(h_desk)
+                if class_buff.value == "Window Class":
+                    if "Lander" in buff.value:
+                        main_win = (hwnd, (rect.left, rect.top, w, h), buff.value)
+                    elif w < 800 and w > 0 and h > 0:
+                        widget_win = (hwnd, (rect.left, rect.top, w, h), "FloatingWidget")
+            return True
+
+        DESKENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        user32.EnumDesktopWindows(h_desk, DESKENUMPROC(enum_desk_proc), 0)
+
+    h_input = user32.OpenInputDesktop(0, False, 0x01FF)
+    if h_input:
+        scan_desktop(h_input)
+        if main_win or widget_win:
+            target_desk_handle = h_input
+        else:
+            user32.CloseDesktop(h_input)
+
+    if not (main_win or widget_win):
+        hwinsta = user32.GetProcessWindowStation()
+        if hwinsta:
+            def enum_desk(dname, dlp):
+                nonlocal target_desk_handle
+                if main_win or widget_win:
+                    return True
+                hd = user32.OpenDesktopW(dname, 0, False, 0x01FF)
+                if hd:
+                    scan_desktop(hd)
+                    if main_win or widget_win:
+                        target_desk_handle = hd
+                    else:
+                        user32.CloseDesktop(hd)
+                return True
+
+            CB_DESK = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.LPCWSTR, wintypes.LPARAM)
+            user32.EnumDesktopsW(hwinsta, CB_DESK(enum_desk), 0)
+
+    if target_desk_handle:
+        user32.SetThreadDesktop(target_desk_handle)
 
     return main_win, widget_win
 
