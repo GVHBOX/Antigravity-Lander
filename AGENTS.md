@@ -98,6 +98,8 @@
 
   # 3. 实机原画取证（输出至 .scratch/shots/）
   SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
+  python tools/snap_desktop.py                # 桌面实机主视口原画捕获（1:1 物理 2250x1305）
+  python tools/snap_desktop.py --target widget # 桌面悬浮球实机原画捕获
   ```
 
   **截图一致性规则**：取证必须显式前置 `SLINT_SCALE_FACTOR=1.0`，与运行时 `main.rs` 的写死值对齐，保证截图所见即用户所见（1:1 物理像素，原生 2250×1305）。**禁止**使用 `--size` 强制拉伸视口——那会产生非原生比例的失真图，据此修改 px 必然写错值。
