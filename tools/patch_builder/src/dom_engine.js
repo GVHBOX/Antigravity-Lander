@@ -47,6 +47,33 @@ const combinedDict = Object.assign({}, coreWords, dictionary);
       return text.replace(trimmed, stringCache.get(trimmed));
     }
 
+    if (/^\(single\s+(?:edit|编辑)\)$/i.test(trimmed)) {
+      const fixed = '(单处编辑)';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^\((\d+)\s+(?:edits?|处?编辑)\)$/i.test(trimmed)) {
+      const fixed = trimmed.replace(/^\((\d+)\s+(?:edits?|处?编辑)\)$/i, '($1 处编辑)');
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^single\s+(?:edit|编辑)$/i.test(trimmed)) {
+      const fixed = '单处编辑';
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
+    if (/^(审查\s*)?(?:review\s+)?for\s+(?:turn|回合)(?:\s+(.*))?$/i.test(trimmed)) {
+      const m = trimmed.match(/^(审查\s*)?(?:review\s+)?for\s+(?:turn|回合)(?:\s+(.*))?$/i);
+      const prefix = (m[1] || trimmed.toLowerCase().startsWith('review')) ? '审查 ' : '';
+      const rest = m[2] ? m[2].trim() : '';
+      const fixed = (rest ? (prefix + '对应回合 ' + rest) : (prefix + '对应回合')).trim();
+      if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, fixed);
+      return text.replace(trimmed, fixed);
+    }
+
     if (trimmed.includes('could not be opened')) {
       const replacedCouldNot = trimmed.replace(/could not be opened/gi, '无法打开');
       if (stringCache.size < MAX_STRING_CACHE) stringCache.set(trimmed, replacedCouldNot);

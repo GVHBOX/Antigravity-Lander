@@ -1659,4 +1659,13 @@ mod tests {
         assert!(main.contains("Confirm Quit"), "退出确认文案未还原: {}", main);
         assert!(!main.contains("确认退出"), "仍残留中文: {}", main);
     }
+
+    #[test]
+    #[ignore]
+    fn test_patch_host_asar() {
+        let asar = std::path::PathBuf::from(r"C:\Users\GVH\AppData\Local\Programs\antigravity\resources\app.asar");
+        let bak = std::path::PathBuf::from(r"C:\Users\GVH\AppData\Local\Programs\antigravity\resources\app.asar.bak");
+        let _ = std::fs::copy(&bak, &asar);
+        LauncherConfig::install_ag2_patch(&asar).unwrap();
+    }
 }

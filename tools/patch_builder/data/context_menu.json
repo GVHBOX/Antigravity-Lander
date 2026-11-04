@@ -58,5 +58,15 @@
   "Kill Terminal": "终止终端",
   "Restart Terminal": "重启终端",
   "Toggle Word Wrap": "切换自动换行",
-  "Inspect Element": "检查元素"
+  "Inspect Element": "检查元素",
+  "Download File": "下载文件",
+  "Download file": "下载文件",
+  "Export as PDF": "导出为 PDF",
+  "Export as pdf": "导出为 PDF",
+  "Export as Markdown": "导出为 Markdown",
+  "Export as markdown": "导出为 Markdown",
+  "Expand Diffs": "展开差异",
+  "Expand diffs": "展开差异",
+  "Collapse Diffs": "折叠差异",
+  "Collapse diffs": "折叠差异"
 }
