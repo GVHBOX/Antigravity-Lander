@@ -2750,5 +2750,13 @@
   "Starting installation in background...": "正在后台开始安装...",
   "Ran terminal command": "已运行终端命令",
   "Running terminal command": "正在运行终端命令",
-  "Running terminal command...": "正在运行终端命令..."
+  "Running terminal command...": "正在运行终端命令...",
+  "Choose a Passkey": "选择通行密钥",
+  "Passkeys": "通行密钥",
+  "Use your phone or tablet": "使用您的手机或平板电脑",
+  "RPC call failed": "RPC 调用失败",
+  "Script execution failed": "脚本执行失败",
+  "Script return value exceeded maximum size (": "脚本返回值超过最大限制 (",
+  "Script return value is not JSON-serializable": "脚本返回值无法序列化为 JSON",
+  "Invalid Worker outcome": "工作进程执行结果无效"
 }
