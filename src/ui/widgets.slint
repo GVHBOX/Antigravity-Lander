@@ -242,7 +242,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
         HorizontalLayout {
             height: 20px;
-            alignment: space-between;
+            spacing: 20px;
 
             Text {
                 text: "模型额度";
@@ -255,7 +255,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
             Text {
                 text: "每周";
-                width: 72px;
+                width: 80px;
                 horizontal-alignment: center;
                 color: root.is_dark ? #64748b : #94a3b8;
                 font-size: 12px;
@@ -265,7 +265,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
             Text {
                 text: "5小时";
-                width: 72px;
+                width: 80px;
                 horizontal-alignment: center;
                 color: root.is_dark ? #64748b : #94a3b8;
                 font-size: 12px;
@@ -289,7 +289,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
         for row in root.model_quotas : HorizontalLayout {
             height: 42px;
-            alignment: space-between;
+            spacing: 20px;
 
             VerticalLayout {
                 alignment: center;
@@ -306,7 +306,7 @@ export component SubQuotaCompactBox inherits Rectangle {
             }
 
             VerticalLayout {
-                width: 72px;
+                width: 80px;
                 alignment: center;
                 spacing: 2px;
 
@@ -342,7 +342,7 @@ export component SubQuotaCompactBox inherits Rectangle {
             }
 
             VerticalLayout {
-                width: 72px;
+                width: 80px;
                 alignment: center;
                 spacing: 2px;
 
@@ -378,21 +378,13 @@ export component SubQuotaCompactBox inherits Rectangle {
 
                 if !row.has_five_h : HorizontalLayout {
                     alignment: center;
-                    spacing: 4px;
-
                     Text {
                         text: "--";
-                        width: 38px;
-                        horizontal-alignment: right;
                         color: root.is_dark ? #334155 : #cbd5e1;
                         font-size: 15px;
                         font-weight: 600;
+                        horizontal-alignment: center;
                         vertical-alignment: center;
-                    }
-
-                    Rectangle {
-                        width: 20px;
-                        height: 20px;
                     }
                 }
 
