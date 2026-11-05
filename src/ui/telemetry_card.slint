@@ -91,7 +91,7 @@ export component TelemetryCard inherits Rectangle {
 
         HorizontalLayout {
             alignment: space-between;
-            height: 33px;
+            height: 36px;
             HorizontalLayout {
                 spacing: 9px;
                 Rectangle {
@@ -110,7 +110,7 @@ export component TelemetryCard inherits Rectangle {
                 }
             }
             Rectangle {
-                height: 33px;
+                height: 36px;
                 border-radius: 6px;
                 background: target_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
                 border-color: root.is_dark ? #162032 : #cbd5e1;
@@ -155,36 +155,41 @@ export component TelemetryCard inherits Rectangle {
                 VerticalLayout {
                     padding-left: 15px;
                     padding-right: 15px;
-                    padding-top: 6px;
-                    padding-bottom: 6px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
                     spacing: 3px;
+                    alignment: start;
                     Text {
                         text: "当前会话项目";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 17px;
+                        font-size: 14px;
                         vertical-alignment: center;
                     }
                     HorizontalLayout {
+                        height: 26px;
                         alignment: space-between;
                         Text {
                             text: root.live_session_project;
                             color: root.is_dark ? #f8fafc : #0f172a;
-                            font-size: 18px;
+                            font-size: 20px;
                             font-weight: 700;
                             overflow: elide;
+                            vertical-alignment: center;
                         }
                         Text {
                             text: root.live_session_status_text;
                             color: root.live_session_is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                            font-size: 17px;
+                            font-size: 15px;
                             font-family: "Cascadia Mono";
+                            vertical-alignment: center;
                         }
                     }
                     Text {
                         text: root.live_session_title;
                         color: root.is_dark ? #94a3b8 : #64748b;
-                        font-size: 17px;
+                        font-size: 15px;
                         overflow: elide;
+                        vertical-alignment: center;
                     }
                 }
             }
@@ -199,21 +204,21 @@ export component TelemetryCard inherits Rectangle {
                 VerticalLayout {
                     padding-left: 15px;
                     padding-right: 15px;
-                    padding-top: 6px;
-                    padding-bottom: 6px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
                     spacing: 3px;
                     alignment: start;
                     Text {
                         text: "模型";
                         color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 17px;
+                        font-size: 14px;
                         vertical-alignment: center;
                     }
                     Text {
-                        height: 24px;
+                        height: 26px;
                         text: root.live_model_name;
                         color: root.is_dark ? #e2e8f0 : #1e293b;
-                        font-size: 18px;
+                        font-size: 20px;
                         font-weight: 600;
                         overflow: elide;
                         vertical-alignment: center;
@@ -221,7 +226,7 @@ export component TelemetryCard inherits Rectangle {
                     Text {
                         text: root.live_model_level;
                         color: root.is_dark ? #94a3b8 : #64748b;
-                        font-size: 17px;
+                        font-size: 15px;
                         font-family: "Cascadia Mono";
                         vertical-alignment: center;
                     }
@@ -231,7 +236,8 @@ export component TelemetryCard inherits Rectangle {
 
         HorizontalLayout {
             spacing: 12px;
-            height: 180px;
+            min-height: 180px;
+            vertical-stretch: 1;
 
             Rectangle {
                 background: root.is_dark ? #090e1c : #f8fafc;
@@ -253,7 +259,7 @@ export component TelemetryCard inherits Rectangle {
                         Text {
                             text: root.live_is_hovering_bar ? "历史轮次吞吐" : "单轮 Token 吞吐";
                             color: root.is_dark ? #64748b : #94a3b8;
-                            font-size: 17px;
+                            font-size: 14px;
                             vertical-alignment: center;
                         }
                         if root.live_is_hovering_bar : Rectangle {
@@ -323,7 +329,6 @@ export component TelemetryCard inherits Rectangle {
                     padding-right: 15px;
                     padding-top: 11px;
                     padding-bottom: 11px;
-                    alignment: start;
                     spacing: 3px;
 
                     HorizontalLayout {
@@ -358,7 +363,8 @@ export component TelemetryCard inherits Rectangle {
                     }
 
                     Rectangle {
-                        height: 108px;
+                        min-height: 108px;
+                        vertical-stretch: 1;
 
                         Rectangle {
                             y: parent.height - 1px;
@@ -469,7 +475,7 @@ export component TelemetryCard inherits Rectangle {
                         Text {
                             text: "上下文用量";
                             color: root.is_dark ? #64748b : #94a3b8;
-                            font-size: 17px;
+                            font-size: 14px;
                             vertical-alignment: center;
                         }
                         Text {
@@ -601,7 +607,5 @@ export component TelemetryCard inherits Rectangle {
 
             }
         }
-
-        Rectangle { vertical-stretch: 1; }
     }
 }

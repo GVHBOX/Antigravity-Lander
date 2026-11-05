@@ -6,6 +6,7 @@ export component CompactButton inherits Rectangle {
     in property <bool> is_dark: true;
     in property <bool> is_disabled: false;
     in property <length> btn_height: 42px;
+    in property <length> font_size: 20px;
     callback clicked();
 
     background: is_disabled ? (root.is_dark ? #111827 : #e2e8f0) : (ta.pressed ? btn_color.darker(10%) : (ta.has_hover ? btn_color : root.ghost_bg));
@@ -30,7 +31,7 @@ export component CompactButton inherits Rectangle {
         Text {
             text: root.text;
             color: root.is_disabled ? (root.is_dark ? #4b5563 : #94a3b8) : root.text_color;
-            font-size: 20px;
+            font-size: root.font_size;
             font-weight: 700;
             vertical-alignment: center;
             horizontal-alignment: center;

@@ -1,4 +1,3 @@
-import { OutlineButton } from "buttons.slint";
 import { PatchItemRow } from "widgets.slint";
 
 export component ComponentsCard inherits Rectangle {
@@ -24,11 +23,11 @@ export component ComponentsCard inherits Rectangle {
     clip: true;
 
     VerticalLayout {
-        padding: 21px;
-        spacing: 15px;
+        padding: 18px;
+        spacing: 12px;
 
         HorizontalLayout {
-            height: 33px;
+            height: 36px;
             Text {
                 text: "内置组件";
                 color: root.is_dark ? #f8fafc : #0f172a;
@@ -43,6 +42,7 @@ export component ComponentsCard inherits Rectangle {
             status_text: root.patch_ag2_installed ? ("已汉化 (" + root.patch_ag2_version + ")") : (root.patch_ag2_version == "未安装" ? "未安装" : ("未汉化 (" + root.patch_ag2_version + ")"));
             is_installed: root.patch_ag2_installed;
             btn_text: root.patch_ag2_installed ? "卸载" : "安装";
+            btn_tone: root.patch_ag2_installed ? "danger" : "positive";
             is_dark: root.is_dark;
             btn_clicked => { root.toggle_patch_ag2(); }
         }
@@ -52,40 +52,19 @@ export component ComponentsCard inherits Rectangle {
             status_text: root.proxy_status_text;
             is_installed: root.proxy_injected;
             btn_text: root.proxy_injected ? "移除" : "注入";
+            btn_tone: root.proxy_injected ? "danger" : "positive";
             is_dark: root.is_dark;
             btn_clicked => { root.toggle_proxy(); }
         }
 
-        Rectangle {
-            background: root.is_dark ? #090e1c : #f8fafc;
-            border-color: root.is_dark ? #162032 : #e2e8f0;
-            border-width: 1px;
-            border-radius: 9px;
-            height: 90px;
-            HorizontalLayout {
-                padding-left: 18px;
-                padding-right: 18px;
-                alignment: space-between;
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: root.cache_summary_text;
-                        color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 18px;
-                        font-weight: 600;
-                    }
-                }
-                OutlineButton {
-                    text: "清理";
-                    width: 80px;
-                    btn_height: 42px;
-                    y: (parent.height - 42px) / 2;
-                    is_dark: root.is_dark;
-                    clicked => { root.scan_cache(); }
-                }
-            }
+        PatchItemRow {
+            title: "沙箱缓存";
+            status_text: root.cache_summary_text;
+            is_installed: false;
+            btn_text: "清理";
+            btn_tone: "neutral";
+            is_dark: root.is_dark;
+            btn_clicked => { root.scan_cache(); }
         }
-
-        Rectangle { vertical-stretch: 1; }
     }
 }

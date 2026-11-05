@@ -249,9 +249,8 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
             Rectangle {
-                vertical-stretch: 1;
-                min-height: 540px;
-                preferred-height: 540px;
+                vertical-stretch: 0;
+                height: 520px;
 
                 HorizontalLayout {
                     spacing: 12px;
@@ -316,7 +315,6 @@ export component MainWindow inherits Window {
 
         Rectangle {
             vertical-stretch: 1;
-            preferred-height: 525px;
             min-height: 480px;
             background: root.is_dark ? #0d1527 : #ffffff;
             border-color: root.is_dark ? rgba(56, 189, 248, 0.16) : #cbd5e1;
@@ -325,15 +323,15 @@ export component MainWindow inherits Window {
             clip: true;
 
             VerticalLayout {
-                padding-left: 15px;
-                padding-right: 15px;
-                padding-top: 12px;
-                padding-bottom: 12px;
-                spacing: 9px;
+                padding-left: 18px;
+                padding-right: 18px;
+                padding-top: 18px;
+                padding-bottom: 18px;
+                spacing: 12px;
 
                 HorizontalLayout {
                     alignment: space-between;
-                    height: 39px;
+                    height: 36px;
 
                     HorizontalLayout {
                         spacing: 12px;
@@ -352,8 +350,8 @@ export component MainWindow inherits Window {
                         alignment: end;
 
                         Rectangle {
-                            width: 39px;
-                            height: 39px;
+                            width: 36px;
+                            height: 36px;
                             border-radius: 8px;
                             border-color: sound_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
                             border-width: 1px;
@@ -377,8 +375,8 @@ export component MainWindow inherits Window {
                         }
 
                         Rectangle {
-                            width: 39px;
-                            height: 39px;
+                            width: 36px;
+                            height: 36px;
                             border-radius: 8px;
                             border-color: pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
                             border-width: 1px;
@@ -397,8 +395,8 @@ export component MainWindow inherits Window {
                         }
 
                         Rectangle {
-                            width: 39px;
-                            height: 39px;
+                            width: 36px;
+                            height: 36px;
                             border-radius: 8px;
                             border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
                             border-width: 1px;

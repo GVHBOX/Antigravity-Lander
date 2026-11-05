@@ -153,19 +153,19 @@ export component InstanceCard inherits Rectangle {
             is_dark: root.is_dark;
         }
 
-        Rectangle { vertical-stretch: 1; }
-
         VerticalLayout {
             spacing: 6px;
             vertical-stretch: 0;
 
             HorizontalLayout {
                 spacing: 9px;
-                height: 48px;
+                height: 44px;
                 if !root.is_running : CompactButton {
                     horizontal-stretch: 1;
                     text: "启动";
                     btn_color: #10b981;
+                    btn_height: 44px;
+                    font_size: 18px;
                     is_dark: root.is_dark;
                     clicked => { root.launch(); }
                 }
@@ -173,6 +173,8 @@ export component InstanceCard inherits Rectangle {
                     horizontal-stretch: 1;
                     text: "停止";
                     btn_color: #f43f5e;
+                    btn_height: 44px;
+                    font_size: 18px;
                     is_dark: root.is_dark;
                     clicked => { root.stop(); }
                 }
@@ -185,6 +187,7 @@ export component InstanceCard inherits Rectangle {
                     text: root.cache_size_text;
                     color: root.is_dark ? #64748b : #94a3b8;
                     font-size: 13px;
+                    font-family: "Cascadia Mono";
                     font-weight: 500;
                     vertical-alignment: center;
                 }
@@ -192,6 +195,7 @@ export component InstanceCard inherits Rectangle {
                     text: root.scale_text;
                     color: root.is_dark ? #64748b : #94a3b8;
                     font-size: 13px;
+                    font-family: "Cascadia Mono";
                     font-weight: 500;
                     vertical-alignment: center;
                 }
