@@ -1349,9 +1349,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 && turn_idx > 0 {
                     ui.set_live_is_hovering_bar(true);
                     ui.set_live_hover_tag(format!("#{} 轮", turn_idx).into());
-                    let (num, dec) = format_tps_display(s.recent_tps[i]);
-                    ui.set_live_session_speed_text(num.into());
-                    ui.set_live_session_speed_dec(dec.into());
+                    ui.set_live_session_speed_text(format_tps_display(s.recent_tps[i]).into());
                     ui.set_live_session_speed_sub(format!("该轮产出 {} · {:.1}s", format_tokens(s.recent_turn_tokens[i]), s.recent_turn_durations[i]).into());
                 }
     });
@@ -1368,9 +1366,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         if let Some(ref s) = *sess {
             if s.is_running {
                 if s.round_tps > 0.0 {
-                    let (num, dec) = format_tps_display(s.round_tps);
-                    ui.set_live_session_speed_text(num.into());
-                    ui.set_live_session_speed_dec(dec.into());
+                    ui.set_live_session_speed_text(format_tps_display(s.round_tps).into());
                     if s.ttft_secs > 0.0 {
                         ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s", s.round_duration_secs, s.ttft_secs).into());
                     } else {
@@ -1378,13 +1374,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     }
                 } else {
                     ui.set_live_session_speed_text("--".into());
-                    ui.set_live_session_speed_dec("".into());
                     ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
                 }
             } else {
-                let (num, dec) = format_tps_display(s.round_tps);
-                ui.set_live_session_speed_text(num.into());
-                ui.set_live_session_speed_dec(dec.into());
+                ui.set_live_session_speed_text(format_tps_display(s.round_tps).into());
                 if s.ttft_secs > 0.0 {
                     ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
                 } else {
@@ -1392,8 +1385,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
             }
         } else {
-            ui.set_live_session_speed_text("0".into());
-            ui.set_live_session_speed_dec(".0".into());
+            ui.set_live_session_speed_text("0.0".into());
             ui.set_live_session_speed_sub("无吞吐".into());
         }
     });
@@ -1919,9 +1911,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     if !is_hovering {
                         if s.is_running {
                             if s.round_tps > 0.0 {
-                                let (num, dec) = format_tps_display(s.round_tps);
-                                ui.set_live_session_speed_text(num.into());
-                                ui.set_live_session_speed_dec(dec.into());
+                                ui.set_live_session_speed_text(format_tps_display(s.round_tps).into());
                                 if s.ttft_secs > 0.0 {
                                     ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s", s.round_duration_secs, s.ttft_secs).into());
                                 } else {
@@ -1929,13 +1919,10 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                                 }
                             } else {
                                 ui.set_live_session_speed_text("--".into());
-                                ui.set_live_session_speed_dec("".into());
                                 ui.set_live_session_speed_sub(format!("生成中 · 步数 #{}", s.step_count).into());
                             }
                         } else {
-                            let (num, dec) = format_tps_display(s.round_tps);
-                            ui.set_live_session_speed_text(num.into());
-                            ui.set_live_session_speed_dec(dec.into());
+                            ui.set_live_session_speed_text(format_tps_display(s.round_tps).into());
                             if s.ttft_secs > 0.0 {
                                 ui.set_live_session_speed_sub(format!("耗时 {:.1}s · 首字 {:.1}s · 输出 {}", s.round_duration_secs, s.ttft_secs, format_tokens(s.output_tokens)).into());
                             } else {
@@ -2010,8 +1997,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     ui.set_live_session_title("无活动会话".into());
                     ui.set_live_model_name("--".into());
                     ui.set_live_model_level("".into());
-                    ui.set_live_session_speed_text("0".into());
-                    ui.set_live_session_speed_dec(".0".into());
+                    ui.set_live_session_speed_text("0.0".into());
                     ui.set_live_session_speed_sub("无吞吐".into());
                     ui.set_live_session_context_text("0 / 256K (0.0%)".into());
                     ui.set_live_session_context_pct(0.0);
