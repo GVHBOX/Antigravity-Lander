@@ -6,7 +6,7 @@
 ## 目录职责
 
 - **`data/`**：纯中英文映射数据
-  - `ui.json`：Web 前端 DOM 文案与提示词（1900+ 条目）
+  - `ui.json`：Web 前端 DOM 文案与提示词（2800+ 条目）
   - `core.json`：高频核心词汇与状态词
   - `menu.json`：Electron 原生主菜单
   - `context_menu.json`：原生右键上下文菜单
