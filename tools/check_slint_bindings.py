@@ -116,7 +116,7 @@ def main():
     rust_text = gui_rs_path.read_text(encoding="utf-8")
 
     all_components = {}
-    slint_files = [SRC_DIR / "cockpit.slint", SRC_DIR / "ui" / "floating_widget.slint"]
+    slint_files = [SRC_DIR / "cockpit.slint"]
 
     for sf in slint_files:
         if sf.is_file():

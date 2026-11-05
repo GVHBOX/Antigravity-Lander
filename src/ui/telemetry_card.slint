@@ -67,12 +67,12 @@ export component TelemetryCard inherits Rectangle {
     in property <string> live_step_text: "步数 #0";
     in property <string> live_compact_text: "压缩 0 次";
     in property <bool> is_dark: true;
-    in property <string> widget_mode: "smart";
+
 
     callback switch_target(int);
     callback bar_hover(int);
     callback bar_leave();
-    callback set_widget_mode(string);
+
 
     horizontal-stretch: 3;
     min-width: 0px;
@@ -588,113 +588,6 @@ export component TelemetryCard inherits Rectangle {
             }
         }
 
-        Rectangle {
-            background: root.is_dark ? #090e1c : #f8fafc;
-            border-color: root.is_dark ? #162032 : #e2e8f0;
-            border-width: 1px;
-            border-radius: 9px;
-            height: 54px;
-            HorizontalLayout {
-            padding-left: 15px;
-            padding-right: 15px;
-            alignment: space-between;
-
-                HorizontalLayout {
-                    spacing: 9px;
-                    alignment: start;
-
-                    Rectangle {
-                        width: 11px;
-                        height: 11px;
-                        border-radius: 5px;
-                        background: root.widget_mode == "smart" ? #10b981 : (root.widget_mode == "always" ? #38bdf8 : (root.is_dark ? #475569 : #94a3b8));
-                        y: (parent.height - 11px) / 2;
-                    }
-
-                    Text {
-                        text: "悬浮窗";
-                        color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 17px;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                    }
-                }
-
-                HorizontalLayout {
-                    spacing: 6px;
-                    alignment: end;
-                    y: (parent.height - 36px) / 2;
-
-                    Rectangle {
-                        width: 78px;
-                        height: 36px;
-                        border-radius: 6px;
-                        background: root.widget_mode == "smart" ? (root.is_dark ? rgba(16, 185, 129, 0.22) : rgba(16, 185, 129, 0.15)) : (smart_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : transparent);
-                        border-color: root.widget_mode == "smart" ? #10b981 : (root.is_dark ? #1e293b : #cbd5e1);
-                        border-width: 1px;
-
-                        Text {
-                            text: "自动";
-                            color: root.widget_mode == "smart" ? #10b981 : (root.is_dark ? #94a3b8 : #64748b);
-                            font-size: 16px;
-                            font-weight: root.widget_mode == "smart" ? 700 : 500;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        smart_ta := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.set_widget_mode("smart"); }
-                        }
-                    }
-
-                    Rectangle {
-                        width: 78px;
-                        height: 36px;
-                        border-radius: 6px;
-                        background: root.widget_mode == "always" ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.15)) : (always_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : transparent);
-                        border-color: root.widget_mode == "always" ? #38bdf8 : (root.is_dark ? #1e293b : #cbd5e1);
-                        border-width: 1px;
-
-                        Text {
-                            text: "常驻";
-                            color: root.widget_mode == "always" ? #38bdf8 : (root.is_dark ? #94a3b8 : #64748b);
-                            font-size: 16px;
-                            font-weight: root.widget_mode == "always" ? 700 : 500;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        always_ta := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.set_widget_mode("always"); }
-                        }
-                    }
-
-                    Rectangle {
-                        width: 78px;
-                        height: 36px;
-                        border-radius: 6px;
-                        background: root.widget_mode == "hidden" ? (root.is_dark ? rgba(148, 163, 184, 0.2) : rgba(100, 116, 139, 0.12)) : (close_ta.has-hover ? (root.is_dark ? #1e293b : #e2e8f0) : transparent);
-                        border-color: root.widget_mode == "hidden" ? #94a3b8 : (root.is_dark ? #1e293b : #cbd5e1);
-                        border-width: 1px;
-
-                        Text {
-                            text: "关闭";
-                            color: root.widget_mode == "hidden" ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #94a3b8 : #64748b);
-                            font-size: 16px;
-                            font-weight: root.widget_mode == "hidden" ? 700 : 500;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-
-                        close_ta := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.set_widget_mode("hidden"); }
-                        }
-                    }
-                }
-            }
-        }
+        Rectangle { vertical-stretch: 1; }
     }
 }

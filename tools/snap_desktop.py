@@ -168,6 +168,35 @@ def locate_lander_windows(pids: list[int]):
     return main_win, widget_win
 
 
+def capture_window(hwnd: int, w: int, h: int) -> Image.Image:
+    """使用 Win32 PrintWindow (PW_RENDERFULLCONTENT) 直接捕获窗口表面原画"""
+    hdc_win = user32.GetWindowDC(hwnd)
+    hdc_mem = gdi32.CreateCompatibleDC(hdc_win)
+    hbm = gdi32.CreateCompatibleBitmap(hdc_win, w, h)
+    gdi32.SelectObject(hdc_mem, hbm)
+
+    res = user32.PrintWindow(hwnd, hdc_mem, 2)
+    if not res:
+        user32.PrintWindow(hwnd, hdc_mem, 0)
+
+    bmi = BITMAPINFO()
+    bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+    bmi.bmiHeader.biWidth = w
+    bmi.bmiHeader.biHeight = -h
+    bmi.bmiHeader.biPlanes = 1
+    bmi.bmiHeader.biBitCount = 32
+    bmi.bmiHeader.biCompression = 0
+
+    buf = (ctypes.c_byte * (w * h * 4))()
+    gdi32.GetDIBits(hdc_mem, hbm, 0, h, ctypes.byref(buf), ctypes.byref(bmi), 0)
+    img = Image.frombuffer("RGB", (w, h), bytes(buf), "raw", "BGRX", 0, 1)
+
+    gdi32.DeleteObject(hbm)
+    gdi32.DeleteDC(hdc_mem)
+    user32.ReleaseDC(hwnd, hdc_win)
+    return img
+
+
 def capture_rect(x: int, y: int, w: int, h: int) -> Image.Image:
     """使用 GDI BitBlt 抓取指定物理矩形区域的原画"""
     hdc_screen = user32.GetDC(0)
@@ -216,9 +245,9 @@ def main():
     parser = argparse.ArgumentParser(description="Antigravity Lander 桌面实机原画截图工具")
     parser.add_argument(
         "--target",
-        choices=["window", "widget", "full"],
+        choices=["window", "full"],
         default="window",
-        help="截取目标: window(主视口), widget(悬浮球), full(全桌面)",
+        help="截取目标: window(主视口), full(全桌面)",
     )
     parser.add_argument("-o", "--output", help="输出图片路径 (缺省自动保存至 .scratch/)")
     parser.add_argument("--selfcheck", action="store_true", help="校验抓取通道")
@@ -263,23 +292,14 @@ def main():
             print("错误: 未能定位到 Lander 主视口窗口。", file=sys.stderr)
             sys.exit(1)
 
+        hwnd = main_win[0]
         x, y, w, h = main_win[1]
-        img = capture_rect(x, y, w, h)
+        img = capture_window(hwnd, w, h)
+        if img.getextrema() == ((0, 0), (0, 0), (0, 0)):
+            img = capture_rect(x, y, w, h)
         out_path = Path(args.output) if args.output else SHOTS_DIR / f"cockpit_live_{timestamp}.png"
         img.save(out_path)
         print(f"OK: Lander 主视口原画已捕获 (PID: {pids[0]}, 物理尺寸: {w}x{h}, 坐标: {x},{y})")
-        print(f"输出文件: {out_path}")
-
-    elif args.target == "widget":
-        if not widget_win:
-            print("错误: 未能定位到悬浮球窗口 (可能处于隐藏模式)。", file=sys.stderr)
-            sys.exit(1)
-
-        x, y, w, h = widget_win[1]
-        img = capture_rect(x, y, w, h)
-        out_path = Path(args.output) if args.output else SHOTS_DIR / f"widget_live_{timestamp}.png"
-        img.save(out_path)
-        print(f"OK: 桌面悬浮球原画已捕获 (物理尺寸: {w}x{h}, 坐标: {x},{y})")
         print(f"输出文件: {out_path}")
 
 

@@ -1,7 +1,7 @@
 # Antigravity Lander 作业规程
 
 `D:\Development_Environment\AI_Vibe_Coding_Workspace\Antigravity-Lander`：Rust + Slint 桌面端 Antigravity Lander，负责派生与监控主账号及 4 个独立沙箱分身（`data/instance_1` ~ `instance_4`），并提供界面缩放调节、汉化管理与系统代理注入。
-运行形态：Slint GUI（带系统托盘与桌面悬浮球）。
+运行形态：Slint GUI（带系统托盘）。
 本文件定义工程规范与纪律，功能说明见 `README.md`。
 
 ## 5 条铁律
@@ -42,7 +42,7 @@
 | `data/instance_*/home/.gemini/` | 官方 OAuth Token | **严禁触碰或删除**；分身关闭后仅可清理 `Cache` / `Code Cache` / `GPUCache` |
 | `data/instance_*/home/AppData/` | NTFS Junction 宿主映射 | 包含宿主 `Roaming/Microsoft` 与 `LocalLow` 映射，**严禁递归整目录删除** |
 | `data/scale_settings.json` | 界面调节持久化配置 | 缩放比例存储文件，由前端回调安全读写，禁止破坏数据结构 |
-| `data/widget_config.json` | 桌面悬浮球持久化配置 | 悬浮球坐标与模式配置，由前端回调安全读写，禁止破坏数据结构 |
+| `data/sound_settings.json` | 任务完成音效配置 | 音效开关与自定义音效路径，由前端回调安全读写，禁止破坏数据结构 |
 | `assets/icon.png` / `icon.ico` | Slint 唯一图资 / 原生图标 | `.gitignore` 显式保留，严禁从版本库中移除或误排除 |
 
 ## 项目纪律与架构边界
@@ -67,7 +67,7 @@
 - **旧进程接管授权**：若覆盖或测试时遭遇文件锁（WinError 32）或单实例互斥锁占用，授权调用 `taskkill /PID <pid> /F` 精准终止本项目历史构建的旧管理器进程，解除占用后立即完成物理覆盖。
 - **验收凭证原则**：
   - 普通组件静态 UI 变更：使用 `SLINT_SCALE_FACTOR=1.0 slint-viewer` 截取原生渲染图（禁止用 `--size` 拉伸视口产生失真图）；
-  - 桌面级交互与原生窗口：涉及 Win32 窗口、异形透明悬浮窗与托盘的交互，必须使用 `tools/snap_desktop.py` 捕获 1:1 桌面物理原画及系统回执取证；
+  - 桌面级交互与原生窗口：涉及 Win32 窗口与托盘的交互，必须使用 `tools/snap_desktop.py` 捕获 1:1 桌面物理原画及系统回执取证；
   - 后台逻辑与进程启停：以真实 PID 与系统返回值为准。
 
 ## 环境事实与检查指令
@@ -94,5 +94,4 @@
   # 3. 实机原画取证（输出至 .scratch/）
   SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/preview_default.png src/cockpit.slint -I assets
   python tools/snap_desktop.py                              # 桌面实机主视口原画捕获（1:1 物理 2250x1305）
-  python tools/snap_desktop.py --target widget               # 桌面悬浮球实机原画捕获
   ```

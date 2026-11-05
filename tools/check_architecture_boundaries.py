@@ -4,7 +4,7 @@ Rust 模块分层与依赖单向性静态门禁检查器
 扫描 src/*.rs 中的模块引用 (crate::*)，捍卫分层架构与单向依赖：
 1. Layer 0 (底层纯工具/引擎): asar, localize, sound 强制零内部依赖；
 2. Layer 1 (系统遥测采集): monitor 严禁依赖业务服务层与 UI 层；
-3. Layer 2 (业务调度与服务): launcher, quota, proxy, session, widget_state 严禁反向依赖 UI 层 (gui)；
+3. Layer 2 (业务调度与服务): launcher, quota, proxy, session 严禁反向依赖 UI 层 (gui)；
 4. 全局拓扑无环 (DAG): 严禁双向依赖或任何形式的循环引用。
 """
 
@@ -26,7 +26,6 @@ LAYERS = {
     "quota": 2,
     "proxy": 2,
     "session": 2,
-    "widget_state": 2,
     "gui": 3,
     "main": 4,
 }

@@ -8,8 +8,8 @@ import { InstanceCard } from "ui/instance_card.slint";
 import { ModelQuotaRow } from "ui/widgets.slint";
 import { StatusToolbar } from "ui/toolbar.slint";
 import { ConfirmModal, CleanCacheModal, PatchModal, SessionListModal } from "ui/modals.slint";
-import { FloatingWidgetWindow } from "ui/floating_widget.slint";
-export { FloatingWidgetWindow }
+
+
 
 export component MainWindow inherits Window {
     in property <string> app_version: "";
@@ -208,8 +208,8 @@ export component MainWindow inherits Window {
 
     in property <string> global_summary_text: "0 个实例运行中 · 内存占用 0 MB · 端口正常";
     in property <string> proxy_badge_text: "系统代理 127.0.0.1:7890 (8ms)";
-    in property <string> widget_mode: "smart";
-    callback set_widget_mode(string);
+
+
 
     callback action_stop_host();
     callback preview_sound();
@@ -330,10 +330,10 @@ export component MainWindow inherits Window {
                         live_model_name: root.live_model_name;
                         live_model_level: root.live_model_level;
                         is_dark: root.is_dark;
-                        widget_mode: root.widget_mode;
+
 
                         switch_target(target) => { root.switch_live_session_target(target); }
-                        set_widget_mode(m) => { root.set_widget_mode(m); }
+
                         bar_hover(idx) => { root.bar_hover(idx); }
                         bar_leave() => { root.bar_leave(); }
                     }

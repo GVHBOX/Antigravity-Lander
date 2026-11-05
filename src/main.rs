@@ -9,7 +9,7 @@ mod proxy;
 mod quota;
 mod session;
 mod sound;
-pub mod widget_state;
+
 
 use anyhow::{anyhow, Result};
 use std::env;
