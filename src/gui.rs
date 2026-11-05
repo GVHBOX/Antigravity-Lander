@@ -1031,7 +1031,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
                 *cache_bytes.lock().unwrap() = total_bytes;
                 let (detail, total_text) = cache_report_text(&found);
-                let summary = format!("Cache / Code / GPU ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0));
+                let summary = if total_bytes == 0 {
+                    "无缓存占用".to_string()
+                } else {
+                    format!("分身缓存 ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0))
+                };
                 let empty = found.is_empty();
                 let _ = slint::invoke_from_event_loop(move || {
                     let Some(ui) = ui_w.upgrade() else {
@@ -1073,7 +1077,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let res = LauncherConfig::clean_sandbox_cache(&running);
                 if let Ok(clean) = res {
                     let after_mb = before_bytes.saturating_sub(clean.freed_bytes) as f64 / (1024.0 * 1024.0);
-                    let summary = format!("Cache / Code / GPU ({:.0} MB)", after_mb);
+                    let summary = if after_mb <= 0.0 {
+                        "无缓存占用".to_string()
+                    } else {
+                        format!("分身缓存 ({:.0} MB)", after_mb)
+                    };
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_w.upgrade() {
                             ui.set_cache_summary_text(summary.into());
@@ -1389,7 +1397,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let mb = total_bytes as f64 / (1024.0 * 1024.0);
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui_weak_cache.upgrade() {
-                ui.set_cache_summary_text(format!("Cache / Code / GPU ({:.0} MB)", mb).into());
+                let summary = if mb <= 0.0 {
+                    "无缓存占用".to_string()
+                } else {
+                    format!("分身缓存 ({:.0} MB)", mb)
+                };
+                ui.set_cache_summary_text(summary.into());
                 for item in &found {
                     let size_str = format!("缓存 {:.0} MB", item.bytes as f64 / (1024.0 * 1024.0));
                     match item.slot {
