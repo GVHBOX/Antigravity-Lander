@@ -550,18 +550,24 @@ export component TelemetryCard inherits Rectangle {
                         width: bar_ctx.width * root.ctx_prompt_w;
                         height: 27px;
                         background: #45a8d8;
+                        border-top-left-radius: 6px;
+                        border-bottom-left-radius: 6px;
                     }
                     Rectangle {
                         x: bar_ctx.width * root.ctx_prompt_w;
                         width: bar_ctx.width * root.ctx_cache_w;
                         height: 27px;
                         background: #2fa07d;
+                        border-top-left-radius: root.ctx_prompt_w > 0 ? 0 : 6px;
+                        border-bottom-left-radius: root.ctx_prompt_w > 0 ? 0 : 6px;
                     }
                     Rectangle {
                         x: bar_ctx.width * (root.ctx_prompt_w + root.ctx_cache_w);
                         width: bar_ctx.width * root.ctx_output_w;
                         height: 27px;
                         background: #8a91e0;
+                        border-top-left-radius: (root.ctx_prompt_w + root.ctx_cache_w) > 0 ? 0 : 6px;
+                        border-bottom-left-radius: (root.ctx_prompt_w + root.ctx_cache_w) > 0 ? 0 : 6px;
                     }
 
                     Rectangle {
@@ -569,6 +575,8 @@ export component TelemetryCard inherits Rectangle {
                         width: bar_ctx.width * root.ctx_used_pct;
                         height: 27px;
                         background: root.ctx_used_pct >= 0.95 ? #c94f5e : (root.ctx_used_pct >= 0.8 ? #c9822f : transparent);
+                        border-top-left-radius: 6px;
+                        border-bottom-left-radius: 6px;
                     }
 
                     Rectangle {
