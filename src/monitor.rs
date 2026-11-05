@@ -5,7 +5,6 @@ use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 pub struct ProcessStats {
     pub is_running: bool,
     pub electron_pid: Option<u32>,
-    pub memory_rss_mb: f64,
     pub ls_pid: Option<u32>,
     pub ls_port: Option<u16>,
     pub ls_ports: Vec<u16>,
@@ -17,7 +16,6 @@ impl Default for ProcessStats {
         Self {
             is_running: false,
             electron_pid: None,
-            memory_rss_mb: 0.0,
             ls_pid: None,
             ls_port: None,
             ls_ports: Vec::new(),
@@ -30,8 +28,6 @@ impl Default for ProcessStats {
 pub struct MonitorView {
     pub host: ProcessStats,
     pub subs: [ProcessStats; 4],
-    pub total_memory_mb: f64,
-    pub system_total_ram_mb: f64,
     pub host_uptime_secs: Option<u64>,
 }
 
@@ -39,8 +35,6 @@ pub struct TelemetryMonitor {
     sys: System,
     pub host: ProcessStats,
     pub subs: [ProcessStats; 4],
-    pub total_memory_mb: f64,
-    pub system_total_ram_mb: f64,
     cached_host_ls_pid: Option<u32>,
     cached_host_port: Option<u16>,
     cached_host_port_list: Vec<u16>,
@@ -136,15 +130,10 @@ pub(crate) fn matches_instance_slot(cmd_line: &str, slot: usize) -> bool {
 impl TelemetryMonitor {
     pub fn new() -> Self {
         let mut sys = System::new();
-        sys.refresh_memory();
         let refresh_kind = ProcessRefreshKind::nothing()
-            .with_memory()
-            .with_cpu()
             .with_cmd(UpdateKind::OnlyIfNotSet)
             .with_exe(UpdateKind::OnlyIfNotSet);
         sys.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
-        let total_ram = (sys.total_memory() as f64) / (1024.0 * 1024.0);
-        let system_total_ram_mb = if total_ram > 0.0 { total_ram } else { 32768.0 };
         Self {
             sys,
             host: ProcessStats::default(),
@@ -154,8 +143,6 @@ impl TelemetryMonitor {
                 ProcessStats::default(),
                 ProcessStats::default(),
             ],
-            total_memory_mb: 0.0,
-            system_total_ram_mb,
             cached_host_ls_pid: None,
             cached_host_port: None,
             cached_host_port_list: Vec::new(),
@@ -180,8 +167,6 @@ impl TelemetryMonitor {
         MonitorView {
             host: self.host.clone(),
             subs: self.subs.clone(),
-            total_memory_mb: self.total_memory_mb,
-            system_total_ram_mb: self.system_total_ram_mb,
             host_uptime_secs: self.host_uptime_seconds(),
         }
     }
@@ -202,10 +187,7 @@ impl TelemetryMonitor {
 
 
     pub fn refresh(&mut self, known_sub_pids: [Option<u32>; 4]) {
-        self.sys.refresh_memory();
         let refresh_kind = ProcessRefreshKind::nothing()
-            .with_memory()
-            .with_cpu()
             .with_cmd(UpdateKind::OnlyIfNotSet)
             .with_exe(UpdateKind::OnlyIfNotSet);
         self.sys.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
@@ -267,12 +249,8 @@ impl TelemetryMonitor {
         let sub_electron_pids = active_sub_pids;
         let mut sub_ls_pids = [None, None, None, None];
         let mut sub_ls_csrfs = [None, None, None, None];
-        let mut sub_mem_bytes = [0u64, 0u64, 0u64, 0u64];
-
         let mut host_ls_pid = None;
         let mut host_ls_csrf = None;
-        let mut host_mem_bytes = 0u64;
-
         for (pid, proc) in self.sys.processes() {
             let pid_u32 = pid.as_u32();
             if pid_u32 == self_pid {
@@ -316,7 +294,6 @@ impl TelemetryMonitor {
                     sub_ls_pids[slot] = Some(pid_u32);
                     sub_ls_csrfs[slot] = extract_csrf_token(proc.cmd());
                 }
-                sub_mem_bytes[slot] += proc.memory();
             } else {
                 let is_host_main = host_electron_pid == Some(pid_u32);
                 let is_host_descendant = host_electron_pid
@@ -328,7 +305,6 @@ impl TelemetryMonitor {
                         host_ls_pid = Some(pid_u32);
                         host_ls_csrf = extract_csrf_token(proc.cmd());
                     }
-                    host_mem_bytes += proc.memory();
                 }
             }
         }
@@ -407,7 +383,6 @@ impl TelemetryMonitor {
         self.host = ProcessStats {
             is_running: host_electron_pid.is_some(),
             electron_pid: host_electron_pid,
-            memory_rss_mb: (host_mem_bytes as f64) / (1024.0 * 1024.0),
             ls_pid: self.cached_host_ls_pid,
             ls_port: self.cached_host_port,
             ls_ports: self.cached_host_port_list.clone(),
@@ -418,7 +393,6 @@ impl TelemetryMonitor {
             self.subs[slot] = ProcessStats {
                 is_running: sub_electron_pids[slot].is_some(),
                 electron_pid: sub_electron_pids[slot],
-                memory_rss_mb: (sub_mem_bytes[slot] as f64) / (1024.0 * 1024.0),
                 ls_pid: self.cached_sub_ls_pids[slot],
                 ls_port: self.cached_sub_ports[slot],
                 ls_ports: self.cached_sub_port_lists[slot].clone(),
@@ -426,12 +400,7 @@ impl TelemetryMonitor {
             };
         }
 
-        self.total_memory_mb = self.host.memory_rss_mb
-            + self.subs.iter().map(|s| s.memory_rss_mb).sum::<f64>();
-        let total_ram = (self.sys.total_memory() as f64) / (1024.0 * 1024.0);
-        if total_ram > 0.0 {
-            self.system_total_ram_mb = total_ram;
-        }
+
     }
 }
 

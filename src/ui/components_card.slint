@@ -6,16 +6,8 @@ export component ComponentsCard inherits Rectangle {
     in property <string> patch_ag2_version: "未安装";
     in property <bool> proxy_injected: false;
     in property <string> proxy_status_text: "未启用";
-    in property <string> total_mem_text: "0 MB";
-    in property <float> mem_host_pct: 0.0;
-    in property <float> mem_subs_pct: 0.0;
-    in property <string> mem_detail_text: "主机 0 MB (0%) · 分身 0 MB (0%)";
     in property <string> cache_summary_text: "总计 0 MB · 0 个文件";
     in property <bool> is_dark: true;
-    property <float> mem_total_raw: Math.max(0.0, root.mem_host_pct) + Math.max(0.0, root.mem_subs_pct);
-    property <float> mem_scale: root.mem_total_raw > 1.0 ? (1.0 / root.mem_total_raw) : 1.0;
-    property <float> mem_host_w: Math.max(0.0, root.mem_host_pct) * root.mem_scale;
-    property <float> mem_subs_w: Math.max(0.0, root.mem_subs_pct) * root.mem_scale;
 
     callback toggle_patch_ag2();
     callback toggle_proxy();
@@ -62,63 +54,6 @@ export component ComponentsCard inherits Rectangle {
             btn_text: root.proxy_injected ? "移除" : "注入";
             is_dark: root.is_dark;
             btn_clicked => { root.toggle_proxy(); }
-        }
-
-        Rectangle {
-            background: root.is_dark ? #090e1c : #f8fafc;
-            border-color: root.is_dark ? #162032 : #e2e8f0;
-            border-width: 1px;
-            border-radius: 9px;
-            height: 102px;
-            VerticalLayout {
-                padding-left: 18px;
-                padding-right: 18px;
-                padding-top: 8px;
-                padding-bottom: 8px;
-                spacing: 6px;
-                HorizontalLayout {
-                    alignment: space-between;
-                    Text {
-                        text: "总物理内存占用";
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 17px;
-                    }
-                    Text {
-                        text: root.total_mem_text;
-                        color: root.is_dark ? #f8fafc : #0f172a;
-                        font-size: 20px;
-                        font-weight: 700;
-                        font-family: "Cascadia Mono";
-                    }
-                }
-                bar_mem := Rectangle {
-                    height: 9px;
-                    background: root.is_dark ? #141c2b : #e2e8f0;
-                    border-radius: 5px;
-                    clip: true;
-                    Rectangle {
-                        x: 0;
-                        width: bar_mem.width * root.mem_host_w;
-                        height: 9px;
-                        background: #38bdf8;
-                    }
-                    Rectangle {
-                        x: bar_mem.width * root.mem_host_w;
-                        width: bar_mem.width * root.mem_subs_w;
-                        height: 9px;
-                        background: #10b981;
-                    }
-                }
-                HorizontalLayout {
-                    alignment: space-between;
-                    Text {
-                        text: root.mem_detail_text;
-                        color: root.is_dark ? #64748b : #94a3b8;
-                        font-size: 16px;
-                        font-family: "Cascadia Mono";
-                    }
-                }
-            }
         }
 
         Rectangle {

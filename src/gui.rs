@@ -2096,18 +2096,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 },
             );
 
-            let host_mb = mon.host.memory_rss_mb;
-            let sub_mb: f64 = mon.subs.iter().map(|s| s.memory_rss_mb).sum();
-            let total_mb = mon.total_memory_mb;
-            ui.set_total_mem_text(format!("{:.0} MB", total_mb).into());
-            let sys_ram = if mon.system_total_ram_mb > 0.0 { mon.system_total_ram_mb } else { 32768.0 };
-            let host_mem_pct = (host_mb / sys_ram) as f32;
-            let subs_mem_pct = (sub_mb / sys_ram) as f32;
-            ui.set_mem_host_pct(host_mem_pct.clamp(0.0, 1.0));
-            ui.set_mem_subs_pct(subs_mem_pct.clamp(0.0, 1.0));
-            let avail_ram = (sys_ram - total_mb).max(0.0);
-            ui.set_mem_detail_text(format!("主号 {:.0}M · 分身 {:.0}M · 待命可用 {:.0}M", host_mb, sub_mb, avail_ram).into());
-
             let (ag2_installed, ag2_ver, p_status) = {
                 let telem = bg_telem_timer.lock().unwrap();
                 (telem.0.0, telem.0.1.clone(), telem.1.clone())
@@ -2124,7 +2112,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     running_count += 1;
                 }
             }
-            ui.set_global_summary_text(format!("{} 个实例运行中 · 内存占用 {:.0} MB · 主进程已运行 {}", running_count, total_mb, uptime_str).into());
+            ui.set_global_summary_text(format!("{} 个实例运行中 · 主进程已运行 {}", running_count, uptime_str).into());
             let proxy_badge = if p_status.is_fully_deployed() {
                 if p_status.port_online {
                     "系统代理 127.0.0.1:7890".to_string()

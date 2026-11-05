@@ -77,7 +77,7 @@ export component MainWindow inherits Window {
     in property <bool> proxy_injected: false;
     in property <string> proxy_status_text: "未注入";
 
-    in property <string> total_mem_text: "0.0 MB";
+
 
     in property <bool> sub1_running: false;
     in property <string> sub1_pid: "--";
@@ -206,7 +206,7 @@ export component MainWindow inherits Window {
     in-out property <bool> is_pinned: false;
     callback toggle_pin_window();
 
-    in property <string> global_summary_text: "0 个实例运行中 · 内存占用 0 MB · 端口正常";
+    in property <string> global_summary_text: "0 个实例运行中 · 端口正常";
     in property <string> proxy_badge_text: "系统代理 127.0.0.1:7890 (8ms)";
 
 
@@ -216,9 +216,9 @@ export component MainWindow inherits Window {
     in property <bool> sound_on: true;
     callback toggle_sound();
 
-    in property <float> mem_host_pct: 0.08;
-    in property <float> mem_subs_pct: 0.12;
-    in property <string> mem_detail_text: "主号 0M · 分身 0M · 其余待命 0M";
+
+
+
 
     in property <float> live_prompt_pct: 0.01;
     in property <float> live_cache_pct: 0.0;
@@ -288,10 +288,10 @@ export component MainWindow inherits Window {
                         patch_ag2_version: root.patch_ag2_version;
                         proxy_injected: root.proxy_injected;
                         proxy_status_text: root.proxy_status_text;
-                        total_mem_text: root.total_mem_text;
-                        mem_host_pct: root.mem_host_pct;
-                        mem_subs_pct: root.mem_subs_pct;
-                        mem_detail_text: root.mem_detail_text;
+
+
+
+
                         cache_summary_text: root.cache_summary_text;
                         is_dark: root.is_dark;
 
