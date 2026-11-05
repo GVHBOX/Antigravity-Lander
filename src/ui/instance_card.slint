@@ -153,7 +153,116 @@ export component InstanceCard inherits Rectangle {
             is_dark: root.is_dark;
         }
 
-        Rectangle { vertical-stretch: 1; }
+        Rectangle {
+            vertical-stretch: 1;
+            min-height: 80px;
+            background: root.is_dark ? #0d1527 : #ffffff;
+            border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
+            border-width: 1px;
+            border-radius: 9px;
+
+            tele_ta := TouchArea {
+                mouse-cursor: root.has_sessions ? pointer : default;
+                clicked => {
+                    if root.has_sessions {
+                        root.session_clicked();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 6px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    height: 20px;
+                    alignment: space-between;
+
+                    Text {
+                        text: "活动遥测";
+                        color: root.is_dark ? #94a3b8 : #64748b;
+                        font-size: 15px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+
+                        if root.is_running && root.pid_text != "--" : Text {
+                            text: "PID " + root.pid_text;
+                            color: root.is_dark ? #34d399 : #059669;
+                            font-size: 13px;
+                            font-weight: 600;
+                            font-family: "Cascadia Mono";
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.session_count_text != "--" ? "会话 " + root.session_count_text : (root.is_running ? "会话 0 项" : "--");
+                            color: root.has_running_session ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
+                            font-size: 13px;
+                            font-weight: 500;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: space-between;
+
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: 2px;
+                        alignment: center;
+
+                        Text {
+                            text: root.recent_project != "" && root.recent_project != "无活动会话" ? root.recent_project : (root.slot == 0 ? "主机主控" : root.instance_id_text);
+                            color: root.recent_project != "" && root.recent_project != "无活动会话" ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #64748b : #94a3b8);
+                            font-size: 14px;
+                            font-weight: 600;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.recent_title != "" ? root.recent_title : (root.is_running ? "沙箱运行中" : "--");
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 12px;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if root.recent_tokens != "" : VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: root.recent_tokens;
+                            color: root.is_dark ? #38bdf8 : #0284c7;
+                            font-size: 13px;
+                            font-weight: 600;
+                            font-family: "Cascadia Mono";
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.recent_time;
+                            color: root.is_dark ? #64748b : #94a3b8;
+                            font-size: 11px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
 
         VerticalLayout {
             spacing: 6px;

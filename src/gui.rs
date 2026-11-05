@@ -73,13 +73,74 @@ fn compact_reset_time(raw: &str) -> String {
         .replace("分钟", "分")
 }
 
+const CANONICAL_MODEL_NAMES: [&str; 3] = ["Gemini", "Claude / GPT", "Argon"];
+
 fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuotaRow> {
     let Some(st) = state.filter(|s| s.is_available) else {
         return Vec::new();
     };
-    st.models
+    let mut rows: Vec<ModelQuotaRow> = CANONICAL_MODEL_NAMES
         .iter()
-        .map(|m| {
+        .map(|&canonical_name| {
+            if let Some(m) = st.models.iter().find(|m| m.short_name == canonical_name) {
+                let weekly_ring = if m.has_weekly && m.weekly.remaining_pct >= 0.0 {
+                    crate::quota::render_quota_ring(m.weekly.remaining_pct, is_dark)
+                } else {
+                    crate::quota::render_quota_ring(-1.0, is_dark)
+                };
+                let five_h_ring = if m.has_five_h && m.five_h.remaining_pct >= 0.0 {
+                    crate::quota::render_quota_ring(m.five_h.remaining_pct, is_dark)
+                } else {
+                    crate::quota::render_quota_ring(-1.0, is_dark)
+                };
+                let weekly_pct = if m.has_weekly && !m.weekly.pct_text.is_empty() {
+                    m.weekly.pct_text.as_str().into()
+                } else {
+                    "--".into()
+                };
+                let five_h_pct = if m.has_five_h && !m.five_h.pct_text.is_empty() {
+                    m.five_h.pct_text.as_str().into()
+                } else {
+                    "--".into()
+                };
+                let weekly_reset = if m.has_weekly && !m.weekly.reset_text.is_empty() {
+                    compact_reset_time(&m.weekly.reset_text).into()
+                } else {
+                    "--".into()
+                };
+                let five_h_reset = if m.has_five_h && !m.five_h.reset_text.is_empty() {
+                    compact_reset_time(&m.five_h.reset_text).into()
+                } else {
+                    String::new().into()
+                };
+                ModelQuotaRow {
+                    name: m.short_name.as_str().into(),
+                    weekly_pct,
+                    weekly_ring,
+                    weekly_reset,
+                    five_h_pct,
+                    five_h_ring,
+                    five_h_reset,
+                    has_five_h: m.has_five_h,
+                }
+            } else {
+                let empty_ring = crate::quota::render_quota_ring(-1.0, is_dark);
+                ModelQuotaRow {
+                    name: canonical_name.into(),
+                    weekly_pct: "--".into(),
+                    weekly_ring: empty_ring.clone(),
+                    weekly_reset: "--".into(),
+                    five_h_pct: "--".into(),
+                    five_h_ring: empty_ring,
+                    five_h_reset: String::new().into(),
+                    has_five_h: false,
+                }
+            }
+        })
+        .collect();
+
+    for m in &st.models {
+        if !CANONICAL_MODEL_NAMES.contains(&m.short_name.as_str()) {
             let weekly_ring = if m.has_weekly && m.weekly.remaining_pct >= 0.0 {
                 crate::quota::render_quota_ring(m.weekly.remaining_pct, is_dark)
             } else {
@@ -110,7 +171,7 @@ fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuo
             } else {
                 String::new().into()
             };
-            ModelQuotaRow {
+            rows.push(ModelQuotaRow {
                 name: m.short_name.as_str().into(),
                 weekly_pct,
                 weekly_ring,
@@ -119,9 +180,11 @@ fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuo
                 five_h_ring,
                 five_h_reset,
                 has_five_h: m.has_five_h,
-            }
-        })
-        .collect()
+            });
+        }
+    }
+
+    rows
 }
 
 fn apply_quota_to_ui(

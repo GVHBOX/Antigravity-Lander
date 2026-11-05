@@ -231,7 +231,7 @@ export component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 9px;
-    height: 61px + Math.max(1, root.model_quotas.length) * 44px;
+    height: Math.max(193px, 61px + root.model_quotas.length * 44px);
 
     VerticalLayout {
         padding-left: 14px;
@@ -274,16 +274,20 @@ export component SubQuotaCompactBox inherits Rectangle {
             }
         }
 
-        if root.model_quotas.length == 0 : HorizontalLayout {
-            height: 42px;
-            spacing: 3px;
+        if root.model_quotas.length == 0 : VerticalLayout {
+            vertical-stretch: 1;
+            alignment: center;
 
-            Text {
-                text: "等待同步";
-                horizontal-stretch: 1;
-                color: root.is_dark ? #64748b : #94a3b8;
-                font-size: 15px;
-                vertical-alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                Text {
+                    text: "等待同步";
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 14px;
+                    font-weight: 500;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
             }
         }
 
