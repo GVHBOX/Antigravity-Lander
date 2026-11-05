@@ -254,14 +254,20 @@ fn slot_rpc_ports(mon_arc: &Arc<Mutex<TelemetryMonitor>>, slot: usize) -> Option
 }
 
 fn cache_report_text(found: &[crate::launcher::SandboxCache]) -> (String, String) {
-    let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
-    let total = total_bytes as f64 / (1024.0 * 1024.0);
+    let total_cache: u64 = found.iter().map(|c| c.bytes).sum();
+    let total_session: u64 = found.iter().map(|c| c.session_bytes).sum();
+    let cache_mb = total_cache as f64 / (1024.0 * 1024.0);
+    let session_mb = total_session as f64 / (1024.0 * 1024.0);
     let detail = found
         .iter()
-        .map(|c| format!("分身 {} · {:.1} MB", c.slot, c.bytes as f64 / (1024.0 * 1024.0)))
+        .map(|c| {
+            let c_mb = c.bytes as f64 / (1024.0 * 1024.0);
+            let s_mb = c.session_bytes as f64 / (1024.0 * 1024.0);
+            format!("分身 {} · 缓存 {:.1} MB · 会话 {:.1} MB", c.slot, c_mb, s_mb)
+        })
         .collect::<Vec<_>>()
         .join("\n");
-    (detail, format!("共 {:.1} MB", total))
+    (detail, format!("缓存总计 {:.1} MB · 会话总计 {:.1} MB", cache_mb, session_mb))
 }
 
 fn extract_recent_session_info(sessions: &InstanceSessions) -> (String, String, String, String) {
@@ -1096,13 +1102,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let cache_bytes = Arc::clone(&cache_bytes);
             std::thread::spawn(move || {
                 let found = LauncherConfig::scan_sandbox_cache(&running);
-                let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
+                let total_cache: u64 = found.iter().map(|c| c.bytes).sum();
+                let total_session: u64 = found.iter().map(|c| c.session_bytes).sum();
+                let total_bytes = total_cache + total_session;
                 *cache_bytes.lock().unwrap() = total_bytes;
                 let (detail, total_text) = cache_report_text(&found);
                 let summary = if total_bytes == 0 {
                     "无缓存占用".to_string()
                 } else {
-                    format!("分身缓存 ({:.0} MB)", total_bytes as f64 / (1024.0 * 1024.0))
+                    format!("缓存 {:.0} MB · 会话 {:.0} MB", total_cache as f64 / (1024.0 * 1024.0), total_session as f64 / (1024.0 * 1024.0))
                 };
                 let empty = found.is_empty();
                 let _ = slint::invoke_from_event_loop(move || {
@@ -1125,7 +1133,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         let view_arc = Arc::clone(&monitor_view);
         let cache_bytes = Arc::clone(&scanned_cache_bytes);
-        move || {
+        move |mode| {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
@@ -1139,23 +1147,33 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     view.subs[3].is_running,
                 ]
             };
-            let before_bytes = *cache_bytes.lock().unwrap();
             let ui_w = ui_weak.clone();
+            let cache_bytes_clone = Arc::clone(&cache_bytes);
             std::thread::spawn(move || {
-                let res = LauncherConfig::clean_sandbox_cache(&running);
-                if let Ok(clean) = res {
-                    let after_mb = before_bytes.saturating_sub(clean.freed_bytes) as f64 / (1024.0 * 1024.0);
-                    let summary = if after_mb <= 0.0 {
-                        "无缓存占用".to_string()
-                    } else {
-                        format!("分身缓存 ({:.0} MB)", after_mb)
-                    };
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_w.upgrade() {
-                            ui.set_cache_summary_text(summary.into());
+                let _ = LauncherConfig::clean_sandbox_cache(&running, mode);
+                for slot in 1..=4 {
+                    if !running[slot - 1] {
+                        if let Ok(conf) = LauncherConfig::for_slot(slot) {
+                            let gemini_dir = conf.home_dir.join(".gemini");
+                            crate::session::clean_orphaned_summaries(&gemini_dir);
                         }
-                    });
+                    }
                 }
+                let found = LauncherConfig::scan_sandbox_cache(&running);
+                let total_cache: u64 = found.iter().map(|c| c.bytes).sum();
+                let total_session: u64 = found.iter().map(|c| c.session_bytes).sum();
+                let total_bytes = total_cache + total_session;
+                *cache_bytes_clone.lock().unwrap() = total_bytes;
+                let summary = if total_bytes == 0 {
+                    "无缓存占用".to_string()
+                } else {
+                    format!("缓存 {:.0} MB · 会话 {:.0} MB", total_cache as f64 / (1024.0 * 1024.0), total_session as f64 / (1024.0 * 1024.0))
+                };
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        ui.set_cache_summary_text(summary.into());
+                    }
+                });
             });
         }
     });
@@ -1461,18 +1479,19 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     let ui_weak_cache = main_window.as_weak();
     std::thread::spawn(move || {
         let found = LauncherConfig::scan_sandbox_cache(&[false, false, false, false]);
-        let total_bytes: u64 = found.iter().map(|c| c.bytes).sum();
-        let mb = total_bytes as f64 / (1024.0 * 1024.0);
+        let total_cache: u64 = found.iter().map(|c| c.bytes).sum();
+        let total_session: u64 = found.iter().map(|c| c.session_bytes).sum();
+        let total_mb = (total_cache + total_session) as f64 / (1024.0 * 1024.0);
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui_weak_cache.upgrade() {
-                let summary = if mb <= 0.0 {
+                let summary = if total_mb <= 0.0 {
                     "无缓存占用".to_string()
                 } else {
-                    format!("分身缓存 ({:.0} MB)", mb)
+                    format!("缓存 {:.0} MB · 会话 {:.0} MB", total_cache as f64 / (1024.0 * 1024.0), total_session as f64 / (1024.0 * 1024.0))
                 };
                 ui.set_cache_summary_text(summary.into());
                 for item in &found {
-                    let size_str = format!("缓存 {:.0} MB", item.bytes as f64 / (1024.0 * 1024.0));
+                    let size_str = format!("缓存 {:.0} MB", (item.bytes + item.session_bytes) as f64 / (1024.0 * 1024.0));
                     match item.slot {
                         1 => ui.set_sub1_cache_size_text(size_str.into()),
                         2 => ui.set_sub2_cache_size_text(size_str.into()),

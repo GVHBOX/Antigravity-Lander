@@ -872,6 +872,55 @@ fn load_db_sessions(db_path: &Path) -> HashMap<String, DbMeta> {
     map
 }
 
+pub fn clean_orphaned_summaries(gemini_dir: &Path) {
+    let db_path = gemini_dir.join("antigravity").join("conversation_summaries.db");
+    let conv_dir = gemini_dir.join("antigravity").join("conversations");
+    if !db_path.is_file() {
+        return;
+    }
+    let db_str = db_path.to_string_lossy().to_string();
+    let Ok(c_path) = CString::new(db_str) else { return };
+    let Some(funcs) = get_sqlite_funcs() else {
+        return;
+    };
+    unsafe {
+        let mut db: *mut c_void = std::ptr::null_mut();
+        let rc = (funcs.open)(c_path.as_ptr(), &mut db, 2, std::ptr::null());
+        if rc != 0 || db.is_null() {
+            return;
+        }
+        let query = c"SELECT conversation_id FROM conversation_summaries";
+        let mut stmt: *mut c_void = std::ptr::null_mut();
+        let mut dead_ids = Vec::new();
+        if (funcs.prep)(db, query.as_ptr(), -1, &mut stmt, std::ptr::null_mut()) == 0 {
+            while (funcs.step)(stmt) == 100 {
+                let id_p = (funcs.col)(stmt, 0);
+                if !id_p.is_null() {
+                    let id = CStr::from_ptr(id_p as *const c_char).to_string_lossy().to_string();
+                    if !id.is_empty() {
+                        let target_db = conv_dir.join(format!("{}.db", id));
+                        if !target_db.exists() {
+                            dead_ids.push(id);
+                        }
+                    }
+                }
+            }
+            (funcs.fin)(stmt);
+        }
+        for id in dead_ids {
+            let sql = format!("DELETE FROM conversation_summaries WHERE conversation_id = '{}'", id);
+            if let Ok(c_sql) = CString::new(sql) {
+                let mut del_stmt: *mut c_void = std::ptr::null_mut();
+                if (funcs.prep)(db, c_sql.as_ptr(), -1, &mut del_stmt, std::ptr::null_mut()) == 0 {
+                    (funcs.step)(del_stmt);
+                    (funcs.fin)(del_stmt);
+                }
+            }
+        }
+        (funcs.close)(db);
+    }
+}
+
 fn extract_folder_from_workspace_uris(uris_json: &str) -> Option<String> {
     if uris_json.trim().is_empty() {
         return None;

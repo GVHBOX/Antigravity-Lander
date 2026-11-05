@@ -184,20 +184,24 @@ impl ScaleSettings {
     }
 }
 
-const CACHE_TARGETS: [&str; 5] = [
+const CACHE_TARGETS: [&str; 7] = [
     "Cache",
     "Code Cache",
     "GPUCache",
     "DawnGraphiteCache",
     "DawnWebGPUCache",
+    "GrShaderCache",
+    "logs",
 ];
 
 pub struct SandboxCache {
     pub slot: usize,
     pub bytes: u64,
+    pub session_bytes: u64,
 }
 
 pub struct CleanResult {
+    #[allow(dead_code)]
     pub freed_bytes: u64,
     #[allow(dead_code)]
     pub has_locked_files: bool,
@@ -747,14 +751,23 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                     .iter()
                     .map(|dir| dir_size(dir))
                     .sum::<u64>();
-                (bytes > 0).then_some(SandboxCache { slot, bytes })
+                let gemini_dir = conf.home_dir.join(".gemini").join("antigravity");
+                let conv_dir = gemini_dir.join("conversations");
+                let brain_dir = gemini_dir.join("brain");
+                let session_bytes = (if conv_dir.is_dir() { dir_size(&conv_dir) } else { 0 })
+                    + (if brain_dir.is_dir() { dir_size(&brain_dir) } else { 0 });
+                ((bytes + session_bytes) > 0).then_some(SandboxCache {
+                    slot,
+                    bytes,
+                    session_bytes,
+                })
             })
             .collect()
     }
 
-    pub fn clean_sandbox_cache(running_slots: &[bool; 4]) -> Result<CleanResult> {
+    pub fn clean_sandbox_cache(running_slots: &[bool; 4], mode: i32) -> Result<CleanResult> {
         let before_caches = Self::scan_sandbox_cache(running_slots);
-        let before_total: u64 = before_caches.iter().map(|c| c.bytes).sum();
+        let before_total: u64 = before_caches.iter().map(|c| c.bytes + c.session_bytes).sum();
         let mut has_locked_files = false;
 
         for slot in 1..=4 {
@@ -799,13 +812,56 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
                     has_locked_files = true;
                 }
             }
+
+            if mode == 1 {
+                let gemini_dir = conf.home_dir.join(".gemini").join("antigravity");
+                let conv_dir = gemini_dir.join("conversations");
+                let brain_dir = gemini_dir.join("brain");
+                let stale_threshold = std::time::SystemTime::now()
+                    .checked_sub(std::time::Duration::from_secs(7 * 86400))
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+
+                if let Ok(entries) = fs::read_dir(&conv_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if !path.is_file() {
+                            continue;
+                        }
+                        let is_stale = entry
+                            .metadata()
+                            .and_then(|m| m.modified())
+                            .map(|t| t < stale_threshold)
+                            .unwrap_or(false);
+                        if is_stale {
+                            let stem = path
+                                .file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or_default();
+                            let uuid = if let Some(pos) = stem.find('.') {
+                                &stem[..pos]
+                            } else {
+                                stem
+                            };
+                            if recycle_or_remove_dir(&path).is_err() {
+                                has_locked_files = true;
+                            }
+                            if !uuid.is_empty() {
+                                let brain_target = brain_dir.join(uuid);
+                                if brain_target.is_dir() {
+                                    let _ = recycle_or_remove_dir(&brain_target);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         let after_caches = Self::scan_sandbox_cache(running_slots);
-        let after_total: u64 = after_caches.iter().map(|c| c.bytes).sum();
+        let after_total: u64 = after_caches.iter().map(|c| c.bytes + c.session_bytes).sum();
         let freed_bytes = before_total.saturating_sub(after_total);
 
-        if after_total > 0 {
+        if after_total > 0 && mode == 0 {
             has_locked_files = true;
         }
 
@@ -1387,7 +1443,11 @@ fn recycle_or_remove_dir(dir: &Path) -> Result<()> {
     if ret == 0 && op.fAnyOperationsAborted == 0 && fs::symlink_metadata(dir).is_err() {
         return Ok(());
     }
-    fs::remove_dir_all(dir)?;
+    if dir.is_dir() {
+        fs::remove_dir_all(dir)?;
+    } else {
+        let _ = fs::remove_file(dir);
+    }
     Ok(())
 }
 
@@ -1396,7 +1456,11 @@ fn recycle_or_remove_dir(dir: &Path) -> Result<()> {
     if fs::symlink_metadata(dir).is_err() {
         return Ok(());
     }
-    fs::remove_dir_all(dir)?;
+    if dir.is_dir() {
+        fs::remove_dir_all(dir)?;
+    } else {
+        let _ = fs::remove_file(dir);
+    }
     Ok(())
 }
 

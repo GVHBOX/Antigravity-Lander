@@ -82,8 +82,9 @@ export component CleanCacheModal inherits Rectangle {
     in property <string> detail_text: "";
     in property <string> total_text: "";
     in property <bool> is_dark: true;
+    in-out property <int> clean_mode: 0;
     callback cancel();
-    callback confirm();
+    callback confirm(int);
 
     width: root.is_visible ? 100% : 0%;
     height: root.is_visible ? 100% : 0%;
@@ -102,7 +103,7 @@ export component CleanCacheModal inherits Rectangle {
 
         Rectangle {
             width: 600px;
-            height: 354px;
+            height: 480px;
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             background: root.is_dark ? #0f172a : #ffffff;
@@ -115,10 +116,10 @@ export component CleanCacheModal inherits Rectangle {
 
             VerticalLayout {
                 padding: 24px;
-                spacing: 15px;
+                spacing: 14px;
 
                 Text {
-                    text: "清理缓存";
+                    text: "存储管理与清理";
                     color: root.is_dark ? #f8fafc : #0f172a;
                     font-size: 21px;
                     font-weight: 700;
@@ -130,13 +131,121 @@ export component CleanCacheModal inherits Rectangle {
                     wrap: word-wrap;
                     overflow: elide;
                     color: root.is_dark ? #cbd5e1 : #475569;
-                    font-size: 18px;
+                    font-size: 16px;
                 }
 
                 Text {
                     text: root.total_text;
                     color: root.is_dark ? #94a3b8 : #64748b;
-                    font-size: 18px;
+                    font-size: 16px;
+                }
+
+                Rectangle {
+                    height: 54px;
+                    border-radius: 8px;
+                    background: root.clean_mode == 0 ? (root.is_dark ? rgba(56, 189, 248, 0.15) : rgba(56, 189, 248, 0.1)) : (root.is_dark ? #1e293b : #f1f5f9);
+                    border-color: root.clean_mode == 0 ? #38bdf8 : transparent;
+                    border-width: 1px;
+
+                    TouchArea {
+                        clicked => { root.clean_mode = 0; }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 12px;
+
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 8px;
+                            border-width: 2px;
+                            border-color: root.clean_mode == 0 ? #38bdf8 : (root.is_dark ? #64748b : #94a3b8);
+                            y: (parent.height - 16px) / 2;
+
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 4px;
+                                background: root.clean_mode == 0 ? #38bdf8 : transparent;
+                                x: 2px;
+                                y: 2px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: "无损渲染缓存";
+                                color: root.is_dark ? #f8fafc : #0f172a;
+                                font-size: 15px;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: "清理 Web 与 GPU 渲染临时数据，保留全部会话";
+                                color: root.is_dark ? #94a3b8 : #64748b;
+                                font-size: 13px;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 54px;
+                    border-radius: 8px;
+                    background: root.clean_mode == 1 ? (root.is_dark ? rgba(244, 63, 94, 0.15) : rgba(244, 63, 94, 0.1)) : (root.is_dark ? #1e293b : #f1f5f9);
+                    border-color: root.clean_mode == 1 ? #f43f5e : transparent;
+                    border-width: 1px;
+
+                    TouchArea {
+                        clicked => { root.clean_mode = 1; }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 12px;
+
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 8px;
+                            border-width: 2px;
+                            border-color: root.clean_mode == 1 ? #f43f5e : (root.is_dark ? #64748b : #94a3b8);
+                            y: (parent.height - 16px) / 2;
+
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 4px;
+                                background: root.clean_mode == 1 ? #f43f5e : transparent;
+                                x: 2px;
+                                y: 2px;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: "陈旧会话瘦身";
+                                color: root.is_dark ? #f8fafc : #0f172a;
+                                font-size: 15px;
+                                font-weight: 600;
+                            }
+
+                            Text {
+                                text: "清理 7 天前陈旧会话并同步索引";
+                                color: root.is_dark ? #94a3b8 : #64748b;
+                                font-size: 13px;
+                            }
+                        }
+                    }
                 }
 
                 HorizontalLayout {
@@ -155,7 +264,7 @@ export component CleanCacheModal inherits Rectangle {
                         text: "清理";
                         btn_color: #f43f5e;
                         is_dark: root.is_dark;
-                        clicked => { root.confirm(); }
+                        clicked => { root.confirm(root.clean_mode); }
                     }
                 }
             }

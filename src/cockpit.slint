@@ -175,7 +175,7 @@ export component MainWindow inherits Window {
     callback action_stop_sub(int);
     callback action_clear_token(int);
     callback action_open_dir(int);
-    callback action_clean_cache();
+    callback action_clean_cache(int);
     callback action_scan_cache();
 
     callback toggle_patch_ag2();
@@ -679,9 +679,9 @@ export component MainWindow inherits Window {
         total_text: root.cache_total_text;
         is_dark: root.is_dark;
         cancel => { root.clean_modal_visible = false; }
-        confirm => {
+        confirm(mode) => {
             root.clean_modal_visible = false;
-            root.action_clean_cache();
+            root.action_clean_cache(mode);
         }
     }
 
