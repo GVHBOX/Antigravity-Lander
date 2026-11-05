@@ -1889,7 +1889,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
 
                 if let Some(s) = active {
                     ui.set_live_session_is_running(s.is_running);
-                    ui.set_live_session_status_text(if s.is_running { "活跃运行中".into() } else { "".into() });
+                    ui.set_live_session_status_text(if s.is_running { "运行中".into() } else { "".into() });
                     ui.set_live_session_project(s.project_name.as_str().into());
                     ui.set_live_session_title(s.title.as_str().into());
                     ui.set_live_model_name(if s.model_name.is_empty() { "--".into() } else { s.model_name.as_str().into() });
