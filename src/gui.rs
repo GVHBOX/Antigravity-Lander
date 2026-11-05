@@ -67,6 +67,12 @@ fn to_recent_session_model(inst: &crate::session::InstanceSessions, limit: usize
     std::rc::Rc::new(slint::VecModel::from(ui_vec)).into()
 }
 
+fn compact_reset_time(raw: &str) -> String {
+    raw.replace("后重置", "")
+        .replace("小时", "时")
+        .replace("分钟", "分")
+}
+
 fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuotaRow> {
     let Some(st) = state.filter(|s| s.is_available) else {
         return Vec::new();
@@ -94,26 +100,25 @@ fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuo
             } else {
                 "--".into()
             };
-            let mut parts: Vec<String> = Vec::new();
-            if m.has_weekly && !m.weekly.reset_text.is_empty() {
-                parts.push(m.weekly.reset_text.replace("后重置", ""));
-            }
-            if m.has_five_h && !m.five_h.reset_text.is_empty() {
-                parts.push(m.five_h.reset_text.replace("后重置", ""));
-            }
-            let reset_text = if parts.is_empty() {
-                "--".to_string()
+            let weekly_reset = if m.has_weekly && !m.weekly.reset_text.is_empty() {
+                compact_reset_time(&m.weekly.reset_text).into()
             } else {
-                parts.join(" · ")
+                "--".into()
+            };
+            let five_h_reset = if m.has_five_h && !m.five_h.reset_text.is_empty() {
+                compact_reset_time(&m.five_h.reset_text).into()
+            } else {
+                String::new().into()
             };
             ModelQuotaRow {
                 name: m.short_name.as_str().into(),
                 weekly_pct,
                 weekly_ring,
+                weekly_reset,
                 five_h_pct,
                 five_h_ring,
+                five_h_reset,
                 has_five_h: m.has_five_h,
-                reset_text: reset_text.into(),
             }
         })
         .collect()

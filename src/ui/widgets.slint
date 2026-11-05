@@ -138,12 +138,12 @@ export component UserProfileRow inherits Rectangle {
             alignment: start;
 
             Rectangle {
-                width: 42px;
-                height: 42px;
-                border-radius: 21px;
+                width: 38px;
+                height: 38px;
+                border-radius: 8px;
                 clip: true;
                 background: root.is_dark ? #141c2b : #e2e8f0;
-                y: (parent.height - 42px) / 2;
+                y: (parent.height - 38px) / 2;
 
                 if root.has_avatar : Image {
                     source: root.avatar;
@@ -152,7 +152,7 @@ export component UserProfileRow inherits Rectangle {
                 }
                 if !root.has_avatar : Text {
                     text: root.user_name != "" && root.user_name != "--" ? "ID" : "--";
-                    font-size: 17px;
+                    font-size: 15px;
                     color: root.is_dark ? #64748b : #94a3b8;
                     vertical-alignment: center;
                     horizontal-alignment: center;
@@ -161,7 +161,7 @@ export component UserProfileRow inherits Rectangle {
 
             VerticalLayout {
                 alignment: center;
-                spacing: 1px;
+                spacing: 2px;
 
                 HorizontalLayout {
                     spacing: 8px;
@@ -170,7 +170,7 @@ export component UserProfileRow inherits Rectangle {
                     Text {
                         text: root.user_name == "--" ? "未登录账号" : root.user_name;
                         color: root.user_name == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                        font-size: 20px;
+                        font-size: 18px;
                         font-weight: 700;
                         overflow: elide;
                         vertical-alignment: center;
@@ -180,18 +180,18 @@ export component UserProfileRow inherits Rectangle {
                         background: root.is_dark ? rgba(16, 185, 129, 0.15) : rgba(16, 185, 129, 0.18);
                         border-color: root.is_dark ? rgba(16, 185, 129, 0.3) : rgba(16, 185, 129, 0.4);
                         border-width: 1px;
-                        border-radius: 5px;
-                        height: 24px;
-                        y: (parent.height - 24px) / 2;
+                        border-radius: 4px;
+                        height: 20px;
+                        y: (parent.height - 20px) / 2;
 
                         HorizontalLayout {
-                            padding-left: 8px;
-                            padding-right: 8px;
+                            padding-left: 6px;
+                            padding-right: 6px;
                             alignment: center;
                             Text {
                                 text: root.tier;
                                 color: root.is_dark ? #34d399 : #059669;
-                                font-size: 15px;
+                                font-size: 12px;
                                 font-weight: 700;
                                 vertical-alignment: center;
                             }
@@ -203,8 +203,7 @@ export component UserProfileRow inherits Rectangle {
                     text: root.user_name == "--" ? "首次启动自动派生沙箱" : root.user_email;
                     overflow: elide;
                     color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 15px;
-                    font-family: root.user_name == "--" ? "" : "Cascadia Mono";
+                    font-size: 13px;
                     vertical-alignment: center;
                 }
             }
@@ -217,10 +216,11 @@ export struct ModelQuotaRow {
     name: string,
     weekly_pct: string,
     weekly_ring: image,
+    weekly_reset: string,
     five_h_pct: string,
     five_h_ring: image,
+    five_h_reset: string,
     has_five_h: bool,
-    reset_text: string,
 }
 
 export component SubQuotaCompactBox inherits Rectangle {
@@ -231,142 +231,155 @@ export component SubQuotaCompactBox inherits Rectangle {
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
     border-width: 1px;
     border-radius: 9px;
-    height: 61px + Math.max(1, root.model_quotas.length) * 41px;
+    height: 61px + Math.max(1, root.model_quotas.length) * 44px;
 
     VerticalLayout {
-        padding-left: 15px;
-        padding-right: 15px;
-        padding-top: 9px;
-        padding-bottom: 9px;
-        spacing: 3px;
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 6px;
 
         HorizontalLayout {
-            height: 24px;
-            alignment: start;
+            height: 20px;
+            alignment: space-between;
 
             Text {
                 text: "模型额度";
                 color: root.is_dark ? #94a3b8 : #64748b;
-                font-size: 17px;
+                font-size: 15px;
                 font-weight: 600;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            Text {
+                text: "每周";
+                width: 78px;
+                horizontal-alignment: center;
+                color: root.is_dark ? #64748b : #94a3b8;
+                font-size: 12px;
+                font-weight: 500;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: "5小时";
+                width: 78px;
+                horizontal-alignment: center;
+                color: root.is_dark ? #64748b : #94a3b8;
+                font-size: 12px;
+                font-weight: 500;
                 vertical-alignment: center;
             }
         }
 
-        HorizontalLayout {
-            height: 16px;
-            spacing: 12px;
-
-            Rectangle {
-                horizontal-stretch: 1;
-            }
-            HorizontalLayout {
-                spacing: 4px;
-                Text {
-                    text: "每周";
-                    width: 44px;
-                    horizontal-alignment: right;
-                    color: root.is_dark ? #475569 : #94a3b8;
-                    font-size: 13px;
-                    vertical-alignment: center;
-                }
-                Rectangle { width: 24px; }
-            }
-            HorizontalLayout {
-                spacing: 4px;
-                Text {
-                    text: "5小时";
-                    width: 44px;
-                    horizontal-alignment: right;
-                    color: root.is_dark ? #475569 : #94a3b8;
-                    font-size: 13px;
-                    vertical-alignment: center;
-                }
-                Rectangle { width: 24px; }
-            }
-        }
-
         if root.model_quotas.length == 0 : HorizontalLayout {
-            height: 38px;
+            height: 42px;
             spacing: 3px;
 
             Text {
                 text: "等待同步";
                 horizontal-stretch: 1;
-                color: root.is_dark ? #475569 : #94a3b8;
-                font-size: 16px;
+                color: root.is_dark ? #64748b : #94a3b8;
+                font-size: 15px;
                 vertical-alignment: center;
             }
         }
 
-        for row in root.model_quotas : VerticalLayout {
-            height: 38px;
-            spacing: 2px;
+        for row in root.model_quotas : HorizontalLayout {
+            height: 42px;
+            alignment: space-between;
 
-            HorizontalLayout {
-                height: 24px;
-                spacing: 12px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
 
                 Text {
                     text: row.name;
-                    horizontal-stretch: 1;
-                    overflow: elide;
                     color: root.is_dark ? #cbd5e1 : #334155;
-                    font-size: 16px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    overflow: elide;
                     vertical-alignment: center;
-                }
-                HorizontalLayout {
-                    spacing: 4px;
-                    Text {
-                        text: row.weekly_pct;
-                        width: 44px;
-                        horizontal-alignment: right;
-                        color: row.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
-                        font-size: 17px;
-                        font-family: "Cascadia Mono";
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-                    Image {
-                        source: row.weekly_ring;
-                        width: 24px;
-                        height: 24px;
-                        vertical-alignment: center;
-                    }
-                }
-                HorizontalLayout {
-                    spacing: 4px;
-                    Text {
-                        text: row.has_five_h ? row.five_h_pct : "--";
-                        width: 44px;
-                        horizontal-alignment: right;
-                        color: row.has_five_h ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #475569 : #94a3b8);
-                        font-size: 17px;
-                        font-family: "Cascadia Mono";
-                        font-weight: 700;
-                        vertical-alignment: center;
-                    }
-                    if row.has_five_h : Image {
-                        source: row.five_h_ring;
-                        width: 24px;
-                        height: 24px;
-                        vertical-alignment: center;
-                    }
-                    if !row.has_five_h : Rectangle {
-                        width: 24px;
-                        height: 24px;
-                    }
                 }
             }
 
-            Text {
-                text: row.reset_text;
-                horizontal-stretch: 1;
-                overflow: elide;
-                color: root.is_dark ? #475569 : #94a3b8;
-                font-size: 12px;
-                font-family: "Cascadia Mono";
-                vertical-alignment: center;
+            VerticalLayout {
+                width: 78px;
+                alignment: center;
+                spacing: 2px;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 4px;
+
+                    Text {
+                        text: row.weekly_pct;
+                        color: row.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
+                        font-size: 15px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Image {
+                        source: row.weekly_ring;
+                        width: 20px;
+                        height: 20px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: row.weekly_reset;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                    overflow: elide;
+                }
+            }
+
+            VerticalLayout {
+                width: 78px;
+                alignment: center;
+                spacing: 2px;
+
+                if row.has_five_h : HorizontalLayout {
+                    alignment: center;
+                    spacing: 4px;
+
+                    Text {
+                        text: row.five_h_pct;
+                        color: row.five_h_pct == "0%" ? #ef4444 : (root.is_dark ? #f8fafc : #0f172a);
+                        font-size: 15px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Image {
+                        source: row.five_h_ring;
+                        width: 20px;
+                        height: 20px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                if row.has_five_h : Text {
+                    text: row.five_h_reset;
+                    color: root.is_dark ? #64748b : #94a3b8;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                    overflow: elide;
+                }
+
+                if !row.has_five_h : Text {
+                    text: "--";
+                    color: root.is_dark ? #334155 : #cbd5e1;
+                    font-size: 15px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
             }
         }
     }
