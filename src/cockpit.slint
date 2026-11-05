@@ -355,9 +355,9 @@ export component MainWindow inherits Window {
                             width: 39px;
                             height: 39px;
                             border-radius: 8px;
-                            border-color: root.sound_on ? (sound_ta.has_hover ? #38bdf8 : (root.is_dark ? rgba(56, 189, 248, 0.45) : #38bdf8)) : (sound_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
-                            border-width: 1.2px;
-                            background: root.sound_on ? (root.is_dark ? rgba(56, 189, 248, 0.16) : rgba(56, 189, 248, 0.12)) : (sound_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
+                            border-color: sound_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
+                            border-width: 1px;
+                            background: root.sound_on ? (sound_ta.has_hover ? (root.is_dark ? rgba(56, 189, 248, 0.28) : rgba(56, 189, 248, 0.20)) : (root.is_dark ? rgba(56, 189, 248, 0.20) : rgba(56, 189, 248, 0.14))) : (sound_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
 
                             sound_ta := TouchArea {
                                 clicked => { root.toggle_sound(); }
@@ -380,9 +380,9 @@ export component MainWindow inherits Window {
                             width: 39px;
                             height: 39px;
                             border-radius: 8px;
-                            border-color: root.is_pinned ? #38bdf8 : (pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
-                            border-width: 1.2px;
-                            background: root.is_pinned ? (root.is_dark ? rgba(56, 189, 248, 0.22) : rgba(56, 189, 248, 0.16)) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
+                            border-color: pin_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
+                            border-width: 1px;
+                            background: root.is_pinned ? (pin_ta.has_hover ? (root.is_dark ? rgba(56, 189, 248, 0.28) : rgba(56, 189, 248, 0.20)) : (root.is_dark ? rgba(56, 189, 248, 0.20) : rgba(56, 189, 248, 0.14))) : (pin_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
 
                             pin_ta := TouchArea {
                                 clicked => { root.toggle_pin_window(); }
@@ -401,7 +401,7 @@ export component MainWindow inherits Window {
                             height: 39px;
                             border-radius: 8px;
                             border-color: theme_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1);
-                            border-width: 1.2px;
+                            border-width: 1px;
                             background: theme_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc);
 
                             theme_ta := TouchArea {
