@@ -64,7 +64,7 @@ fn extract_csrf_token(cmd: &[std::ffi::OsString]) -> Option<String> {
     None
 }
 
-fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32) -> bool {
+pub(crate) fn is_descendant_of(sys: &System, mut current_pid: sysinfo::Pid, target_pid: u32) -> bool {
     for _ in 0..6 {
         if let Some(proc) = sys.process(current_pid) {
             if let Some(parent) = proc.parent() {

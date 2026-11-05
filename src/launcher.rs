@@ -556,21 +556,48 @@ pub fn resolve_host_user_dir() -> Option<PathBuf> {
         Ok(())
     }
 
-    pub fn kill_host_by_pid(pid: u32, ls_pid: Option<u32>) -> Result<()> {
-        let res = run_taskkill_pid(pid);
-        if let Some(ls) = ls_pid
-            && ls != pid {
-                let _ = run_taskkill_pid(ls);
+    fn collect_descendants_and_ls(root_pid: u32, extra_ls: Option<u32>) -> Vec<u32> {
+        let mut sys = sysinfo::System::new();
+        let refresh_kind = sysinfo::ProcessRefreshKind::nothing()
+            .with_cmd(sysinfo::UpdateKind::OnlyIfNotSet);
+        sys.refresh_processes_specifics(sysinfo::ProcessesToUpdate::All, true, refresh_kind);
+
+        let mut targets = Vec::new();
+        let self_pid = std::process::id();
+
+        for (p, _) in sys.processes() {
+            let p_u32 = p.as_u32();
+            if p_u32 == self_pid || p_u32 == root_pid {
+                continue;
             }
+            if crate::monitor::is_descendant_of(&sys, *p, root_pid) {
+                targets.push(p_u32);
+            }
+        }
+        if let Some(ls) = extra_ls
+            && ls != root_pid
+            && !targets.contains(&ls)
+        {
+            targets.push(ls);
+        }
+        targets
+    }
+
+    pub fn kill_host_by_pid(pid: u32, ls_pid: Option<u32>) -> Result<()> {
+        let targets = Self::collect_descendants_and_ls(pid, ls_pid);
+        let res = run_taskkill_pid(pid);
+        for target in targets {
+            let _ = run_taskkill_pid(target);
+        }
         res
     }
 
     pub fn kill_slot_by_pid(&self, pid: u32, ls_pid: Option<u32>) -> Result<()> {
+        let targets = Self::collect_descendants_and_ls(pid, ls_pid);
         let res = run_taskkill_pid(pid);
-        if let Some(ls) = ls_pid
-            && ls != pid {
-                let _ = run_taskkill_pid(ls);
-            }
+        for target in targets {
+            let _ = run_taskkill_pid(target);
+        }
         let _ = self.kill_slot_processes();
         res
     }

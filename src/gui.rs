@@ -454,7 +454,7 @@ fn hide_cockpit_to_tray(ui_weak: &slint::Weak<MainWindow>) {
 #[cfg(target_os = "windows")]
 fn show_cockpit_from_tray(ui_weak: &slint::Weak<MainWindow>) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
     };
 
     let ui_weak = ui_weak.clone();
@@ -480,6 +480,8 @@ fn show_cockpit_from_tray(ui_weak: &slint::Weak<MainWindow>) {
             unsafe {
                 if IsIconic(hwnd) != 0 {
                     ShowWindow(hwnd, SW_RESTORE);
+                } else {
+                    ShowWindow(hwnd, SW_SHOW);
                 }
                 windows_sys::Win32::Graphics::Gdi::InvalidateRect(hwnd, std::ptr::null(), 1);
                 SetForegroundWindow(hwnd);
@@ -890,7 +892,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let view = view_arc.lock().unwrap();
                 (view.host.electron_pid, view.host.ls_pid)
             };
-            let Some(pid) = pid_opt else {
+            let Some(pid) = pid_opt.or(ls_pid) else {
                 ui.set_toast_message("主账号未在运行".into());
                 return;
             };
@@ -1000,7 +1002,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let pids = sub_pids.lock().unwrap();
                 (view.subs[idx].electron_pid.or(pids[idx]), view.subs[idx].ls_pid)
             };
-            let Some(pid) = pid_to_kill else {
+            let Some(pid) = pid_to_kill.or(ls_pid) else {
                 ui.set_toast_message(format!("分身 {} 未在运行", slot).into());
                 return;
             };

@@ -34,6 +34,7 @@ impl Drop for SingleInstanceGuard {
 fn acquire_single_instance() -> Result<Option<SingleInstanceGuard>> {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
     use windows_sys::Win32::System::Threading::{CreateEventW, CreateMutexW, SetEvent};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY};
 
     let mutex_name: Vec<u16> = "Local\\AntigravityCockpit.SingleInstance\0"
         .encode_utf16()
@@ -54,6 +55,7 @@ fn acquire_single_instance() -> Result<Option<SingleInstanceGuard>> {
     }
     if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         unsafe {
+            AllowSetForegroundWindow(ASFW_ANY);
             SetEvent(activation_event);
             windows_sys::Win32::Foundation::CloseHandle(activation_event);
             windows_sys::Win32::Foundation::CloseHandle(mutex);
