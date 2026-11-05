@@ -45,6 +45,21 @@
 | `data/sound_settings.json` | 任务完成音效配置 | 音效开关与自定义音效路径，由前端回调安全读写，禁止破坏数据结构 |
 | `assets/icon.png` / `icon.ico` | Slint 唯一图资 / 原生图标 | `.gitignore` 显式保留，严禁从版本库中移除或误排除 |
 
+### 资产清理与安全兜底准则（软删除容错铁律）
+
+- **严禁直接物理抹除**：除 `.scratch/` 根目录下的无价值临时草稿外，严禁对工程内任何现有目录或文件执行绕过回收站的底层不可逆删除指令（严禁 `Remove-Item -Force`、`rmdir /s /q` 等）。
+- **两重容错安全垫（二选一强制执行）**：
+  1. **移入 Windows 系统回收站（软删除，默认优先）**：
+     清理非代码冗余资产（如中间构建产物、历史缓存等）时，必须调用 Windows Shell API 软删除至回收站，为用户保留人工查验与一键撤销能力：
+     ```powershell
+     # 目录软删除至回收站
+     Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($path, 'OnlyErrorDialogs', 'SendToRecycleBin')
+     # 文件软删除至回收站
+     Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($path, 'OnlyErrorDialogs', 'SendToRecycleBin')
+     ```
+  2. **移入 `.scratch/` 暂存隔离区**：
+     对需要剥离但暂未确认彻底废弃的文件或目录，使用 `Move-Item` 平铺移动至 `.scratch/` 暂存，留待用户人工决定清空时机。
+
 ## 项目纪律与架构边界
 
 - **槽位与沙箱目录 1:1 对齐**：分身 1~4 严格对应 `data/instance_1` ~ `instance_4`，禁止槽位编号错位。
