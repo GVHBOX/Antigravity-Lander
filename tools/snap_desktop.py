@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SHOTS_DIR = ROOT / ".scratch" / "shots"
+SHOTS_DIR = ROOT / ".scratch"
 
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
@@ -220,7 +220,7 @@ def main():
         default="window",
         help="截取目标: window(主视口), widget(悬浮球), full(全桌面)",
     )
-    parser.add_argument("-o", "--output", help="输出图片路径 (缺省自动保存至 .scratch/shots/)")
+    parser.add_argument("-o", "--output", help="输出图片路径 (缺省自动保存至 .scratch/)")
     parser.add_argument("--selfcheck", action="store_true", help="校验抓取通道")
     args = parser.parse_args()
 

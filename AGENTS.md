@@ -20,12 +20,8 @@
 - **界面零说明字（Zero UI Noise）**：界面仅允许呈现字段名、必填标记 `*`、出错具体原因、禁用原因与空状态占位提示，禁止教学引导与操作解释。
 - **高信息密度支持**：在遵循零说明字前提下，鼓励以紧凑指标盒、分段度量条、存储占用统计等纯客观数据切片呈现高密度遥测。
 
-### 3. `.scratch/` —— 执行方案、实机截图与临时收容
-- **子目录规约**：
-  - `plans/`：方案实体 `.md` 落盘目录（防长上下文截断锚点）。
-  - `shots/`：验收凭据实机截图。
-  - `archive/`：废弃代码、旧探针与临时产物归档。
-  - `scripts/`：临时诊断与验证单次脚本。
+### 3. `.scratch/` —— 纯临时工作区（随用随清）
+- **定位与规约**：纯临时草稿、执行方案（`.md`）、截图与调试产物收容区，随用随清，用户可随时整目录一键清空。所有临时文件平铺直接放在 `.scratch/` 根目录下，禁止划分多级子目录过度分类。
 - **根目录严格白名单**：源码（`src/`）、资源（`assets/`）、工具（`tools/`）、构建缓存（`target/`）、数据（`data/`）、配置文件与元文件（`Cargo.toml`、`Cargo.lock`、`build.rs`、`README.md`、`AGENTS.md`、`LICENSE`、`.gitignore`）以及发布产物（`Antigravity-Lander.exe`）。
 - **资源保护**：`assets/icon.png` 为 Slint 唯一引用的图片资产（`.gitignore` 显式保留，禁止排除）；`assets/icon.ico` 为应用原生图标。
 - **路径规范**：Windows 路径采用原生格式 `D:\...`。
@@ -95,8 +91,8 @@
   python tools/check_sandbox_health.py                      # 沙箱 Junction 与红线隔离健康巡检
   python tools/check_architecture_boundaries.py             # Rust 模块分层与依赖单向性检查
 
-  # 3. 实机原画取证（输出至 .scratch/shots/）
-  SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/shots/preview_default.png src/cockpit.slint -I assets
+  # 3. 实机原画取证（输出至 .scratch/）
+  SLINT_SCALE_FACTOR=1.0 slint-viewer --screenshot .scratch/preview_default.png src/cockpit.slint -I assets
   python tools/snap_desktop.py                              # 桌面实机主视口原画捕获（1:1 物理 2250x1305）
   python tools/snap_desktop.py --target widget               # 桌面悬浮球实机原画捕获
   ```
