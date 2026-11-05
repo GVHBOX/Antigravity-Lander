@@ -366,13 +366,13 @@ export component MainWindow inherits Window {
 
                             if root.sound_on : SpeakerIcon {
                                 icon_color: sound_ta.has_hover ? #f8fafc : #38bdf8;
-                                x: (parent.width - 18px) / 2;
-                                y: (parent.height - 18px) / 2;
+                                x: (parent.width - 22px) / 2;
+                                y: (parent.height - 22px) / 2;
                             }
                             if !root.sound_on : SpeakerMuteIcon {
                                 icon_color: sound_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8);
-                                x: (parent.width - 18px) / 2;
-                                y: (parent.height - 18px) / 2;
+                                x: (parent.width - 22px) / 2;
+                                y: (parent.height - 22px) / 2;
                             }
                         }
 
