@@ -255,7 +255,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
             Text {
                 text: "每周";
-                width: 78px;
+                width: 72px;
                 horizontal-alignment: center;
                 color: root.is_dark ? #64748b : #94a3b8;
                 font-size: 12px;
@@ -265,7 +265,7 @@ export component SubQuotaCompactBox inherits Rectangle {
 
             Text {
                 text: "5小时";
-                width: 78px;
+                width: 72px;
                 horizontal-alignment: center;
                 color: root.is_dark ? #64748b : #94a3b8;
                 font-size: 12px;
@@ -306,7 +306,7 @@ export component SubQuotaCompactBox inherits Rectangle {
             }
 
             VerticalLayout {
-                width: 78px;
+                width: 72px;
                 alignment: center;
                 spacing: 2px;
 
@@ -316,6 +316,8 @@ export component SubQuotaCompactBox inherits Rectangle {
 
                     Text {
                         text: row.weekly_pct;
+                        width: 38px;
+                        horizontal-alignment: right;
                         color: row.weekly_pct == "--" ? (root.is_dark ? #64748b : #94a3b8) : (root.is_dark ? #f8fafc : #0f172a);
                         font-size: 15px;
                         font-weight: 700;
@@ -340,7 +342,7 @@ export component SubQuotaCompactBox inherits Rectangle {
             }
 
             VerticalLayout {
-                width: 78px;
+                width: 72px;
                 alignment: center;
                 spacing: 2px;
 
@@ -350,6 +352,8 @@ export component SubQuotaCompactBox inherits Rectangle {
 
                     Text {
                         text: row.five_h_pct;
+                        width: 38px;
+                        horizontal-alignment: right;
                         color: row.five_h_pct == "0%" ? #ef4444 : (root.is_dark ? #f8fafc : #0f172a);
                         font-size: 15px;
                         font-weight: 700;
@@ -372,13 +376,28 @@ export component SubQuotaCompactBox inherits Rectangle {
                     overflow: elide;
                 }
 
-                if !row.has_five_h : Text {
-                    text: "--";
-                    color: root.is_dark ? #334155 : #cbd5e1;
-                    font-size: 15px;
-                    font-weight: 600;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+                if !row.has_five_h : HorizontalLayout {
+                    alignment: center;
+                    spacing: 4px;
+
+                    Text {
+                        text: "--";
+                        width: 38px;
+                        horizontal-alignment: right;
+                        color: root.is_dark ? #334155 : #cbd5e1;
+                        font-size: 15px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                    }
+                }
+
+                if !row.has_five_h : Rectangle {
+                    height: 11px;
                 }
             }
         }
