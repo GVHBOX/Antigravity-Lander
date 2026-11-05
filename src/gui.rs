@@ -822,11 +822,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let view_arc = Arc::clone(&monitor_view);
         move || {
             let pid_opt = view_arc.lock().unwrap().host.electron_pid;
-            if let Some(pid) = pid_opt {
-                std::thread::spawn(move || {
-                    let _ = LauncherConfig::bring_to_front(pid);
-                });
-            } else {
+            if pid_opt.is_none() {
                 let _ = LauncherConfig::spawn_host_native();
             }
         }
@@ -878,13 +874,11 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 view.subs[idx].electron_pid.or(pids[idx])
             };
 
-            if let Some(pid) = running_pid {
-                std::thread::spawn(move || {
-                    let _ = LauncherConfig::bring_to_front(pid);
-                });
-            } else if let Ok(new_pid) = conf.spawn_detached() {
-                let mut pids = sub_pids.lock().unwrap();
-                pids[idx] = Some(new_pid);
+            if running_pid.is_none() {
+                if let Ok(new_pid) = conf.spawn_detached() {
+                    let mut pids = sub_pids.lock().unwrap();
+                    pids[idx] = Some(new_pid);
+                }
             }
         }
     });

@@ -202,13 +202,6 @@ export component InstanceCard inherits Rectangle {
                 }
                 if root.is_running : CompactButton {
                     horizontal-stretch: 1;
-                    text: "打开";
-                    btn_color: #38bdf8;
-                    is_dark: root.is_dark;
-                    clicked => { root.launch(); }
-                }
-                if root.is_running : CompactButton {
-                    horizontal-stretch: 1;
                     text: "停止";
                     btn_color: #f43f5e;
                     is_dark: root.is_dark;
