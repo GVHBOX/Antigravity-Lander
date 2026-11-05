@@ -222,39 +222,6 @@ export component UserProfileRow inherits Rectangle {
     }
 }
 
-export component QuotaRefreshButton inherits Rectangle {
-    in property <bool> is_refreshing: false;
-    in property <bool> is_disabled: false;
-    in property <bool> is_dark: true;
-    in property <angle> spin_angle: 0deg;
-    callback clicked();
-
-    width: 27px;
-    height: 27px;
-    border-radius: 6px;
-    border-width: 1px;
-    background: is_disabled ? (root.is_dark ? rgba(30, 41, 59, 0.4) : rgba(226, 232, 240, 0.5)) : (ta.has_hover && !root.is_refreshing ? (root.is_dark ? #334155 : #cbd5e1) : (root.is_dark ? #1e293b : #e2e8f0));
-    border-color: is_disabled ? (root.is_dark ? rgba(51, 65, 85, 0.4) : rgba(203, 213, 225, 0.5)) : (root.is_dark ? #334155 : #cbd5e1);
-
-    animate background { duration: 150ms; }
-    animate border-color { duration: 150ms; }
-
-    ta := TouchArea {
-        enabled: !root.is_disabled && !root.is_refreshing;
-        mouse-cursor: (root.is_disabled || root.is_refreshing) ? default : pointer;
-        clicked => { root.clicked(); }
-    }
-
-    Image {
-        width: 17px;
-        height: 17px;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        source: @image-url("../../assets/refresh.svg");
-        colorize: root.is_disabled ? (root.is_dark ? #475569 : #94a3b8) : (ta.has_hover ? (root.is_dark ? #f8fafc : #0f172a) : (root.is_dark ? #cbd5e1 : #475569));
-        transform-rotation: root.spin_angle;
-    }
-}
 
 export struct ModelQuotaRow {
     name: string,
@@ -269,10 +236,6 @@ export struct ModelQuotaRow {
 export component SubQuotaCompactBox inherits Rectangle {
     in property <[ModelQuotaRow]> model_quotas: [];
     in property <bool> is_dark: true;
-    in property <bool> is_refreshing: false;
-    in property <bool> is_refresh_disabled: false;
-    in property <angle> spin_angle: 0deg;
-    callback refresh_clicked();
 
     background: root.is_dark ? #0d1527 : #ffffff;
     border-color: root.is_dark ? rgba(255, 255, 255, 0.06) : #e2e8f0;
@@ -290,7 +253,6 @@ export component SubQuotaCompactBox inherits Rectangle {
         HorizontalLayout {
             height: 24px;
             alignment: start;
-            spacing: 9px;
 
             Text {
                 text: "模型额度";
@@ -298,14 +260,6 @@ export component SubQuotaCompactBox inherits Rectangle {
                 font-size: 17px;
                 font-weight: 600;
                 vertical-alignment: center;
-            }
-
-            QuotaRefreshButton {
-                is_refreshing: root.is_refreshing;
-                is_disabled: root.is_refresh_disabled;
-                is_dark: root.is_dark;
-                spin_angle: root.spin_angle;
-                clicked => { root.refresh_clicked(); }
             }
         }
 

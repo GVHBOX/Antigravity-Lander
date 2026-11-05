@@ -20,9 +20,7 @@ export component InstanceCard inherits Rectangle {
     in property <bool> has_avatar: false;
     in property <string> port_text: "";
     in property <[ModelQuotaRow]> model_quotas: [];
-    in property <bool> quota_refreshing: false;
     in property <bool> token_present: false;
-    in property <angle> spin_angle: 0deg;
     in property <string> session_count_text: "--";
     in property <string> recent_project: "暂无活动会话";
     in property <string> recent_title: "";
@@ -37,7 +35,6 @@ export component InstanceCard inherits Rectangle {
 
     property <bool> show_menu: false;
 
-    callback refresh_quota();
     callback session_clicked();
     callback adjust_scale(int);
     callback reset_scale();
@@ -178,10 +175,6 @@ export component InstanceCard inherits Rectangle {
         SubQuotaCompactBox {
             model_quotas: root.model_quotas;
             is_dark: root.is_dark;
-            is_refreshing: root.quota_refreshing;
-            is_refresh_disabled: !root.token_present;
-            spin_angle: root.spin_angle;
-            refresh_clicked => { root.refresh_quota(); }
         }
 
         Rectangle { vertical-stretch: 1; }

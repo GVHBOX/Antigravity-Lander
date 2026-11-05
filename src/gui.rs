@@ -1407,84 +1407,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         });
     });
 
-    main_window.on_action_refresh_quota({
-        let ui_weak = main_window.as_weak();
-        let mon_refresh = Arc::clone(&monitor);
-        let qs_refresh = Arc::clone(&quota_states);
-        let qc_refresh = Arc::clone(&quota_cache);
-        move |slot_i32| {
-            let slot = slot_i32 as usize;
-            if slot > 4 {
-                return;
-            }
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
-
-            let is_running = {
-                let mon = mon_refresh.lock().unwrap();
-                if slot == 0 {
-                    mon.host.is_running
-                } else {
-                    mon.subs[slot - 1].is_running
-                }
-            };
-
-            if !is_running {
-                return;
-            }
-
-            match slot {
-                0 => ui.set_host_quota_refreshing(true),
-                1 => ui.set_sub1_quota_refreshing(true),
-                2 => ui.set_sub2_quota_refreshing(true),
-                3 => ui.set_sub3_quota_refreshing(true),
-                4 => ui.set_sub4_quota_refreshing(true),
-                _ => {}
-            }
-
-            let ui_weak_async = ui_weak.clone();
-            let mon_arc = Arc::clone(&mon_refresh);
-            let qs_arc = Arc::clone(&qs_refresh);
-            let qc_arc = Arc::clone(&qc_refresh);
-
-            std::thread::spawn(move || {
-                let tag = if slot == 0 { "host".to_string() } else { format!("sub{}", slot) };
-                let state_opt = slot_rpc_ports(&mon_arc, slot)
-                    .map(|(ports, csrf)| crate::quota::fetch_instance_quota(&ports, &csrf, &tag))
-                    .filter(|st| st.is_available);
-
-                if let Some(ref st) = state_opt {
-                    {
-                        let mut qs = qs_arc.lock().unwrap();
-                        qs[slot] = st.clone();
-                    }
-                    {
-                        let mut qc = qc_arc.lock().unwrap();
-                        if crate::quota::quota_state_changed(qc.get_slot(slot), st) {
-                            qc.set_slot(slot, st.clone());
-                            crate::quota::save_quota_cache(&qc);
-                        }
-                    }
-                }
-
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak_async.upgrade() {
-                        match slot {
-                            0 => ui.set_host_quota_refreshing(false),
-                            1 => ui.set_sub1_quota_refreshing(false),
-                            2 => ui.set_sub2_quota_refreshing(false),
-                            3 => ui.set_sub3_quota_refreshing(false),
-                            4 => ui.set_sub4_quota_refreshing(false),
-                            _ => {}
-                        }
-
-                    }
-                });
-            });
-        }
-    });
-
     let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let mon_bg = Arc::clone(&monitor);
@@ -1671,28 +1593,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             wake_sessions_timer.store(true, std::sync::atomic::Ordering::Relaxed);
         }
         was_iconic = is_iconic;
-    });
-
-    let spin_timer = Timer::default();
-    let ui_weak_spin = main_window.as_weak();
-    let mut current_spin_deg = 0.0f32;
-    spin_timer.start(TimerMode::Repeated, std::time::Duration::from_millis(40), move || {
-        let Some(ui) = ui_weak_spin.upgrade() else {
-            return;
-        };
-        let is_any_refreshing = ui.get_host_quota_refreshing()
-            || ui.get_sub1_quota_refreshing()
-            || ui.get_sub2_quota_refreshing()
-            || ui.get_sub3_quota_refreshing()
-            || ui.get_sub4_quota_refreshing();
-
-        if is_any_refreshing {
-            current_spin_deg = (current_spin_deg + 18.0) % 360.0;
-            ui.set_quota_spin_angle(current_spin_deg);
-        } else if current_spin_deg != 0.0 {
-            current_spin_deg = 0.0;
-            ui.set_quota_spin_angle(0.0);
-        }
     });
 
     let ui_tick = move || {

@@ -59,8 +59,6 @@ export component MainWindow inherits Window {
     in property <image> host_avatar;
     in property <bool> host_has_avatar: false;
     in property <[ModelQuotaRow]> host_model_quotas: [];
-    in property <bool> host_quota_refreshing: false;
-    in property <angle> quota_spin_angle: 0deg;
     in property <bool> host_has_running: false;
     in property <bool> host_has_sessions: false;
 
@@ -82,7 +80,6 @@ export component MainWindow inherits Window {
     in property <image> sub1_avatar;
     in property <bool> sub1_has_avatar: false;
     in property <[ModelQuotaRow]> sub1_model_quotas: [];
-    in property <bool> sub1_quota_refreshing: false;
     in property <bool> sub1_has_running: false;
     in property <bool> sub1_has_sessions: false;
 
@@ -97,7 +94,6 @@ export component MainWindow inherits Window {
     in property <image> sub2_avatar;
     in property <bool> sub2_has_avatar: false;
     in property <[ModelQuotaRow]> sub2_model_quotas: [];
-    in property <bool> sub2_quota_refreshing: false;
     in property <bool> sub2_has_running: false;
     in property <bool> sub2_has_sessions: false;
 
@@ -112,7 +108,6 @@ export component MainWindow inherits Window {
     in property <image> sub3_avatar;
     in property <bool> sub3_has_avatar: false;
     in property <[ModelQuotaRow]> sub3_model_quotas: [];
-    in property <bool> sub3_quota_refreshing: false;
     in property <bool> sub3_has_running: false;
     in property <bool> sub3_has_sessions: false;
 
@@ -127,7 +122,6 @@ export component MainWindow inherits Window {
     in property <image> sub4_avatar;
     in property <bool> sub4_has_avatar: false;
     in property <[ModelQuotaRow]> sub4_model_quotas: [];
-    in property <bool> sub4_quota_refreshing: false;
     in property <bool> sub4_has_running: false;
     in property <bool> sub4_has_sessions: false;
 
@@ -193,7 +187,6 @@ export component MainWindow inherits Window {
     callback adjust_sub_scale(int, int);
     callback reset_host_scale();
     callback reset_sub_scale(int);
-    callback action_refresh_quota(int);
 
     in-out property <bool> is_pinned: false;
     callback toggle_pin_window();
@@ -438,9 +431,7 @@ export component MainWindow inherits Window {
                         has_avatar: root.host_has_avatar;
                         port_text: root.host_port;
                         model_quotas: root.host_model_quotas;
-                        quota_refreshing: root.host_quota_refreshing;
                         token_present: root.host_token_present;
-                        spin_angle: root.quota_spin_angle;
                         session_count_text: root.host_session_count_text;
                         recent_project: root.host_recent_project;
                         recent_title: root.host_recent_title;
@@ -453,7 +444,6 @@ export component MainWindow inherits Window {
                         scale_text: root.host_scale_text;
                         is_dark: root.is_dark;
 
-                        refresh_quota => { root.action_refresh_quota(0); }
                         session_clicked => {
                             root.session_modal_slot = 0;
                             root.session_modal_visible = true;
@@ -487,9 +477,7 @@ export component MainWindow inherits Window {
                             has_avatar: root.sub1_has_avatar;
                             port_text: root.sub1_port;
                         model_quotas: root.sub1_model_quotas;
-                            quota_refreshing: root.sub1_quota_refreshing;
                             token_present: root.sub1_token_present;
-                            spin_angle: root.quota_spin_angle;
                             session_count_text: root.sub1_session_count_text;
                             recent_project: root.sub1_recent_project;
                             recent_title: root.sub1_recent_title;
@@ -502,7 +490,6 @@ export component MainWindow inherits Window {
                             scale_text: root.sub1_scale_text;
                             is_dark: root.is_dark;
 
-                            refresh_quota => { root.action_refresh_quota(1); }
                             session_clicked => {
                                 root.session_modal_slot = 1;
                                 root.session_modal_visible = true;
@@ -536,9 +523,7 @@ export component MainWindow inherits Window {
                             has_avatar: root.sub2_has_avatar;
                             port_text: root.sub2_port;
                         model_quotas: root.sub2_model_quotas;
-                            quota_refreshing: root.sub2_quota_refreshing;
                             token_present: root.sub2_token_present;
-                            spin_angle: root.quota_spin_angle;
                             session_count_text: root.sub2_session_count_text;
                             recent_project: root.sub2_recent_project;
                             recent_title: root.sub2_recent_title;
@@ -551,7 +536,6 @@ export component MainWindow inherits Window {
                             scale_text: root.sub2_scale_text;
                             is_dark: root.is_dark;
 
-                            refresh_quota => { root.action_refresh_quota(2); }
                             session_clicked => {
                                 root.session_modal_slot = 2;
                                 root.session_modal_visible = true;
@@ -585,9 +569,7 @@ export component MainWindow inherits Window {
                             has_avatar: root.sub3_has_avatar;
                             port_text: root.sub3_port;
                         model_quotas: root.sub3_model_quotas;
-                            quota_refreshing: root.sub3_quota_refreshing;
                             token_present: root.sub3_token_present;
-                            spin_angle: root.quota_spin_angle;
                             session_count_text: root.sub3_session_count_text;
                             recent_project: root.sub3_recent_project;
                             recent_title: root.sub3_recent_title;
@@ -600,7 +582,6 @@ export component MainWindow inherits Window {
                             scale_text: root.sub3_scale_text;
                             is_dark: root.is_dark;
 
-                            refresh_quota => { root.action_refresh_quota(3); }
                             session_clicked => {
                                 root.session_modal_slot = 3;
                                 root.session_modal_visible = true;
@@ -634,9 +615,7 @@ export component MainWindow inherits Window {
                             has_avatar: root.sub4_has_avatar;
                             port_text: root.sub4_port;
                         model_quotas: root.sub4_model_quotas;
-                            quota_refreshing: root.sub4_quota_refreshing;
                             token_present: root.sub4_token_present;
-                            spin_angle: root.quota_spin_angle;
                             session_count_text: root.sub4_session_count_text;
                             recent_project: root.sub4_recent_project;
                             recent_title: root.sub4_recent_title;
@@ -649,7 +628,6 @@ export component MainWindow inherits Window {
                             scale_text: root.sub4_scale_text;
                             is_dark: root.is_dark;
 
-                            refresh_quota => { root.action_refresh_quota(4); }
                             session_clicked => {
                                 root.session_modal_slot = 4;
                                 root.session_modal_visible = true;
