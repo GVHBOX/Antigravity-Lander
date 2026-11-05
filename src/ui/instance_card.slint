@@ -76,25 +76,25 @@ export component InstanceCard inherits Rectangle {
                 }
 
                 Rectangle {
-                    background: root.is_running ? (root.is_dark ? rgba(16, 185, 129, 0.12) : rgba(16, 185, 129, 0.15)) : (root.is_dark ? rgba(100, 116, 139, 0.12) : rgba(148, 163, 184, 0.15));
-                    border-color: root.is_running ? (root.is_dark ? rgba(16, 185, 129, 0.28) : rgba(16, 185, 129, 0.38)) : (root.is_dark ? rgba(100, 116, 139, 0.25) : rgba(148, 163, 184, 0.35));
+                    background: root.is_running ? (root.is_dark ? rgba(16, 185, 129, 0.20) : rgba(16, 185, 129, 0.14)) : (root.is_dark ? #090e1c : #f8fafc);
+                    border-color: root.is_running ? (root.is_dark ? rgba(16, 185, 129, 0.45) : rgba(16, 185, 129, 0.55)) : (root.is_dark ? #1e293b : #cbd5e1);
                     border-width: 1px;
-                    border-radius: 11px;
-                    height: 22px;
-                    y: (parent.height - 22px) / 2;
+                    border-radius: 6px;
+                    height: 26px;
+                    y: (parent.height - 26px) / 2;
 
                     HorizontalLayout {
                         padding-left: 8px;
                         padding-right: 8px;
-                        spacing: 5px;
+                        spacing: 6px;
                         alignment: center;
 
                         Rectangle {
-                            width: 7px;
-                            height: 7px;
-                            border-radius: 3.5px;
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 2px;
                             background: root.is_running ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                            y: (parent.height - 7px) / 2;
+                            y: (parent.height - 6px) / 2;
                         }
 
                         Text {
