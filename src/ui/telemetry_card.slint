@@ -13,7 +13,8 @@ component HistBarCol inherits Rectangle {
         width: 7px;
         x: (parent.width - self.width) / 2;
         height: Math.max(4.5px, Math.min(root.height - 6px, root.bar_ratio * (root.height - 6px)));
-        border-radius: 2px;
+        border-top-left-radius: 1.5px;
+        border-top-right-radius: 1.5px;
         background: ta.has-hover ? #38bdf8 : (root.is_latest ? #10b981 : (root.is_dark ? rgba(16, 185, 129, 0.38) : rgba(5, 150, 105, 0.42)));
     }
 
@@ -94,11 +95,11 @@ export component TelemetryCard inherits Rectangle {
             HorizontalLayout {
                 spacing: 9px;
                 Rectangle {
-                    width: 12px;
-                    height: 12px;
-                    border-radius: 6px;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 2px;
                     background: root.live_session_is_running ? #10b981 : (root.is_dark ? #475569 : #94a3b8);
-                    y: (parent.height - 12px) / 2;
+                    y: (parent.height - 8px) / 2;
                 }
                 Text {
                     text: "状态";

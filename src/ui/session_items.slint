@@ -53,11 +53,11 @@ export component SessionGroupHeader inherits Rectangle {
             }
 
             if root.has_running : Rectangle {
-                width: 11px;
-                height: 11px;
-                border-radius: 5px;
+                width: 8px;
+                height: 8px;
+                border-radius: 2px;
                 background: #10b981;
-                y: (parent.height - 11px) / 2;
+                y: (parent.height - 8px) / 2;
             }
         }
 
@@ -287,11 +287,11 @@ export component SubSessionCardBox inherits Rectangle {
                 spacing: 9px;
 
                 Rectangle {
-                    width: 9px;
-                    height: 9px;
-                    border-radius: 5px;
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
                     background: item.is_running ? #10b981 : (root.is_dark ? #475569 : #94a3b8);
-                    y: (parent.height - 9px) / 2;
+                    y: (parent.height - 7px) / 2;
                 }
 
                 Text {
@@ -332,11 +332,11 @@ export component SubSessionCardBox inherits Rectangle {
                 height: 21px;
 
                 if root.is_running : Rectangle {
-                    width: 9px;
-                    height: 9px;
-                    border-radius: 5px;
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
                     background: #10b981;
-                    y: (parent.height - 9px) / 2;
+                    y: (parent.height - 7px) / 2;
                 }
                 Text {
                     text: root.is_running ? "运行中 (刚刚刷新)" : (root.has_sessions ? root.time_text : "就绪 (未分配)");

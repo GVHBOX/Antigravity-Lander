@@ -66,11 +66,11 @@ export component PatchItemRow inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 Rectangle {
-                    width: 9px;
-                    height: 9px;
-                    border-radius: 5px;
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
                     background: root.is_installed ? #10b981 : (root.is_dark ? #64748b : #94a3b8);
-                    y: (parent.height - 9px) / 2;
+                    y: (parent.height - 7px) / 2;
                 }
                 Text {
                     text: root.status_text;
