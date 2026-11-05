@@ -701,35 +701,22 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let ui_w = ui_weak.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
-                        let msg = if is_on {
-                            "完成音效已开启"
-                        } else {
-                            "完成音效已关闭"
-                        };
                         ui.set_sound_on(is_on);
-                        ui.set_toast_message(msg.into());
                     }
                 });
             } else if event.id == sound_pick_id {
                 let owner_hwnd = get_cockpit_hwnd() as isize;
                 let cfg_arc = Arc::clone(&sound_cfg_menu);
-                let ui_w = ui_weak.clone();
                 std::thread::spawn(move || {
                     let Some(picked) = crate::sound::pick_sound_file(owner_hwnd) else {
                         return;
                     };
-                    let name = crate::sound::file_stem_of(&picked);
                     {
                         let mut cfg = cfg_arc.lock().unwrap();
                         cfg.sound_file = Some(picked.to_string_lossy().to_string());
                         let _ = cfg.save();
                     }
                     crate::sound::play_done_sound(&picked);
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_w.upgrade() {
-                            ui.set_toast_message(format!("完成音效: {}", name).into());
-                        }
-                    });
                 });
             } else {
                 let target_slot = if event.id == sub1_id {
@@ -770,16 +757,9 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     }));
 
     let sound_cfg_preview = Arc::clone(&sound_config);
-    let main_weak_preview = main_window.as_weak();
     main_window.on_preview_sound(move || {
         let cfg = sound_cfg_preview.lock().unwrap().clone();
-        let msg: String = match crate::sound::play_done_or_builtin(&cfg) {
-            Some(name) => format!("完成音效: {}", name),
-            None => "完成音效: 内置提示音".to_string(),
-        };
-        if let Some(ui) = main_weak_preview.upgrade() {
-            ui.set_toast_message(msg.into());
-        }
+        let _ = crate::sound::play_done_or_builtin(&cfg);
     });
 
     let sound_cfg_sound = Arc::clone(&sound_config);
@@ -793,12 +773,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         };
         if let Some(ui) = main_weak_sound.upgrade() {
             ui.set_sound_on(is_on);
-            let msg = if is_on {
-                "完成音效已开启"
-            } else {
-                "完成音效已关闭"
-            };
-            ui.set_toast_message(msg.into());
         }
     });
 
@@ -840,91 +814,52 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 ui.set_is_pinned(next);
                 #[cfg(target_os = "windows")]
                 set_cockpit_always_on_top(next);
-                ui.set_toast_message(if next { "窗口已固定置顶" } else { "已取消窗口置顶" }.into());
             }
         }
     });
 
     main_window.on_action_launch_host({
-        let ui_weak = main_window.as_weak();
         let view_arc = Arc::clone(&monitor_view);
         move || {
             let pid_opt = view_arc.lock().unwrap().host.electron_pid;
             if let Some(pid) = pid_opt {
-                let ui_w = ui_weak.clone();
                 std::thread::spawn(move || {
-                    let opened = LauncherConfig::bring_to_front(pid);
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_w.upgrade() {
-                            ui.set_toast_message(
-                                if opened {
-                                    format!("主账号已打开 (PID: {})", pid)
-                                } else {
-                                    format!("主账号正在运行 (PID: {})", pid)
-                                }
-                                .into(),
-                            );
-                        }
-                    });
+                    let _ = LauncherConfig::bring_to_front(pid);
                 });
-            } else if let Some(ui) = ui_weak.upgrade() {
-                match LauncherConfig::spawn_host_native() {
-                    Ok(new_pid) => {
-                        ui.set_toast_message(format!("主账号已启动 (PID: {})", new_pid).into());
-                    }
-                    Err(e) => {
-                        ui.set_toast_message(format!("启动主账号失败: {}", e).into());
-                    }
-                }
+            } else {
+                let _ = LauncherConfig::spawn_host_native();
             }
         }
     });
 
     main_window.on_action_stop_host({
-        let ui_weak = main_window.as_weak();
         let view_arc = Arc::clone(&monitor_view);
         let mon_arc = Arc::clone(&monitor);
         move || {
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
             let (pid_opt, ls_pid) = {
                 let view = view_arc.lock().unwrap();
                 (view.host.electron_pid, view.host.ls_pid)
             };
             let Some(pid) = pid_opt.or(ls_pid) else {
-                ui.set_toast_message("主账号未在运行".into());
                 return;
             };
-            let ui_w = ui_weak.clone();
             let mon_bg = Arc::clone(&mon_arc);
             std::thread::spawn(move || {
                 let res = LauncherConfig::kill_host_by_pid(pid, ls_pid);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_w.upgrade() {
-                        match res {
-                            Ok(()) => {
-                                let mut mon = mon_bg.lock().unwrap();
-                                mon.host.is_running = false;
-                                mon.host.electron_pid = None;
-                                mon.host.ls_pid = None;
-                                mon.host.ls_port = None;
-                                mon.host.ls_ports.clear();
-                                ui.set_toast_message(format!("主账号已停止 (PID: {})", pid).into());
-                            }
-                            Err(e) => {
-                                ui.set_toast_message(format!("停止主账号失败: {}", e).into());
-                            }
-                        }
-                    }
-                });
+                if res.is_ok() {
+                    let mut mon = mon_bg.lock().unwrap();
+                    mon.host.is_running = false;
+                    mon.host.electron_pid = None;
+                    mon.host.ls_pid = None;
+                    mon.host.ls_port = None;
+                    mon.host.ls_ports.clear();
+                }
             });
         }
     });
 
 
     main_window.on_action_launch_sub({
-        let ui_weak = main_window.as_weak();
         let view_arc = Arc::clone(&monitor_view);
         let sub_pids = Arc::clone(&sub_pids);
         move |slot| {
@@ -932,50 +867,24 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 return;
             }
             let idx = (slot - 1) as usize;
-            if let Some(ui) = ui_weak.upgrade() {
-                let conf = match LauncherConfig::for_slot(slot as usize) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        ui.set_toast_message(format!("分身 {} 配置异常: {}", slot, e).into());
-                        return;
-                    }
-                };
+            let conf = match LauncherConfig::for_slot(slot as usize) {
+                Ok(c) => c,
+                Err(_) => return,
+            };
 
-                let running_pid = {
-                    let view = view_arc.lock().unwrap();
-                    let pids = sub_pids.lock().unwrap();
-                    view.subs[idx].electron_pid.or(pids[idx])
-                };
+            let running_pid = {
+                let view = view_arc.lock().unwrap();
+                let pids = sub_pids.lock().unwrap();
+                view.subs[idx].electron_pid.or(pids[idx])
+            };
 
-                if let Some(pid) = running_pid {
-                    let ui_w = ui_weak.clone();
-                    std::thread::spawn(move || {
-                        let opened = LauncherConfig::bring_to_front(pid);
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(ui) = ui_w.upgrade() {
-                                ui.set_toast_message(
-                                    if opened {
-                                        format!("分身 {} 已打开 (PID: {})", slot, pid)
-                                    } else {
-                                        format!("分身 {} 正在运行 (PID: {})", slot, pid)
-                                    }
-                                    .into(),
-                                );
-                            }
-                        });
-                    });
-                } else {
-                    match conf.spawn_detached() {
-                        Ok(new_pid) => {
-                            let mut pids = sub_pids.lock().unwrap();
-                            pids[idx] = Some(new_pid);
-                            ui.set_toast_message(format!("分身 {} 已启动 (PID: {})", slot, new_pid).into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("分身 {} 启动失败: {}", slot, e).into());
-                        }
-                    }
-                }
+            if let Some(pid) = running_pid {
+                std::thread::spawn(move || {
+                    let _ = LauncherConfig::bring_to_front(pid);
+                });
+            } else if let Ok(new_pid) = conf.spawn_detached() {
+                let mut pids = sub_pids.lock().unwrap();
+                pids[idx] = Some(new_pid);
             }
         }
     });
@@ -990,7 +899,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 return;
             }
             let idx = (slot - 1) as usize;
-            let Some(ui) = ui_weak.upgrade() else {
+            if ui_weak.upgrade().is_none() {
                 return;
             };
             let conf = match LauncherConfig::for_slot(slot as usize) {
@@ -1003,7 +912,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 (view.subs[idx].electron_pid.or(pids[idx]), view.subs[idx].ls_pid)
             };
             let Some(pid) = pid_to_kill.or(ls_pid) else {
-                ui.set_toast_message(format!("分身 {} 未在运行", slot).into());
                 return;
             };
             let ui_w = ui_weak.clone();
@@ -1011,47 +919,41 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let pids_arc = Arc::clone(&sub_pids);
             std::thread::spawn(move || {
                 let res = conf.kill_slot_by_pid(pid, ls_pid);
-                let _ = slint::invoke_from_event_loop(move || {
-                    let Some(ui) = ui_w.upgrade() else {
-                        return;
-                    };
-                    match res {
-                        Ok(()) => {
-                            pids_arc.lock().unwrap()[idx] = None;
-                            {
-                                let mut mon = mon_bg.lock().unwrap();
-                                mon.subs[idx].is_running = false;
-                                mon.subs[idx].electron_pid = None;
-                                mon.subs[idx].ls_pid = None;
-                                mon.subs[idx].ls_port = None;
-                                mon.subs[idx].ls_ports.clear();
-                            }
-                            match slot {
-                                1 => {
-                                    ui.set_sub1_running(false);
-                                    ui.set_sub1_pid("--".into());
-                                }
-                                2 => {
-                                    ui.set_sub2_running(false);
-                                    ui.set_sub2_pid("--".into());
-                                }
-                                3 => {
-                                    ui.set_sub3_running(false);
-                                    ui.set_sub3_pid("--".into());
-                                }
-                                4 => {
-                                    ui.set_sub4_running(false);
-                                    ui.set_sub4_pid("--".into());
-                                }
-                                _ => {}
-                            }
-                            ui.set_toast_message(format!("分身 {} 已停止 (PID: {})", slot, pid).into());
+                if res.is_ok() {
+                    let _ = slint::invoke_from_event_loop(move || {
+                        let Some(ui) = ui_w.upgrade() else {
+                            return;
+                        };
+                        pids_arc.lock().unwrap()[idx] = None;
+                        {
+                            let mut mon = mon_bg.lock().unwrap();
+                            mon.subs[idx].is_running = false;
+                            mon.subs[idx].electron_pid = None;
+                            mon.subs[idx].ls_pid = None;
+                            mon.subs[idx].ls_port = None;
+                            mon.subs[idx].ls_ports.clear();
                         }
-                        Err(e) => {
-                            ui.set_toast_message(format!("停止分身 {} 失败: {}", slot, e).into());
+                        match slot {
+                            1 => {
+                                ui.set_sub1_running(false);
+                                ui.set_sub1_pid("--".into());
+                            }
+                            2 => {
+                                ui.set_sub2_running(false);
+                                ui.set_sub2_pid("--".into());
+                            }
+                            3 => {
+                                ui.set_sub3_running(false);
+                                ui.set_sub3_pid("--".into());
+                            }
+                            4 => {
+                                ui.set_sub4_running(false);
+                                ui.set_sub4_pid("--".into());
+                            }
+                            _ => {}
                         }
-                    }
-                });
+                    });
+                }
             });
         }
     });
@@ -1076,78 +978,43 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
     };
 
     main_window.on_action_clear_token({
-        let ui_weak = main_window.as_weak();
         let mon_arc = Arc::clone(&monitor);
         move |slot| {
             if !(0..=4).contains(&slot) {
                 return;
             }
-            if let Some(ui) = ui_weak.upgrade() {
-                let running = {
-                    let mon = mon_arc.lock().unwrap();
-                    if slot == 0 {
-                        mon.host.is_running
-                    } else {
-                        mon.subs[(slot - 1) as usize].is_running
-                    }
-                };
-                if running {
-                    if slot == 0 {
-                        ui.set_toast_message("主账号正在运行，无法清理凭据".into());
-                    } else {
-                        ui.set_toast_message(format!("分身 {} 正在运行，无法清理凭据", slot).into());
-                    }
-                    return;
-                }
+            let running = {
+                let mon = mon_arc.lock().unwrap();
                 if slot == 0 {
-                    match LauncherConfig::clear_host_token() {
-                        Ok(true) => {
-                            reset_cleared_quota(0);
-                            ui.set_toast_message("主账号凭据已清理".into());
-                        }
-                        Ok(false) => {
-                            ui.set_toast_message("主账号暂无已保存凭据".into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("清理凭据失败: {}", e).into());
-                        }
-                    }
-                    return;
+                    mon.host.is_running
+                } else {
+                    mon.subs[(slot - 1) as usize].is_running
                 }
-                match LauncherConfig::for_slot(slot as usize) {
-                    Ok(conf) => match conf.clear_token() {
-                        Ok(true) => {
-                            reset_cleared_quota(slot as usize);
-                            ui.set_toast_message(format!("分身 {} 凭据已清理", slot).into());
-                        }
-                        Ok(false) => {
-                            ui.set_toast_message(format!("分身 {} 暂无已保存凭据", slot).into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("清理凭据失败: {}", e).into());
-                        }
-                    },
-                    Err(e) => {
-                        ui.set_toast_message(format!("获取配置失败: {}", e).into());
-                    }
+            };
+            if running {
+                return;
+            }
+            if slot == 0 {
+                if let Ok(true) = LauncherConfig::clear_host_token() {
+                    reset_cleared_quota(0);
+                }
+                return;
+            }
+            if let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
+                if let Ok(true) = conf.clear_token() {
+                    reset_cleared_quota(slot as usize);
                 }
             }
         }
     });
 
     main_window.on_action_open_dir({
-        let ui_weak = main_window.as_weak();
         move |slot| {
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
             if slot == 0 {
                 let _ = LauncherConfig::open_app_dir_in_explorer();
-                ui.set_toast_message("已打开程序目录".into());
             } else if (1..=4).contains(&slot)
                 && let Ok(conf) = LauncherConfig::for_slot(slot as usize) {
                     let _ = conf.open_sandbox_in_explorer();
-                    ui.set_toast_message(format!("已打开分身 {} 目录", slot).into());
                 }
         }
     });
@@ -1180,7 +1047,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         return;
                     };
                     if empty {
-                        ui.set_toast_message("没有可清理的缓存".into());
                         return;
                     }
                     ui.set_cache_detail_text(detail.into());
@@ -1214,33 +1080,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             let ui_w = ui_weak.clone();
             std::thread::spawn(move || {
                 let res = LauncherConfig::clean_sandbox_cache(&running);
-                let (summary, toast) = match res {
-                    Ok(clean) => {
-                        let mb = clean.freed_bytes as f64 / (1024.0 * 1024.0);
-                        let after_mb = before_bytes.saturating_sub(clean.freed_bytes) as f64 / (1024.0 * 1024.0);
-                        let toast = if clean.has_locked_files && mb > 0.0 {
-                            format!("已清理 {:.1} MB，部分文件被占用", mb)
-                        } else if clean.has_locked_files && mb == 0.0 {
-                            "文件被占用，无法清理".to_string()
-                        } else {
-                            format!("缓存已清理 ({:.1} MB)", mb)
-                        };
-                        (format!("Cache / Code / GPU ({:.0} MB)", after_mb), toast)
-                    }
-                    Err(e) => (
-                        String::new(),
-                        format!("清理缓存失败: {}", e),
-                    ),
-                };
-                let _ = slint::invoke_from_event_loop(move || {
-                    let Some(ui) = ui_w.upgrade() else {
-                        return;
-                    };
-                    if !summary.is_empty() {
-                        ui.set_cache_summary_text(summary.into());
-                    }
-                    ui.set_toast_message(toast.into());
-                });
+                if let Ok(clean) = res {
+                    let after_mb = before_bytes.saturating_sub(clean.freed_bytes) as f64 / (1024.0 * 1024.0);
+                    let summary = format!("Cache / Code / GPU ({:.0} MB)", after_mb);
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_w.upgrade() {
+                            ui.set_cache_summary_text(summary.into());
+                        }
+                    });
+                }
             });
         }
     });
@@ -1251,9 +1099,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         move || {
             if is_patching_ag2.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                if let Some(ui) = ui_weak.upgrade() {
-                    ui.set_toast_message("正在处理...".into());
-                }
                 return;
             }
             let ui_w = ui_weak.clone();
@@ -1274,21 +1119,13 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     });
                     return;
                 }
-                let res = LauncherConfig::toggle_ag2_patch();
+                let _ = LauncherConfig::toggle_ag2_patch();
                 let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
                 flag.store(false, std::sync::atomic::Ordering::SeqCst);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_w.upgrade() {
-                        match res {
-                            Ok(state) => {
-                                ui.set_patch_ag2_installed(is_patched);
-                                ui.set_patch_ag2_version(ver.into());
-                                ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
-                            }
-                            Err(e) => {
-                                ui.set_toast_message(format!("{}", e).into());
-                            }
-                        }
+                        ui.set_patch_ag2_installed(is_patched);
+                        ui.set_patch_ag2_version(ver.into());
                     }
                 });
             });
@@ -1301,9 +1138,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         move || {
             if is_patching_proxy.load(std::sync::atomic::Ordering::SeqCst) {
-                if let Some(ui) = ui_weak.upgrade() {
-                    ui.set_toast_message("正在处理...".into());
-                }
                 return;
             }
             if let Some(ui) = ui_weak.upgrade() {
@@ -1317,29 +1151,15 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 }
                 let status = ProxyManager::check_status();
                 if status.is_fully_deployed() {
-                    match ProxyManager::remove_all() {
-                        Ok(summary) => {
-                            let now = ProxyManager::check_status();
-                            ui.set_proxy_injected(now.is_fully_deployed());
-                            ui.set_proxy_status_text(now.status_text().into());
-                            ui.set_toast_message(summary.status_text().into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("移除代理失败: {}", e).into());
-                        }
+                    if ProxyManager::remove_all().is_ok() {
+                        let now = ProxyManager::check_status();
+                        ui.set_proxy_injected(now.is_fully_deployed());
+                        ui.set_proxy_status_text(now.status_text().into());
                     }
-                } else {
-                    match ProxyManager::deploy_all() {
-                        Ok(msg) => {
-                            let now = ProxyManager::check_status();
-                            ui.set_proxy_injected(now.is_fully_deployed());
-                            ui.set_proxy_status_text(now.status_text().into());
-                            ui.set_toast_message(msg.into());
-                        }
-                        Err(e) => {
-                            ui.set_toast_message(format!("开启代理失败: {}", e).into());
-                        }
-                    }
+                } else if ProxyManager::deploy_all().is_ok() {
+                    let now = ProxyManager::check_status();
+                    ui.set_proxy_injected(now.is_fully_deployed());
+                    ui.set_proxy_status_text(now.status_text().into());
                 }
             }
         }
@@ -1351,38 +1171,24 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         let ui_weak = main_window.as_weak();
         move || {
             if is_patching_confirm.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                if let Some(ui) = ui_weak.upgrade() {
-                    ui.set_toast_message("正在处理...".into());
-                }
                 return;
             }
             let Some(action) = pending_confirm.lock().unwrap().take() else {
                 is_patching_confirm.store(false, std::sync::atomic::Ordering::SeqCst);
                 return;
             };
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast_message("正在处理...".into());
-            }
             let ui_weak_async = ui_weak.clone();
             let is_patching_bg = Arc::clone(&is_patching_confirm);
             std::thread::spawn(move || {
                 match action {
                     PendingPatchAction::TogglePatchAg2 => {
                         let _ = LauncherConfig::kill_all_antigravity();
-                        let res = LauncherConfig::toggle_ag2_patch();
+                        let _ = LauncherConfig::toggle_ag2_patch();
                         let (is_patched, ver) = LauncherConfig::check_ag2_patch_status();
                         let _ = slint::invoke_from_event_loop(move || {
                             if let Some(ui) = ui_weak_async.upgrade() {
-                                match res {
-                                    Ok(state) => {
-                                        ui.set_patch_ag2_installed(is_patched);
-                                        ui.set_patch_ag2_version(ver.into());
-                                        ui.set_toast_message(if state { "已安装 Antigravity 2.0 汉化" } else { "已还原 Antigravity 2.0" }.into());
-                                    }
-                                    Err(e) => {
-                                        ui.set_toast_message(format!("{}", e).into());
-                                    }
-                                }
+                                ui.set_patch_ag2_installed(is_patched);
+                                ui.set_patch_ag2_version(ver.into());
                             }
                         });
                     }
@@ -1390,37 +1196,21 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                         let _ = LauncherConfig::kill_all_antigravity();
                         let status = ProxyManager::check_status();
                         if status.is_fully_deployed() {
-                            let res = ProxyManager::remove_all();
+                            let _ = ProxyManager::remove_all();
                             let now = ProxyManager::check_status();
                             let _ = slint::invoke_from_event_loop(move || {
                                 if let Some(ui) = ui_weak_async.upgrade() {
-                                    match res {
-                                        Ok(summary) => {
-                                            ui.set_proxy_injected(now.is_fully_deployed());
-                                            ui.set_proxy_status_text(now.status_text().into());
-                                            ui.set_toast_message(summary.status_text().into());
-                                        }
-                                        Err(e) => {
-                                            ui.set_toast_message(format!("移除代理失败: {}", e).into());
-                                        }
-                                    }
+                                    ui.set_proxy_injected(now.is_fully_deployed());
+                                    ui.set_proxy_status_text(now.status_text().into());
                                 }
                             });
                         } else {
-                            let res = ProxyManager::deploy_all();
+                            let _ = ProxyManager::deploy_all();
                             let now = ProxyManager::check_status();
                             let _ = slint::invoke_from_event_loop(move || {
                                 if let Some(ui) = ui_weak_async.upgrade() {
-                                    match res {
-                                        Ok(msg) => {
-                                            ui.set_proxy_injected(now.is_fully_deployed());
-                                            ui.set_proxy_status_text(now.status_text().into());
-                                            ui.set_toast_message(msg.into());
-                                        }
-                                        Err(e) => {
-                                            ui.set_toast_message(format!("开启代理失败: {}", e).into());
-                                        }
-                                    }
+                                    ui.set_proxy_injected(now.is_fully_deployed());
+                                    ui.set_proxy_status_text(now.status_text().into());
                                 }
                             });
                         }
@@ -1440,7 +1230,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 scales.adjust_host(delta);
                 let _ = scales.save();
                 ui.set_host_scale_text(format!("{}%", scales.host).into());
-                ui.set_toast_message(format!("主账号界面调节: {}% (重启生效)", scales.host).into());
             }
         }
     });
@@ -1454,7 +1243,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 scales.host = 100;
                 let _ = scales.save();
                 ui.set_host_scale_text("100%".into());
-                ui.set_toast_message("主账号界面已重置为 100% (重启生效)".into());
             }
         }
     });
@@ -1473,13 +1261,12 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 let val = scales.get_sub_scale(slot as usize);
                 let text = format!("{}%", val);
                 match slot {
-                    1 => ui.set_sub1_scale_text(text.clone().into()),
-                    2 => ui.set_sub2_scale_text(text.clone().into()),
-                    3 => ui.set_sub3_scale_text(text.clone().into()),
-                    4 => ui.set_sub4_scale_text(text.clone().into()),
+                    1 => ui.set_sub1_scale_text(text.into()),
+                    2 => ui.set_sub2_scale_text(text.into()),
+                    3 => ui.set_sub3_scale_text(text.into()),
+                    4 => ui.set_sub4_scale_text(text.into()),
                     _ => {}
                 }
-                ui.set_toast_message(format!("分身 {} 界面调节: {} (重启生效)", slot, text).into());
             }
         }
     });
@@ -1508,7 +1295,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     4 => ui.set_sub4_scale_text("100%".into()),
                     _ => {}
                 }
-                ui.set_toast_message(format!("分身 {} 界面已重置为 100% (重启生效)", slot).into());
             }
         }
     });
@@ -1547,7 +1333,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                 };
                 ui.set_live_session_target_slot(slot_val);
                 ui.set_live_session_target_text(target_text.into());
-                ui.set_toast_message(format!("已设为 {}", target_text).into());
             }
         }
     });
@@ -1652,7 +1437,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             };
 
             if !is_running {
-                ui.set_toast_message("实例未运行".into());
                 return;
             }
 
@@ -1676,7 +1460,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                     .map(|(ports, csrf)| crate::quota::fetch_instance_quota(&ports, &csrf, &tag))
                     .filter(|st| st.is_available);
 
-                let is_ok = state_opt.is_some();
                 if let Some(ref st) = state_opt {
                     {
                         let mut qs = qs_arc.lock().unwrap();
@@ -1701,11 +1484,7 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
                             4 => ui.set_sub4_quota_refreshing(false),
                             _ => {}
                         }
-                        if is_ok {
-                            ui.set_toast_message("配额已更新".into());
-                        } else {
-                            ui.set_toast_message("未获取到配额".into());
-                        }
+
                     }
                 });
             });

@@ -47,14 +47,6 @@ export component MainWindow inherits Window {
 
     in-out property <bool> is_dark: true;
     in-out property <int> redraw_tick: 0;
-    in-out property <string> toast_message: "";
-    in-out property <bool> toast_visible: false;
-    changed toast_message => {
-        if (root.toast_message != "") {
-            root.toast_visible = true;
-            toast_timer.restart();
-        }
-    }
 
     in property <bool> host_running: false;
     in property <bool> host_token_present: false;
@@ -697,46 +689,6 @@ export component MainWindow inherits Window {
         }
     }
 
-    VerticalLayout {
-        y: root.height - 117px;
-        x: 0;
-        width: 100%;
-        height: 42px;
-        alignment: center;
-
-        Rectangle {
-            visible: root.toast_visible;
-            max-width: root.width - 90px;
-            height: 42px;
-            border-radius: 11px;
-            background: root.is_dark ? rgba(9, 14, 28, 0.96) : rgba(255, 255, 255, 0.96);
-            border-color: root.is_dark ? rgba(56, 189, 248, 0.45) : rgba(2, 132, 199, 0.4);
-            border-width: 1px;
-
-            HorizontalLayout {
-                padding-left: 18px;
-                padding-right: 18px;
-                alignment: center;
-                Text {
-                    text: root.toast_message;
-                    max-width: root.width - 126px;
-                    overflow: elide;
-                    color: root.is_dark ? #f8fafc : #0f172a;
-                    font-size: 18px;
-                    font-family: "Cascadia Mono";
-                    vertical-alignment: center;
-                }
-            }
-        }
-    }
-
-    toast_timer := Timer {
-        interval: 2600ms;
-        triggered => {
-            root.toast_message = "";
-            root.toast_visible = false;
-        }
-    }
 
     ConfirmModal {
         is_visible: root.confirm_modal_visible;

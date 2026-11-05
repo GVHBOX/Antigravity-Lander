@@ -71,6 +71,7 @@ pub struct RemovalSummary {
     pub foreign: bool,
 }
 
+#[allow(dead_code)]
 impl RemovalSummary {
     pub fn status_text(&self) -> String {
         if self.clean {

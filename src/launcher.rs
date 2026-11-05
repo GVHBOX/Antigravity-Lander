@@ -199,6 +199,7 @@ pub struct SandboxCache {
 
 pub struct CleanResult {
     pub freed_bytes: u64,
+    #[allow(dead_code)]
     pub has_locked_files: bool,
 }
 
