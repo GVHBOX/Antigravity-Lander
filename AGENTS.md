@@ -64,10 +64,14 @@
 ## 交付规范与进程接管
 
 - **原位物理覆盖**：编译完成后，必须将 `target/release/antigravity-lander.exe` 原位覆盖到根目录 `Antigravity-Lander.exe`，禁止创建别名文件（如 `_new.exe`）或仅滞留在构建目录。
-- **旧进程接管授权**：若覆盖或测试时遭遇文件锁（WinError 32）或单实例互斥锁占用，授权调用 `taskkill /PID <pid> /F` 精准终止本项目历史构建的旧管理器进程，解除占用后立即完成物理覆盖。
+- **全局强杀接管**：若覆盖或测试时遭遇文件锁（WinError 32）或单实例互斥锁占用，授权调用 `taskkill /F /IM Antigravity-Lander.exe` 全局彻底终止所有旧管理器进程（禁止仅杀单 PID 遗留孤儿实例），解除占用后立即完成物理覆盖。
+- **环境纯净终态（Clean Exit 铁律，严禁后台留驻）**：
+  - AI 在终端中拉起的所有测试进程（包括为运行 `snap_desktop.py` 临时拉起的实机进程），在取证验证完成后**必须在交卷前彻底终止（`taskkill /F /IM Antigravity-Lander.exe`）**。
+  - 交付结束时，系统内**严禁残留任何 AI 启动的后台无窗或失焦管理器进程**，彻底释放 `Local\AntigravityCockpit.SingleInstance` 互斥锁。
+  - 正式桌面的主应用启动权 100% 留给用户在 Windows Explorer 中正常双击。
 - **验收凭证原则**：
-  - 普通组件静态 UI 变更：使用 `SLINT_SCALE_FACTOR=1.0 slint-viewer` 截取原生渲染图（禁止用 `--size` 拉伸视口产生失真图）；
-  - 桌面级交互与原生窗口：涉及 Win32 窗口与托盘的交互，必须使用 `tools/snap_desktop.py` 捕获 1:1 桌面物理原画及系统回执取证；
+  - 普通组件静态 UI 变更：仅使用 `SLINT_SCALE_FACTOR=1.0 slint-viewer` 截取原生渲染图（禁止用 `--size` 拉伸视口产生失真图），**严禁为了静态 UI 截图而在后台启动真实应用**；
+  - 桌面级交互与原生窗口：涉及 Win32 窗口置顶、托盘与物理窗口联动时，允许临时启动管理器并用 `tools/snap_desktop.py` 取证，**取证完成后必须立刻强杀该临时测试进程**；
   - 后台逻辑与进程启停：以真实 PID 与系统返回值为准。
 
 ## 环境事实与检查指令
