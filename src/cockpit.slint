@@ -1,12 +1,11 @@
 import { SessionUiItem } from "ui/session_items.slint";
 export { SessionUiItem }
 
-import { PinIcon, SunIcon, MoonIcon } from "ui/icons.slint";
+import { PinIcon, SunIcon, MoonIcon, SpeakerIcon, SpeakerMuteIcon } from "ui/icons.slint";
 import { ComponentsCard } from "ui/components_card.slint";
 import { TelemetryCard } from "ui/telemetry_card.slint";
 import { InstanceCard } from "ui/instance_card.slint";
 import { ModelQuotaRow } from "ui/widgets.slint";
-import { StatusToolbar } from "ui/toolbar.slint";
 import { ConfirmModal, CleanCacheModal, PatchModal, SessionListModal } from "ui/modals.slint";
 
 
@@ -191,13 +190,7 @@ export component MainWindow inherits Window {
     in-out property <bool> is_pinned: false;
     callback toggle_pin_window();
 
-    in property <string> global_summary_text: "0 个实例运行中 · 端口正常";
-    in property <string> proxy_badge_text: "系统代理 127.0.0.1:7890 (8ms)";
-
-
-
     callback action_stop_host();
-    callback preview_sound();
     in property <bool> sound_on: true;
     callback toggle_sound();
 
@@ -223,7 +216,6 @@ export component MainWindow inherits Window {
     in property <[SessionUiItem]> sub3_session_items: [];
     in property <[SessionUiItem]> sub4_session_items: [];
 
-    in property <string> sub_running_count_text: "活动分身: 0 / 4";
     in property <string> sub1_session_count_text: "--";
     in property <string> sub2_session_count_text: "--";
     in property <string> sub3_session_count_text: "--";
@@ -250,14 +242,11 @@ export component MainWindow inherits Window {
     in property <string> sub4_recent_time: "等待初始化";
 
     VerticalLayout {
-        spacing: 0;
-
-        VerticalLayout {
-            padding-left: 15px;
-            padding-right: 15px;
-            padding-top: 15px;
-            spacing: 12px;
-            vertical-stretch: 1;
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-top: 15px;
+        padding-bottom: 15px;
+        spacing: 12px;
 
             Rectangle {
                 vertical-stretch: 1;
@@ -361,6 +350,31 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         spacing: 12px;
                         alignment: end;
+
+                        Rectangle {
+                            width: 39px;
+                            height: 39px;
+                            border-radius: 8px;
+                            border-color: root.sound_on ? (sound_ta.has_hover ? #38bdf8 : (root.is_dark ? rgba(56, 189, 248, 0.45) : #38bdf8)) : (sound_ta.has_hover ? (root.is_dark ? #334155 : #94a3b8) : (root.is_dark ? #1e293b : #cbd5e1));
+                            border-width: 1px;
+                            background: root.sound_on ? (root.is_dark ? rgba(56, 189, 248, 0.16) : rgba(56, 189, 248, 0.12)) : (sound_ta.has_hover ? (root.is_dark ? #162032 : #e2e8f0) : (root.is_dark ? #090e1c : #f8fafc));
+
+                            sound_ta := TouchArea {
+                                clicked => { root.toggle_sound(); }
+                                mouse-cursor: pointer;
+                            }
+
+                            if root.sound_on : SpeakerIcon {
+                                icon_color: sound_ta.has_hover ? #f8fafc : #38bdf8;
+                                x: (parent.width - 18px) / 2;
+                                y: (parent.height - 18px) / 2;
+                            }
+                            if !root.sound_on : SpeakerMuteIcon {
+                                icon_color: sound_ta.has_hover ? (root.is_dark ? #cbd5e1 : #334155) : (root.is_dark ? #64748b : #94a3b8);
+                                x: (parent.width - 18px) / 2;
+                                y: (parent.height - 18px) / 2;
+                            }
+                        }
 
                         Rectangle {
                             width: 39px;
@@ -647,24 +661,6 @@ export component MainWindow inherits Window {
                 }
             }
 
-        }
-
-        HorizontalLayout {
-            padding-left: 15px;
-            padding-right: 15px;
-            padding-bottom: 15px;
-
-            StatusToolbar {
-                horizontal-stretch: 1;
-                is_dark: root.is_dark;
-                sound_on: root.sound_on;
-                global_summary_text: root.global_summary_text;
-                proxy_badge_text: root.proxy_badge_text;
-                sub_running_count_text: root.sub_running_count_text;
-                preview_sound => { root.preview_sound(); }
-                toggle_sound => { root.toggle_sound(); }
-            }
-        }
     }
 
 

@@ -88,6 +88,7 @@ impl RemovalSummary {
 pub struct ProxyStatus {
     pub app_installed: bool,
     pub app_deployed: bool,
+    #[allow(dead_code)]
     pub port_online: bool,
 }
 

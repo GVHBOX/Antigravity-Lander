@@ -756,23 +756,20 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
         }
     }));
 
-    let sound_cfg_preview = Arc::clone(&sound_config);
-    main_window.on_preview_sound(move || {
-        let cfg = sound_cfg_preview.lock().unwrap().clone();
-        let _ = crate::sound::play_done_or_builtin(&cfg);
-    });
-
     let sound_cfg_sound = Arc::clone(&sound_config);
     let main_weak_sound = main_window.as_weak();
     main_window.on_toggle_sound(move || {
-        let is_on = {
+        let (is_on, cfg_to_play) = {
             let mut cfg = sound_cfg_sound.lock().unwrap();
             cfg.enabled = !cfg.enabled;
             let _ = cfg.save();
-            cfg.enabled
+            (cfg.enabled, cfg.clone())
         };
         if let Some(ui) = main_weak_sound.upgrade() {
             ui.set_sound_on(is_on);
+        }
+        if is_on {
+            let _ = crate::sound::play_done_or_builtin(&cfg_to_play);
         }
     });
 
@@ -1604,17 +1601,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_host_pid(mon.host.electron_pid.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_host_port(mon.host.ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
 
-            let uptime_str = if let Some(secs) = mon.host_uptime_secs {
-                if secs < 60 {
-                    format!("{}秒", secs)
-                } else if secs < 3600 {
-                    format!("{}分{}秒", secs / 60, secs % 60)
-                } else {
-                    format!("{}小时{}分", secs / 3600, (secs % 3600) / 60)
-                }
-            } else {
-                "--".to_string()
-            };
             ui.set_host_token_present(LauncherConfig::is_host_token_present());
 
             ui.set_sub1_running(mon.subs[0].is_running);
@@ -1637,8 +1623,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_sub4_port(mon.subs[3].ls_port.map(|p| p.to_string()).unwrap_or_else(|| "--".to_string()).into());
             ui.set_sub4_token_present(LauncherConfig::is_slot_token_present(4));
 
-            let running_sub_count = mon.subs.iter().filter(|s| s.is_running).count();
-            ui.set_sub_running_count_text(format!("当前活动分身: {} / 4", running_sub_count).into());
 
             let is_dark = ui.get_is_dark();
             let qs_snapshot = qs_timer.lock().unwrap().clone();
@@ -1781,23 +1765,6 @@ pub fn run_gui(activation_event: crate::ActivationEvent) -> Result<()> {
             ui.set_proxy_injected(p_status.is_fully_deployed());
             ui.set_proxy_status_text(p_status.status_text().into());
 
-            let mut running_count = if mon.host.is_running { 1 } else { 0 };
-            for s in &mon.subs {
-                if s.is_running {
-                    running_count += 1;
-                }
-            }
-            ui.set_global_summary_text(format!("{} 个实例运行中 · 主进程已运行 {}", running_count, uptime_str).into());
-            let proxy_badge = if p_status.is_fully_deployed() {
-                if p_status.port_online {
-                    "系统代理 127.0.0.1:7890".to_string()
-                } else {
-                    "系统代理 127.0.0.1:7890 (未监听)".to_string()
-                }
-            } else {
-                "系统代理未注入".to_string()
-            };
-            ui.set_proxy_badge_text(proxy_badge.into());
 
             let (host_sessions, sub1_sessions, sub2_sessions, sub3_sessions, sub4_sessions) = {
                 let store = sessions_store_timer.lock().unwrap();

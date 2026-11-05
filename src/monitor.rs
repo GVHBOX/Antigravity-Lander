@@ -28,6 +28,7 @@ impl Default for ProcessStats {
 pub struct MonitorView {
     pub host: ProcessStats,
     pub subs: [ProcessStats; 4],
+    #[allow(dead_code)]
     pub host_uptime_secs: Option<u64>,
 }
 

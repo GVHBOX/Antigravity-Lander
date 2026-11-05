@@ -35,3 +35,23 @@ export component MoonIcon inherits Path {
     stroke-width: 2px;
     fill: transparent;
 }
+
+export component SpeakerIcon inherits Path {
+    in property <color> icon_color: #64748b;
+    width: 18px;
+    height: 18px;
+    commands: "M 2 6.5 L 5.5 6.5 L 9.5 3 L 9.5 15 L 5.5 11.5 L 2 11.5 Z M 12.5 6 C 14 7.5 14 10.5 12.5 12 M 15 3.5 C 17.5 6.5 17.5 11.5 15 14.5";
+    stroke: root.icon_color;
+    stroke-width: 2px;
+    fill: transparent;
+}
+
+export component SpeakerMuteIcon inherits Path {
+    in property <color> icon_color: #64748b;
+    width: 18px;
+    height: 18px;
+    commands: "M 2 6.5 L 5.5 6.5 L 9.5 3 L 9.5 15 L 5.5 11.5 L 2 11.5 Z M 13 7 L 17 11 M 17 7 L 13 11";
+    stroke: root.icon_color;
+    stroke-width: 2px;
+    fill: transparent;
+}
