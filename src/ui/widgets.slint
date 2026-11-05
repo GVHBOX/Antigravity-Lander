@@ -201,23 +201,13 @@ export component UserProfileRow inherits Rectangle {
 
                 Text {
                     text: root.user_name == "--" ? "首次启动自动派生沙箱" : root.user_email;
-                    max-width: 180px;
                     overflow: elide;
                     color: root.is_dark ? #64748b : #94a3b8;
-                    font-size: 17px;
+                    font-size: 15px;
                     font-family: root.user_name == "--" ? "" : "Cascadia Mono";
                     vertical-alignment: center;
                 }
             }
-        }
-
-        Text {
-            text: root.port_text != "" ? (":" + root.port_text) : ":--";
-            color: root.port_text != "" ? (root.is_dark ? #38bdf8 : #0284c7) : (root.is_dark ? #64748b : #94a3b8);
-            font-size: 17px;
-            font-family: "Cascadia Mono";
-            font-weight: 600;
-            vertical-alignment: center;
         }
     }
 }
@@ -267,12 +257,8 @@ export component SubQuotaCompactBox inherits Rectangle {
             height: 16px;
             spacing: 12px;
 
-            Text {
-                text: "模型";
+            Rectangle {
                 horizontal-stretch: 1;
-                color: root.is_dark ? #475569 : #94a3b8;
-                font-size: 13px;
-                vertical-alignment: center;
             }
             HorizontalLayout {
                 spacing: 4px;
@@ -360,11 +346,15 @@ export component SubQuotaCompactBox inherits Rectangle {
                         font-weight: 700;
                         vertical-alignment: center;
                     }
-                    Image {
+                    if row.has_five_h : Image {
                         source: row.five_h_ring;
                         width: 24px;
                         height: 24px;
                         vertical-alignment: center;
+                    }
+                    if !row.has_five_h : Rectangle {
+                        width: 24px;
+                        height: 24px;
                     }
                 }
             }

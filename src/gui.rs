@@ -96,10 +96,10 @@ fn quota_rows(state: Option<&InstanceQuotaState>, is_dark: bool) -> Vec<ModelQuo
             };
             let mut parts: Vec<String> = Vec::new();
             if m.has_weekly && !m.weekly.reset_text.is_empty() {
-                parts.push(format!("周 {}", m.weekly.reset_text.replace("后重置", "")));
+                parts.push(m.weekly.reset_text.replace("后重置", ""));
             }
             if m.has_five_h && !m.five_h.reset_text.is_empty() {
-                parts.push(format!("5h {}", m.five_h.reset_text.replace("后重置", "")));
+                parts.push(m.five_h.reset_text.replace("后重置", ""));
             }
             let reset_text = if parts.is_empty() {
                 "--".to_string()
