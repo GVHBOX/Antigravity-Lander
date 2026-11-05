@@ -320,6 +320,23 @@ pub fn format_tokens(tokens: u64) -> String {
     }
 }
 
+pub fn format_tps_display(tps: f32) -> (String, String) {
+    if tps <= 0.0 {
+        ("0".to_string(), ".0".to_string())
+    } else {
+        let rounded = (tps * 10.0).round() / 10.0;
+        if rounded <= 0.0 {
+            ("0".to_string(), ".0".to_string())
+        } else if rounded >= 100.0 {
+            (format!("{:.0}", rounded), String::new())
+        } else {
+            let int_part = rounded.trunc() as u32;
+            let dec_part = ((rounded - int_part as f32) * 10.0).round() as u32;
+            (format!("{int_part}"), format!(".{dec_part}"))
+        }
+    }
+}
+
 pub fn format_time_ago(secs: u64) -> String {
     if secs < 60 {
         "刚刚".to_string()
@@ -1086,6 +1103,19 @@ mod tests {
         assert_eq!(format_tokens(500), "500");
         assert_eq!(format_tokens(1500), "1.5K");
         assert_eq!(format_tokens(2_500_000), "2.50M");
+    }
+
+    #[test]
+    fn test_format_tps_display() {
+        assert_eq!(format_tps_display(0.0), ("0".to_string(), ".0".to_string()));
+        assert_eq!(format_tps_display(-5.0), ("0".to_string(), ".0".to_string()));
+        assert_eq!(format_tps_display(0.03), ("0".to_string(), ".0".to_string()));
+        assert_eq!(format_tps_display(8.5), ("8".to_string(), ".5".to_string()));
+        assert_eq!(format_tps_display(12.0), ("12".to_string(), ".0".to_string()));
+        assert_eq!(format_tps_display(99.94), ("99".to_string(), ".9".to_string()));
+        assert_eq!(format_tps_display(99.96), ("100".to_string(), String::new()));
+        assert_eq!(format_tps_display(171.2), ("171".to_string(), String::new()));
+        assert_eq!(format_tps_display(1024.0), ("1024".to_string(), String::new()));
     }
 
     #[test]
