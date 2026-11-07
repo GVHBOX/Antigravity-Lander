@@ -23,8 +23,8 @@
 ## 功能
 
 - **多账号分身隔离**：支持主账号与最多 4 个独立沙箱分身并行运行。账号登录态与缓存保存在 `data/instance_1` ~ `instance_4` 目录中，各实例互不冲突。
-- **系统代理补丁**：内置代理注入模块，使 Antigravity 流量走本机系统代理（默认 `127.0.0.1:7890`）。
-- **桌面版汉化补丁**：内置桌面版中文补丁包，支持一键应用或卸载。
+- **代理注入**：向 Antigravity 客户端目录写入 `version.dll` 与配置，把流量转到本机 socks5 端口（默认 `127.0.0.1:7890`）。
+- **桌面版汉化**：运行时把中文词条注入客户端资源包，支持应用与卸载。
 - **会话遥测中枢**：实时采集活跃会话遥测数据，包括单轮 Token 吞吐率（Tokens/s）、256K 上下文容量深度（输入/缓存/输出）、缓存命中率与推理步数。
 - **配额监视**：图形化展示主账号与各分身的 Gemini 模型每周限额与 5 小时限额百分比及重置时间。
 - **界面调节**：支持 80%~200% 共 14 档界面缩放调节（含 125%），启动时通过 `--force-device-scale-factor` 注入，适配高分屏。
@@ -35,7 +35,7 @@
 
 ### 方式一：直接下载运行（推荐）
 
-前往 [GitHub Releases](https://github.com/GVHBOX/Antigravity-Lander/releases) 下载最新版本的 `Antigravity-Lander-v1.0.3-windows-x64.zip` 或 `Antigravity-Lander.exe`，解压后双击即可运行。
+前往 [GitHub Releases](https://github.com/GVHBOX/Antigravity-Lander/releases) 下载最新版本的 `antigravity-lander-v1.0.4-windows-x64.zip` 或 `Antigravity-Lander.exe`，解压后双击即可运行。
 
 > 运行环境要求：Windows 10 / 11 64位系统。运行前确认已安装官方 Google Antigravity 客户端（默认路径为 `AppData\Local\Programs\antigravity`）。
 
@@ -64,6 +64,12 @@ cargo build --release
 
 **Q：启动后没有弹出窗口？**  
 确认电脑上已安装官方 Google Antigravity 客户端（默认路径为 `AppData\Local\Programs\antigravity`）。
+
+---
+
+## 第三方组件
+
+`assets/proxy/version.dll`（618 KB）不是本项目产物。它在构建时嵌入 exe，运行时写入 Antigravity 客户端目录以实现进程注入。原项目地址与授权条款待补，本仓库的 MIT 许可不覆盖该文件。
 
 ---
 

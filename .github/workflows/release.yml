@@ -33,9 +33,11 @@ jobs:
           python tools/scan_comment.py
           python tools/scan_comment.py --selfcheck
 
-      - name: Check front hygiene rule
+      - name: Check static rules
         run: |
           python tools/check_front_hygiene.py
+          python tools/check_slint_bindings.py
+          python tools/check_architecture_boundaries.py
 
       - name: Build Release Binary
         run: cargo build --release
@@ -66,7 +68,8 @@ jobs:
           name: Antigravity Lander ${{ github.ref_name }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
+          body_path: CHANGELOG.md
           files: |
             target/antigravity-lander-*-windows-x64.zip
             target/dist/*/Antigravity-Lander.exe

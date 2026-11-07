@@ -34,9 +34,11 @@ jobs:
           python tools/scan_comment.py
           python tools/scan_comment.py --selfcheck
 
-      - name: Check front hygiene rule
+      - name: Check static rules
         run: |
           python tools/check_front_hygiene.py
+          python tools/check_slint_bindings.py
+          python tools/check_architecture_boundaries.py
 
       - name: Cargo Check
         run: cargo check

@@ -73,8 +73,8 @@ def detect_host_user_dir(base_data_dir: Path) -> Path | None:
             return p
 
     for drive in ["C:", "D:", "E:"]:
-        for common in ["\\Users\\GVH", "\\Users\\Administrator", "\\Users\\Default"]:
-            p = Path(f"{drive}{common}")
+        for name in ["Administrator", "Default"]:
+            p = Path(drive) / "Users" / name
             if p.is_dir():
                 return p
 
